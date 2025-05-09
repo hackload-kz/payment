@@ -27,12 +27,22 @@ type ValidMerchant = ValidMerchant of string with
         |> Arb.convert ValidMerchant ValidMerchant.op_Explicit
         |> Arb.filter ValidMerchant.merchantExists
 
+type ValidPaymentIntent = ValidPaymentIntent of PaymentIntent with
+    member x.Get = match x with ValidPaymentIntent r -> r
+    override x.ToString() = x.Get.ToString()
+    static member op_Explicit(ValidPaymentIntent i) = i
+    
+    static member RandomPayments () = 
+        ArbMap.defaults |> ArbMap.arbitrary<PaymentIntent>
+        |> Arb.convert ValidPaymentIntent ValidPaymentIntent.op_Explicit
+        |> Arb.filter (fun p -> p.Get.amount > 0)
+
 type InvalidMerchant = InvalidMerchant of string with
     member x.Get = match x with InvalidMerchant r -> r
     override x.ToString() = x.Get
     static member op_Explicit(InvalidMerchant i) = i
 
-[<Properties( Arbitrary=[| typeof<ValidMerchant> |] )>]
+[<Properties( Arbitrary=[| typeof<ValidMerchant>; typeof<ValidPaymentIntent> |] )>]
 module AcceptinRequestsProperties =
     
     merchants <- defaultTestMerchants
@@ -46,13 +56,13 @@ module AcceptinRequestsProperties =
                 |> Seq.forall (fun transaction_id2 -> transaction_id = transaction_id2)
             produced_same_transactions
     [<Property>]
-    let afterAcceptTransactionInStatusCreate (merchant_id: ValidMerchant) (intent: PaymentIntent)  = 
+    let afterAcceptTransactionInStatusCreate (merchant_id: ValidMerchant) (intent: ValidPaymentIntent)  = 
         let date = getDate()
-        let transaction_id = accept_payment_intent merchant_id.Get date intent
+        let transaction_id = accept_payment_intent merchant_id.Get date intent.Get
         let transaction = transaction_id |> Result.bind getTransaction 
         match transaction with
         | Ok t -> 
-            t.merchant_id = merchant_id.Get && t.intent = intent && t.status = Created
+            t.merchant_id = merchant_id.Get && t.intent = intent.Get && t.status = Created
         | Error _ -> false
 
     [<Property>]
@@ -66,18 +76,29 @@ module AcceptinRequestsProperties =
             | _ -> false
 
     [<Property>]
-    let differentMerchantsProduceDifferentTransactions (merchant_id1: ValidMerchant) (merchant_id2: ValidMerchant) (intent: PaymentIntent) =
+    let differentMerchantsProduceDifferentTransactions (merchant_id1: ValidMerchant) (merchant_id2: ValidMerchant) (intent: ValidPaymentIntent) =
         merchant_id1 <> merchant_id2 ==>     
-            let transaction_id1 = accept_payment_intent merchant_id1.Get (getDate()) intent
-            let transaction_id2 = accept_payment_intent merchant_id2.Get (getDate()) intent
+            let transaction_id1 = accept_payment_intent merchant_id1.Get (getDate()) intent.Get
+            let transaction_id2 = accept_payment_intent merchant_id2.Get (getDate()) intent.Get
             transaction_id1 <> transaction_id2
+
+    [<Property>]
+    let whenEmptyAmount (merchant_id: ValidMerchant) (intent: PaymentIntent) =
+        intent.amount = 0 ==>     
+            let transaction_id = accept_payment_intent merchant_id.Get (getDate()) intent
+            match transaction_id with
+            | Ok _ -> false
+            | Error error_code -> 
+                match error_code with
+                | PaymentCreationError -> true
+                | _ -> false
 
 [<Fact>]
 let ``My test`` () =
     merchants <- defaultTestMerchants
     let date = getDate()
     let intent = 
-        { amount = 0L;
+        { amount = 1110L;
             currency = "";
             order_id = "";
             description = "";

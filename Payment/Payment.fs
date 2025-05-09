@@ -54,6 +54,7 @@ type ErrorCode =
     | InvalidCardHolderName
     | TransactionNotFound
     | MerchantNotFound
+    | PaymentCreationError
 
 let mutable storage : Transaction array = [| |]
 let mutable merchants : Merchant array = [| |]
@@ -63,6 +64,7 @@ let merchantExists m =
 let accept_payment_intent (merchant_id: string) (date: int64) (intent: PaymentIntent) : Result<string, ErrorCode> = 
     if not (merchantExists merchant_id) then 
         Error MerchantNotFound
+    elif intent.amount <= 0 then Error PaymentCreationError
     else
         let existing_transaction = 
             storage |> Array.tryFind (fun t -> t.merchant_id = merchant_id && t.intent = intent)
