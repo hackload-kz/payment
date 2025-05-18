@@ -16,15 +16,16 @@ let tran_id = accept_payment_intent "merchant_id"  (getDate()) {
     lang = "lang"
     metadata = Map.empty
 }
-
-accept_card tran_id {
-    card_number = "1234567890123456"
-    card_expiry = "12/23"
-    card_cvc = "123"
-    card_holder_name = "John Doe"
-}
-
-tran_id |> Result.map confirm_transaction |> ignore
-
+match tran_id with
+| Ok tran_id ->
+    accept_card tran_id (getDate()) {
+        card_number = "1234567890123456"
+        card_expiry = "12/23"
+        card_cvc = "123"
+        card_holder_name = "John Doe"
+    } |> ignore
+    confirm_transaction tran_id |> ignore
+| Error e ->
+    printf "%A" e
 // For more information see https://aka.ms/fsharp-console-apps
 printfn "Hello from F#"

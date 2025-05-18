@@ -37,12 +37,45 @@ type ValidPaymentIntent = ValidPaymentIntent of PaymentIntent with
         |> Arb.convert ValidPaymentIntent ValidPaymentIntent.op_Explicit
         |> Arb.filter (fun p -> p.Get.amount > 0)
 
+let generateMonth = Gen.choose (1, 12) 
+let generateYear = Gen.choose (DateTime.Now.Year - 1 - 2000, DateTime.Now.Year + 3 - 2000) 
+
+let generateCCV = Gen.choose (0, 999)
+let generateExpiryDate =
+    Gen.map2 (fun m y -> $"%02d{m}/%02d{y}") generateMonth generateYear
+
+let generateCardNumber = 
+    Gen.choose (0, 9999) |> Gen.four 
+    |> Gen.filter (fun (a,b,c,d) -> 
+        let checksum a = a / 1000 + (2 * (a % 1000 / 100)) % 9 + a % 100 / 10 + (2 * (a % 10)) % 9
+        (checksum a + checksum b + checksum c + checksum d) % 10 = 0)
+    |> Gen.map (fun (a,b,c,d) -> $"%04d{a}%04d{b}%04d{c}%04d{d}")
+    
+
+let generateCardInformation =
+    Gen.map3 (fun e c n -> { card_number = n; card_holder_name = "ANDRII TESTER"; card_cvc = $"%03d{c}"; card_expiry = e })
+        generateExpiryDate
+        generateCCV
+        generateCardNumber
+
+type ValidCardInformation = ValidCardInformation of CardInformation with
+    member x.Get = match x with ValidCardInformation r -> r
+    override x.ToString() = x.Get.ToString()
+    static member op_Explicit(ValidCardInformation i) = i
+    
+    static member RandomCards () = 
+        Arb.fromGen generateCardInformation
+        //ArbMap.defaults |> ArbMap.arbitrary<CardInformation>
+        //|> Arb.fromGen generateCardInformation
+        |> Arb.convert ValidCardInformation ValidCardInformation.op_Explicit
+        |> Arb.filter (fun p -> validCard p.Get)
+
 type InvalidMerchant = InvalidMerchant of string with
     member x.Get = match x with InvalidMerchant r -> r
     override x.ToString() = x.Get
     static member op_Explicit(InvalidMerchant i) = i
 
-[<Properties( Arbitrary=[| typeof<ValidMerchant>; typeof<ValidPaymentIntent> |] )>]
+[<Properties( Arbitrary=[| typeof<ValidMerchant>; typeof<ValidPaymentIntent>; typeof<ValidCardInformation> |] )>]
 module AcceptinRequestsProperties =
     
     merchants <- defaultTestMerchants
@@ -83,7 +116,7 @@ module AcceptinRequestsProperties =
             transaction_id1 <> transaction_id2
 
     [<Property>]
-    let whenEmptyAmount (merchant_id: ValidMerchant) (intent: PaymentIntent) =
+    let cannotHavePaymentIntentWithEmptyAmount (merchant_id: ValidMerchant) (intent: PaymentIntent) =
         intent.amount = 0 ==>     
             let transaction_id = accept_payment_intent merchant_id.Get (getDate()) intent
             match transaction_id with
@@ -93,8 +126,46 @@ module AcceptinRequestsProperties =
                 | PaymentCreationError -> true
                 | _ -> false
 
+    [<Property>]
+    let acceptCreditCard (merchant_id: ValidMerchant) (intent: ValidPaymentIntent) (card: ValidCardInformation) =
+        let transaction_id = accept_payment_intent merchant_id.Get (getDate()) intent.Get
+        match transaction_id with
+        | Ok transaction_id ->
+            let result = accept_card transaction_id (getDate()) card.Get
+            match result with
+            | Ok _ -> true
+            | Error _ -> false
+        | Error _ -> false
+
+    [<Property>]
+    let cannnotAcceptCreditCardTwice (merchant_id: ValidMerchant) (intent: ValidPaymentIntent) (card: ValidCardInformation) =
+        let transaction_id = accept_payment_intent merchant_id.Get (getDate()) intent.Get
+        match transaction_id with
+        | Ok transaction_id ->
+            let result = accept_card transaction_id (getDate()) card.Get
+            match result with
+            | Ok _ -> 
+                let result = accept_card transaction_id (getDate()) card.Get
+                match result with
+                | Error CardAlreadyAccepted -> true
+                | _ -> false
+            | Error _ -> false
+        | Error _ -> false
+
+    [<Property>]
+    let invalidCardInformationNotAccepted (merchant_id: ValidMerchant) (intent: ValidPaymentIntent) (card: CardInformation) =
+        not (validCard card) ==>     
+            let transaction_id = accept_payment_intent merchant_id.Get (getDate()) intent.Get
+            match transaction_id with
+            | Ok transaction_id ->
+                let result = accept_card transaction_id (getDate()) card
+                match result with
+                | Error InvalidCardInformation -> true
+                | _ -> false
+            | Error _ -> false
+
 [<Fact>]
-let ``My test`` () =
+let ``Regresson 1`` () =
     merchants <- defaultTestMerchants
     let date = getDate()
     let intent = 
