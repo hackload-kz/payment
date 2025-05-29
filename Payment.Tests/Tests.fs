@@ -138,7 +138,7 @@ module AcceptinRequestsProperties =
         | Error _ -> false
 
     [<Property>]
-    let cannnotAcceptCreditCardTwice (merchant_id: ValidMerchant) (intent: ValidPaymentIntent) (card: ValidCardInformation) =
+    let cannnotAcceptSameCreditCardTwice (merchant_id: ValidMerchant) (intent: ValidPaymentIntent) (card: ValidCardInformation) =
         let transaction_id = accept_payment_intent merchant_id.Get (getDate()) intent.Get
         match transaction_id with
         | Ok transaction_id ->
@@ -146,6 +146,21 @@ module AcceptinRequestsProperties =
             match result with
             | Ok _ -> 
                 let result = accept_card transaction_id (getDate()) card.Get
+                match result with
+                | Error CardAlreadyAccepted -> true
+                | _ -> false
+            | Error _ -> false
+        | Error _ -> false
+
+    [<Property>]
+    let cannnotAcceptDifferentCreditCard (merchant_id: ValidMerchant) (intent: ValidPaymentIntent) (card: ValidCardInformation) (card2: ValidCardInformation) =
+        let transaction_id = accept_payment_intent merchant_id.Get (getDate()) intent.Get
+        match transaction_id with
+        | Ok transaction_id ->
+            let result = accept_card transaction_id (getDate()) card.Get
+            match result with
+            | Ok _ -> 
+                let result = accept_card transaction_id (getDate()) card2.Get
                 match result with
                 | Error CardAlreadyAccepted -> true
                 | _ -> false
