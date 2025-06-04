@@ -2,6 +2,9 @@ module Payment
 open System
 open System.Text.RegularExpressions
 
+[<Literal>]
+let CardAcceptTimeout = 15_000L * 60L
+
 type PaymentIntent = {
     amount: int64
     currency: string
@@ -83,6 +86,7 @@ type ErrorCode =
     | MerchantNotFound
     | PaymentCreationError
     | CardAlreadyAccepted
+    | TransactionNoLongerAvailable
     | InvalidCardInformation
 
 let validCard (card: CardInformation) =
@@ -118,6 +122,8 @@ let accept_card (transaction_id) (date: int64) (card: CardInformation) : Result<
         | Some transaction ->
             if transaction.card.IsSome then
                 Error CardAlreadyAccepted
+            elif transaction.date + CardAcceptTimeout <= date then
+                Error TransactionNoLongerAvailable
             else
                 storage.setCard transaction_id card
                 Ok ()
