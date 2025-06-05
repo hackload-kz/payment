@@ -5,6 +5,7 @@ open System.Text.RegularExpressions
 [<Literal>]
 let CardAcceptTimeout = 15_000L * 60L
 
+[<CLIMutable>]
 type PaymentIntent = {
     amount: int64
     currency: string
@@ -100,6 +101,9 @@ let storage = TransactionStorage()
 let mutable merchants : Merchant array = [| |]
 let merchantExists m = 
     merchants |> Array.exists (fun em -> m = em.merchant_id)
+
+let validate_merchant m p =
+    merchants |> Array.exists (fun em -> m = em.merchant_id && p = em.merchant_key)
     
 let accept_payment_intent (merchant_id: string) (date: int64) (intent: PaymentIntent) : Result<string, ErrorCode> = 
     if not (merchantExists merchant_id) then 
