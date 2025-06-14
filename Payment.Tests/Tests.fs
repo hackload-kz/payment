@@ -1,7 +1,7 @@
 ﻿module Tests
 
 open Xunit
-open Payment
+open Payment.Core
 
 open FsCheck.FSharp
 open FsCheck.Xunit

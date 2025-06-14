@@ -1,7 +1,7 @@
 ﻿module Generators
 
 open System
-open Payment
+open Payment.Core
 
 open FsCheck.FSharp
 
