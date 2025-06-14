@@ -41,3 +41,8 @@ jobs:
     - name: Test
       run: dotnet test
       timeout-minutes: 10
+  licenses:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v4
+    - uses: fsfe/reuse-action@v5

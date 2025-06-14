@@ -1,4 +1,7 @@
-﻿module Payment.Templates.AcceptCard
+﻿// SPDX-FileCopyrightText: 2025 - HackLoad 2025 team
+//
+// SPDX-License-Identifier: MIT
+module Payment.Templates.AcceptCard
 
 open Oxpecker.ViewEngine
 open Oxpecker.Htmx

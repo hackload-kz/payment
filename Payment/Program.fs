@@ -1,4 +1,7 @@
-﻿open Payment.Core
+﻿// SPDX-FileCopyrightText: 2025 - HackLoad 2025 team
+//
+// SPDX-License-Identifier: MIT
+open Payment.Core
 open System
 open System.Security.Claims
 open System.Text

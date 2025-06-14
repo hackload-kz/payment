@@ -1,4 +1,7 @@
-﻿module Payment.Tools
+﻿// SPDX-FileCopyrightText: 2025 - HackLoad 2025 team
+//
+// SPDX-License-Identifier: MIT
+module Payment.Tools
 open Microsoft.AspNetCore.Http
 open Oxpecker
 open FSharp.Data

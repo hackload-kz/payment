@@ -1,5 +1,7 @@
-﻿module Payment.Templates.Shared
-
+﻿// SPDX-FileCopyrightText: 2025 - HackLoad 2025 team
+//
+// SPDX-License-Identifier: MIT
+module Payment.Templates.Shared
 
 open System
 open Microsoft.AspNetCore.Http

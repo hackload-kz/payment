@@ -1,4 +1,7 @@
-﻿module Generators
+﻿// SPDX-FileCopyrightText: 2025 - HackLoad 2025 team
+//
+// SPDX-License-Identifier: MIT
+module Generators
 
 open System
 open Payment.Core

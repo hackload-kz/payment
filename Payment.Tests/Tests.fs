@@ -1,4 +1,7 @@
-﻿module Tests
+﻿// SPDX-FileCopyrightText: 2025 - HackLoad 2025 team
+//
+// SPDX-License-Identifier: MIT
+module Tests
 
 open Xunit
 open Payment.Core
