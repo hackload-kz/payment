@@ -6,11 +6,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="merchants.csv" />
     <None Include="Payment.http" />
+    <Compile Include="Core.fs" />
     <Compile Include="Tools.fs" />
     <Compile Include="Templates\Shared.fs" />
     <Compile Include="Templates\AcceptCard.fs" />
-    <Compile Include="Core.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
@@ -18,6 +19,7 @@
 
   <ItemGroup>
     <PackageReference Include="FsCheck" Version="3.3.0" />
+    <PackageReference Include="FSharp.Data" Version="6.6.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.5" />
     <PackageReference Include="Oxpecker.OpenApi" Version="1.0.0" />
     <PackageReference Include="Oxpecker.Htmx" Version="1.0.0" />
