@@ -6,14 +6,21 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Payment.fs" />
+    <None Include="Payment.http" />
+    <Compile Include="Tools.fs" />
+    <Compile Include="Templates\Shared.fs" />
+    <Compile Include="Templates\AcceptCard.fs" />
+    <Compile Include="Core.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
+
+  <ItemGroup />
 
   <ItemGroup>
     <PackageReference Include="FsCheck" Version="3.3.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.5" />
     <PackageReference Include="Oxpecker.OpenApi" Version="1.0.0" />
+    <PackageReference Include="Oxpecker.Htmx" Version="1.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="8.1.4" />
   </ItemGroup>
 

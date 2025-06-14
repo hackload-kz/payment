@@ -1,4 +1,4 @@
-module Payment
+module Payment.Core
 open System
 open System.Text.RegularExpressions
 

@@ -1,4 +1,4 @@
-﻿open Payment
+﻿open Payment.Core
 open System
 open System.Security.Claims
 open System.Text
@@ -15,6 +15,8 @@ open Microsoft.Extensions.Options
 open Microsoft.OpenApi.Models
 open type Microsoft.AspNetCore.Http.TypedResults
 open Microsoft.AspNetCore.Authorization
+open Payment.Templates
+open Payment.Tools
 
 let defaultMerchants = [|
     { merchant_id = "grmklt123"; merchant_key = "1234567890" };
@@ -59,6 +61,7 @@ type ErrorResponse =
 type PaymentIntentResult = 
     { 
         transaction_id: string
+        result_url: string
     }
 
 let explainErrorCode code =
@@ -88,8 +91,19 @@ let createPaymentIntent : EndpointHandler =
             let merchant_id = ctx.User.Identity.Name
             let! intent = ctx.BindJson<PaymentIntent>()
             let result = accept_payment_intent merchant_id (getDate()) intent
-            return! handleResultReponse ctx result (fun transaction_id -> { transaction_id = transaction_id })
+            return! handleResultReponse ctx result (fun transaction_id -> { transaction_id = transaction_id; result_url = $"{ctx.Request.Scheme}://{ctx.Request.Host}/transaction/{transaction_id}/start" })
         }
+
+let acceptCreditCard id : EndpointHandler =
+    fun ctx ->
+        let transaction = storage.findTransaction id
+        let view = 
+            match transaction with
+            | Some transaction ->
+                AcceptCard.html ""
+            | _ -> 
+                AcceptCard.invalid_transaction id
+        ctx |> writeHtml view
 
 let endpoints = [
     POST [
@@ -116,6 +130,9 @@ let endpoints = [
     //        |> configureEndpoint _.WithName("GetProduct")
     //        |> addOpenApiSimple<int, Product>
     //]
+    GET [
+        routef "/transaction/{%s}/start" acceptCreditCard
+    ]
     // such route won't work with OpenAPI, since HTTP method is not specified
     route "/" <| htmlString "go to <a href='/swagger'>/swagger</a>"
 ]
