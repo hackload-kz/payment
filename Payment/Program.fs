@@ -117,7 +117,7 @@ let endpoints = [
     //        |> addOpenApiSimple<int, Product>
     //]
     // such route won't work with OpenAPI, since HTTP method is not specified
-    route "/" <| text "go to /swagger"
+    route "/" <| htmlString "go to <a href='/swagger'>/swagger</a>"
 ]
 
 let notFoundHandler (ctx: HttpContext) =
