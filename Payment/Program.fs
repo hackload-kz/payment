@@ -93,7 +93,7 @@ let createPaymentIntent : EndpointHandler =
             return! handleResultReponse ctx result (fun transaction_id -> { transaction_id = transaction_id; result_url = $"{ctx.Request.Scheme}://{ctx.Request.Host}/transaction/{transaction_id}/start" })
         }
 
-let acceptCreditCard id : EndpointHandler =
+let startAcceptCreditCard id : EndpointHandler =
     fun ctx ->
         let transaction = storage.findTransaction id
         let view = 
@@ -103,6 +103,46 @@ let acceptCreditCard id : EndpointHandler =
             | _ -> 
                 AcceptCard.invalid_transaction id
         ctx |> writeHtml view
+
+[<CLIMutable>]
+type CreditCardDTO = {
+    id: int
+    [<Required>]
+    first: string
+    [<Required>]
+    last: string
+    [<Required>]
+    phone: string
+    [<Required>]
+    [<EmailAddress>]
+    email: string
+}
+
+let acceptCreditCard id : EndpointHandler =
+    fun ctx ->
+        task {
+        let transaction = storage.findTransaction id
+        match transaction with
+        | Some transaction ->
+            match! ctx.BindAndValidateForm<CreditCardDTO>() with
+            | ModelValidationResult.Valid creditCard ->
+                //validatedContact.ToDomain()
+                //|> ContactService.add
+                //|> ignore
+                //flash "Created new Contact!" ctx
+                return ctx.Response.Redirect(transaction.intent.success_url)
+            | ModelValidationResult.Invalid invalidModel ->
+                return!
+                    (AcceptCard.html "")
+                    |> writeHtml
+                    <| ctx
+        | _ -> 
+            return!
+                (AcceptCard.invalid_transaction id)
+                |> writeHtml
+                <| ctx
+        
+        }
 
 let endpoints = [
     POST [
@@ -130,6 +170,9 @@ let endpoints = [
     //        |> addOpenApiSimple<int, Product>
     //]
     GET [
+        routef "/transaction/{%s}/start" startAcceptCreditCard
+    ]
+    POST [
         routef "/transaction/{%s}/start" acceptCreditCard
     ]
     // such route won't work with OpenAPI, since HTTP method is not specified

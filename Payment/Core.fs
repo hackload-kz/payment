@@ -8,9 +8,12 @@ open System.Text.RegularExpressions
 [<Literal>]
 let CardAcceptTimeout = 15_000L * 60L
 
+type MonetaryAmount = int64
+type SecurityCode = int
+
 [<CLIMutable>]
 type PaymentIntent = {
-    amount: int64
+    amount: MonetaryAmount
     currency: string
     order_id: string
     description: string
@@ -56,6 +59,15 @@ type Transaction = {
     status: PaymentStatus
     card: CardInformation option
 }
+type BankErrorCode = 
+    | AuthorizedSuccessfully
+    | AuthorizationRequired
+    | PotentialFraud
+    | InvalidCardInformation
+
+type BankInterface = 
+    abstract member requestPayment: string -> MonetaryAmount -> (BankErrorCode * string)
+    abstract member authorize: string -> SecurityCode -> (BankErrorCode * string)
 
 type TransactionStorage() =
     let mutable storage : Transaction array = [| |]
