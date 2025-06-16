@@ -1,9 +1,10 @@
-// SPDX-FileCopyrightText: 2025 - HackLoad 2025 team
-//
-// SPDX-License-Identifier: MIT
+### SPDX-FileCopyrightText: 2025 - HackLoad 2025 team
+###
+### SPDX-License-Identifier: MIT
+
 @host=localhost:19413
 
-### Unauthorized request
+### Запрос на создание запроса
 
 POST https://{{host}}/payment-intent
 Content-Type: application/json
