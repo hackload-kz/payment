@@ -20,13 +20,9 @@ open type Microsoft.AspNetCore.Http.TypedResults
 open Microsoft.AspNetCore.Authorization
 open Payment.Templates
 open Payment.Tools
+open System.ComponentModel.DataAnnotations
 
-let defaultMerchants = [|
-    { merchant_id = "grmklt123"; merchant_key = "1234567890" };
-    { merchant_id = "hxeqnd852"; merchant_key = "1234567890" };
-    { merchant_id = "merchant_id"; merchant_key = "1234567890" };
-|]
-merchants <- defaultMerchants
+merchants <- getMerchantsData "merchants.csv"
 
 let tran_id = accept_payment_intent "merchant_id"  (getDate()) {
     amount = 100_000L
