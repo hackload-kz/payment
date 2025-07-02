@@ -84,17 +84,49 @@ let generateCardInformation =
         generateCCV
         generateCardNumber
 
+let noSecurityCards =
+    Gen.sample 10_000 generateCardInformation 
+let noSecurityBankAccounts =
+    noSecurityCards
+    |> Array.map (fun card -> { card = card ; security = NoSecurity })
+let cardsWith3DSecure =
+    Gen.sample 10_000 generateCardInformation
+
+let with3DSecureBankAccounts =
+    cardsWith3DSecure
+    |> Array.map (fun card -> { card = card ; security = ThreeDSecurity })
+let defaultCards = Array.append noSecurityCards cardsWith3DSecure
+let defaultBankAccounts = Array.append noSecurityBankAccounts with3DSecureBankAccounts
+
 type ValidCardInformation = ValidCardInformation of CardInformation with
     member x.Get = match x with ValidCardInformation r -> r
     override x.ToString() = x.Get.ToString()
     static member op_Explicit(ValidCardInformation i) = i
     
     static member RandomCards () =
-        Arb.fromGen generateCardInformation
-        //ArbMap.defaults |> ArbMap.arbitrary<CardInformation>
-        //|> Arb.fromGen generateCardInformation
+        Arb.fromGen (Gen.elements defaultCards)
+        |> Arb.filter (fun p -> validCard p)
         |> Arb.convert ValidCardInformation ValidCardInformation.op_Explicit
-        |> Arb.filter (fun p -> validCard p.Get)
+
+type Without3DSecureCardInformation = Without3DSecureCardInformation of CardInformation with
+    member x.Get = match x with Without3DSecureCardInformation r -> r
+    override x.ToString() = x.Get.ToString()
+    static member op_Explicit(Without3DSecureCardInformation i) = i
+    
+    static member RandomWithout3DSCards () =
+        Arb.fromGen (Gen.elements noSecurityCards)
+        |> Arb.filter (fun p -> validCard p)
+        |> Arb.convert Without3DSecureCardInformation Without3DSecureCardInformation.op_Explicit
+
+type With3DSecureCardInformation = With3DSecureCardInformation of CardInformation with
+    member x.Get = match x with With3DSecureCardInformation r -> r
+    override x.ToString() = x.Get.ToString()
+    static member op_Explicit(With3DSecureCardInformation i) = i
+    
+    static member Random3DSCards () =
+        Arb.fromGen (Gen.elements cardsWith3DSecure)
+        |> Arb.filter (fun p -> validCard p)
+        |> Arb.convert With3DSecureCardInformation With3DSecureCardInformation.op_Explicit
 
 type InvalidMerchant = InvalidMerchant of string with
     member x.Get = match x with InvalidMerchant r -> r

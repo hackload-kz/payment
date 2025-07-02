@@ -10,11 +10,15 @@ open FsCheck.FSharp
 open FsCheck.Xunit
 
 open Generators
+open System.Diagnostics
 
-[<Properties( Arbitrary=[| typeof<ValidMerchant>; typeof<ValidPaymentIntent>; typeof<ValidCardInformation> |] )>]
+[<Properties( Arbitrary=[| typeof<ValidMerchant>; typeof<ValidPaymentIntent>; typeof<ValidCardInformation>; 
+    typeof<Without3DSecureCardInformation>; typeof<With3DSecureCardInformation>; typeof<TimePeriodAfterTimeout> |] )>]
 module AcceptinRequestsProperties =
     
     merchants <- defaultTestMerchants
+    cards <- defaultBankAccounts
+    storage.clear()
 
     [<Property>]
     let acceptingPaymentIntentProduceSameResults (merchant_id: string) (intent: PaymentIntent) (qty: uint8) =
@@ -52,7 +56,7 @@ module AcceptinRequestsProperties =
             let transaction_id2 = accept_payment_intent merchant_id2.Get (getDate()) intent.Get
             transaction_id1 <> transaction_id2
 
-    [<Property>]
+    [<Property(MaxRejected = 10_000)>]
     let cannotHavePaymentIntentWithEmptyAmount (merchant_id: ValidMerchant) (intent: PaymentIntent) =
         intent.amount = 0 ==>
             let transaction_id = accept_payment_intent merchant_id.Get (getDate()) intent
@@ -75,7 +79,7 @@ module AcceptinRequestsProperties =
         | Error _ -> false
 
     [<Property>]
-    let cannnotAcceptSameCreditCardTwice (merchant_id: ValidMerchant) (intent: ValidPaymentIntent) (card: ValidCardInformation) =
+    let canAcceptSameCreditCardTwice (merchant_id: ValidMerchant) (intent: ValidPaymentIntent) (card: ValidCardInformation) =
         let transaction_id = accept_payment_intent merchant_id.Get (getDate()) intent.Get
         match transaction_id with
         | Ok transaction_id ->
@@ -84,13 +88,13 @@ module AcceptinRequestsProperties =
             | Ok _ -> 
                 let result = accept_card transaction_id (getDate()) card.Get
                 match result with
-                | Error CardAlreadyAccepted -> true
+                | Ok _  -> true
                 | _ -> false
             | Error _ -> false
         | Error _ -> false
 
     [<Property>]
-    let cannnotAcceptDifferentCreditCard (merchant_id: ValidMerchant) (intent: ValidPaymentIntent) (card: ValidCardInformation) (card2: ValidCardInformation) =
+    let cannotAcceptDifferentCreditCard (merchant_id: ValidMerchant) (intent: ValidPaymentIntent) (card: ValidCardInformation) (card2: ValidCardInformation) =
         let transaction_id = accept_payment_intent merchant_id.Get (getDate()) intent.Get
         match transaction_id with
         | Ok transaction_id ->
@@ -130,9 +134,24 @@ module AcceptinRequestsProperties =
             | _ -> false
         | Error _ -> false
 
+    [<Property>]
+    let acceptCreditCardWith3DSecureProduceAuthorizationRequest (merchant_id: ValidMerchant) (intent: ValidPaymentIntent) (card: With3DSecureCardInformation) (time_after: ValidTimePeriod) =
+        let transaction_id = accept_payment_intent merchant_id.Get (getDate()) intent.Get
+        match transaction_id with
+        | Ok transaction_id ->
+            let result = accept_card transaction_id (getDate() + int64 time_after.Get) card.Get
+            match result with
+            | Ok PaymentAuthorizationRequired -> true
+            | Ok _ -> 
+                   false
+            | _ -> false
+        | Error _ -> false
+
 [<Fact>]
 let ``Regresson 1`` () =
     merchants <- defaultTestMerchants
+    cards <- defaultBankAccounts
+    storage.clear()
     let date = getDate()
     let intent =
         { amount = 1110L;
@@ -155,5 +174,75 @@ let ``Regresson 1`` () =
         match transaction with
         | Ok t ->
             t.date = date && t.merchant_id = "hxeqnd852" && t.intent = intent && t.status = Created
+        | Error _ -> false
+    Assert.True(result)
+
+[<Fact>]
+let ``Regresson 2`` () =
+    merchants <- defaultTestMerchants
+    cards <- defaultBankAccounts
+    storage.clear()
+    let date = getDate()
+    let intent =
+        { amount = 1110L;
+            currency = "";
+            order_id = "";
+            description = "";
+            payment_type = "";
+            user_id = "";
+            email = "";
+            phone = "";
+            success_url = "";
+            failure_url = "";
+            callback_url = "";
+            payment_lifetime = 0L;
+            lang = "";
+            metadata = Map.empty }
+    let transaction_id = accept_payment_intent "hxeqnd852" date intent
+    let transaction = transaction_id |> Result.bind getTransaction
+    let card : CardInformation = 
+        noSecurityCards[0]
+    let result =
+        match transaction_id with
+        | Ok transaction_id ->
+            let result = accept_card transaction_id (getDate() + int64 0) card
+            match result with
+            | Ok _ -> true
+            | Error _ -> false
+        | Error _ -> false
+    Assert.True(result)
+
+[<Fact>]
+let ``Regresson 3`` () =
+    merchants <- defaultTestMerchants
+    cards <- defaultBankAccounts
+    storage.clear()
+    let date = getDate()
+    let intent =
+        { amount = 1110L;
+            currency = "";
+            order_id = "";
+            description = "";
+            payment_type = "";
+            user_id = "";
+            email = "";
+            phone = "";
+            success_url = "";
+            failure_url = "";
+            callback_url = "";
+            payment_lifetime = 0L;
+            lang = "";
+            metadata = Map.empty }
+    let transaction_id = accept_payment_intent "hxeqnd852" date intent
+    let transaction = transaction_id |> Result.bind getTransaction
+    let card : CardInformation = 
+        cardsWith3DSecure[0]
+    let result =
+        match transaction_id with
+        | Ok transaction_id ->
+            let result = accept_card transaction_id (getDate() + int64 0) card
+            match result with
+            | Ok PaymentAuthorizationRequired -> true
+            | _ -> false
         | Error _ -> false
     Assert.True(result)

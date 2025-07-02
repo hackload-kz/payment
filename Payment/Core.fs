@@ -64,13 +64,54 @@ type BankErrorCode =
     | AuthorizationRequired
     | PotentialFraud
     | InvalidCardInformation
+    | AuthorizationRejected
 
 type BankInterface = 
-    abstract member requestPayment: string -> MonetaryAmount -> (BankErrorCode * string)
+    abstract member requestPayment: CardInformation -> MonetaryAmount -> (BankErrorCode * string)
     abstract member authorize: string -> SecurityCode -> (BankErrorCode * string)
+
+type BankCardSecurity =
+| NoSecurity
+| ThreeDSecurity
+
+type BankCardInformation = {
+    card: CardInformation
+    security: BankCardSecurity
+}
+
+type AcceptCardResult =
+| PaymentSuccessul
+| PaymentAuthorizationRequired
+    
+let mutable cards = [| 
+    { card = { card_number = "1234567812345678"; card_holder_name = "ANDRII TESTER"; card_cvc = "123"; card_expiry = "01/28" }; security = NoSecurity }
+|]
+
+let createBank () =
+    { new BankInterface 
+        with member this.requestPayment (card: CardInformation) (amount: MonetaryAmount): BankErrorCode * string = 
+                    let cardRecord = 
+                        cards 
+                        |> Array.tryFind (fun c -> c.card = card)
+                    match cardRecord with
+                    | None -> 
+                        (InvalidCardInformation, "")
+                    | Some cardRecord ->
+                        match cardRecord.security with
+                        | NoSecurity -> (AuthorizedSuccessfully, "123")
+                        | ThreeDSecurity -> (AuthorizationRequired, "123")
+             member this.authorize (transactionId: string) (securityCode: SecurityCode): BankErrorCode * string = 
+                    if transactionId = "123" && securityCode = 344 then
+                        (AuthorizedSuccessfully, transactionId) 
+                    else
+                        (AuthorizationRejected, transactionId) 
+    }
 
 type TransactionStorage() =
     let mutable storage : Transaction array = [| |]
+
+    member this.clear() =
+        storage <- [| |]
     
     member ths.findIntent merchant_id intent =
         storage |> Array.tryFind (fun t -> t.merchant_id = merchant_id && t.intent = intent)
@@ -104,6 +145,7 @@ type ErrorCode =
     | CardAlreadyAccepted
     | TransactionNoLongerAvailable
     | InvalidCardInformation
+    | BankRejected of BankErrorCode
 
 let validCard (card: CardInformation) =
     Regex("\d{3}").IsMatch(card.card_cvc) 
@@ -111,6 +153,7 @@ let validCard (card: CardInformation) =
         && Regex("\d{12}").IsMatch(card.card_number)
         && not (String.IsNullOrWhiteSpace card.card_holder_name)
 
+let bank = createBank()
 let storage = TransactionStorage()
 //let mutable storage : Transaction array = [| |]
 let mutable merchants : Merchant array = [| |]
@@ -134,18 +177,30 @@ let accept_payment_intent (merchant_id: string) (date: int64) (intent: PaymentIn
             let transaction_id = storage.createTransacton merchant_id date intent
             Ok transaction_id
 
-let accept_card (transaction_id) (date: int64) (card: CardInformation) : Result<unit, ErrorCode> = 
+let accept_card (transaction_id) (date: int64) (card: CardInformation) : Result<AcceptCardResult, ErrorCode> = 
     if validCard card then
         let transaction = storage.findTransaction transaction_id
         match transaction with
         | Some transaction ->
             if transaction.card.IsSome then
-                Error CardAlreadyAccepted
+                if transaction.card.Value = card then
+                    Ok PaymentSuccessul
+                else
+                    Error CardAlreadyAccepted
             elif transaction.date + CardAcceptTimeout <= date then
                 Error TransactionNoLongerAvailable
             else
-                storage.setCard transaction_id card
-                Ok ()
+                let (bankResult, bank_transaction) = bank.requestPayment card transaction.intent.amount
+                match bankResult with
+                | AuthorizedSuccessfully -> 
+                    storage.setCard transaction_id card
+                    Ok PaymentSuccessul
+                | AuthorizationRequired -> 
+                    storage.setCard transaction_id card
+                    Ok PaymentAuthorizationRequired
+                | BankErrorCode.InvalidCardInformation ->                     
+                    Error InvalidCardInformation
+                | PotentialFraud | AuthorizationRejected -> Error (BankRejected bankResult)
         | None -> 
             Error TransactionNotFound
     else
