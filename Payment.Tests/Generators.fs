@@ -118,14 +118,15 @@ type Without3DSecureCardInformation = Without3DSecureCardInformation of CardInfo
         |> Arb.filter (fun p -> validCard p)
         |> Arb.convert Without3DSecureCardInformation Without3DSecureCardInformation.op_Explicit
 
-type With3DSecureCardInformation = With3DSecureCardInformation of CardInformation with
-    member x.Get = match x with With3DSecureCardInformation r -> r
-    override x.ToString() = x.Get.ToString()
-    static member op_Explicit(With3DSecureCardInformation i) = i
+type With3DSecureCardInformation = With3DSecureCardInformation of CardInformation * SecurityCode with
+    member x.GetCard = match x with With3DSecureCardInformation (card, code) -> card
+    member x.GetCode = match x with With3DSecureCardInformation (card, code) -> code
+    override x.ToString() = x.GetCard.ToString()
+    static member op_Explicit(With3DSecureCardInformation (i, j)) = (i, j)
     
     static member Random3DSCards () =
-        Arb.fromGen (Gen.elements cardsWith3DSecure)
-        |> Arb.filter (fun p -> validCard p)
+        Arb.fromGen (Gen.constant 344 |> Gen.zip (Gen.elements cardsWith3DSecure))
+        |> Arb.filter (fun p -> validCard (fst p))
         |> Arb.convert With3DSecureCardInformation With3DSecureCardInformation.op_Explicit
 
 type InvalidMerchant = InvalidMerchant of string with

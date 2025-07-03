@@ -10,7 +10,6 @@ open FsCheck.FSharp
 open FsCheck.Xunit
 
 open Generators
-open System.Diagnostics
 
 [<Properties( Arbitrary=[| typeof<ValidMerchant>; typeof<ValidPaymentIntent>; typeof<ValidCardInformation>; 
     typeof<Without3DSecureCardInformation>; typeof<With3DSecureCardInformation>; typeof<TimePeriodAfterTimeout> |] )>]
@@ -74,7 +73,10 @@ module AcceptinRequestsProperties =
         | Ok transaction_id ->
             let result = accept_card transaction_id (getDate() + int64 time_after.Get) card.Get
             match result with
-            | Ok _ -> true
+            | Ok _ -> 
+                let t = getTransaction transaction_id |> Result.map (fun t -> t.status) |> Result.defaultValue Created
+                // We expect the transaction to be in Processing or NeedApproval state
+                t = Processing || t = NeedApproval
             | Error _ -> false
         | Error _ -> false
 
@@ -88,7 +90,10 @@ module AcceptinRequestsProperties =
             | Ok _ -> 
                 let result = accept_card transaction_id (getDate()) card.Get
                 match result with
-                | Ok _  -> true
+                | Ok _  -> 
+                    let t = getTransaction transaction_id |> Result.map (fun t -> t.status) |> Result.defaultValue Created
+                    // We expect the transaction to be in Processing or NeedApproval state
+                    t = Processing || t = NeedApproval
                 | _ -> false
             | Error _ -> false
         | Error _ -> false
@@ -139,9 +144,32 @@ module AcceptinRequestsProperties =
         let transaction_id = accept_payment_intent merchant_id.Get (getDate()) intent.Get
         match transaction_id with
         | Ok transaction_id ->
-            let result = accept_card transaction_id (getDate() + int64 time_after.Get) card.Get
+            let result = accept_card transaction_id (getDate() + int64 time_after.Get) card.GetCard
             match result with
-            | Ok PaymentAuthorizationRequired -> true
+            | Ok PaymentAuthorizationRequired -> 
+                let t = getTransaction transaction_id |> Result.map (fun t -> t.status) |> Result.defaultValue Created
+                // We expect the transaction to be in NeedApproval state
+                t = NeedApproval
+            | Ok _ -> 
+                   false
+            | _ -> false
+        | Error _ -> false
+
+    [<Property>]
+    let acceptCreditCardWith3DSecureAndValid3DsProduceSuccess (merchant_id: ValidMerchant) (intent: ValidPaymentIntent) (card: With3DSecureCardInformation) (time_after: ValidTimePeriod) =
+        let transaction_id = accept_payment_intent merchant_id.Get (getDate()) intent.Get
+        match transaction_id with
+        | Ok transaction_id ->
+            let result = accept_card transaction_id (getDate() + int64 time_after.Get) card.GetCard
+            match result with
+            | Ok PaymentAuthorizationRequired -> 
+                let result = accept_3ds_authorization transaction_id (getDate() + int64 time_after.Get) card.GetCode
+                match result with
+                | Ok _ -> 
+                    let t = getTransaction transaction_id |> Result.map (fun t -> t.status) |> Result.defaultValue Created
+                    // We expect the transaction to be in NeedApproval state
+                    t = Processing
+                | _ -> false
             | Ok _ -> 
                    false
             | _ -> false

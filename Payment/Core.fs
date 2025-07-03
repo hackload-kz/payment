@@ -41,9 +41,13 @@ type Merchant = {
     merchant_key: string
 }
 
+/// Status payment in the payment system.
 type PaymentStatus = 
+    /// The payment is created and waiting for further actions.
     | Created
+    /// The payment is cancelled by the system.
     | Cancelled
+    /// The payment is waiting for 3DS authorization.
     | NeedApproval
     | Hold
     | Clearing
@@ -58,6 +62,7 @@ type Transaction = {
     intent: PaymentIntent
     status: PaymentStatus
     card: CardInformation option
+    bankTransaction: string option
 }
 type BankErrorCode = 
     | AuthorizedSuccessfully
@@ -120,7 +125,8 @@ type TransactionStorage() =
         let transaction_id = System.Guid.NewGuid().ToString()
         let new_transaction = { 
             transaction_id = transaction_id; merchant_id = merchant_id; 
-            intent = intent; date = date; status = Created; card = None
+            intent = intent; date = date; status = Created; card = None;
+            bankTransaction = None
         }
         storage <- Array.insertAt storage.Length new_transaction  storage
         transaction_id
@@ -128,11 +134,23 @@ type TransactionStorage() =
     member ths.findTransaction transaction_id =
         storage |> Array.tryFind (fun t -> t.transaction_id = transaction_id)
     
-    member ths.setCard transaction_id cardInformation =
+    member ths.setCard transaction_id cardInformation bankTransaction =
         let transactionIndex =
             storage 
             |> Array.findIndex (fun t -> t.transaction_id = transaction_id)
-        storage[transactionIndex] <- { storage[transactionIndex] with status = Processing; card = Some cardInformation }
+        storage[transactionIndex] <- { storage[transactionIndex] with status = Processing; card = Some cardInformation; bankTransaction = Some bankTransaction }
+    
+    member ths.set3DSCard transaction_id cardInformation bankTransaction =
+        let transactionIndex =
+            storage 
+            |> Array.findIndex (fun t -> t.transaction_id = transaction_id)
+        storage[transactionIndex] <- { storage[transactionIndex] with status = NeedApproval; card = Some cardInformation; bankTransaction = Some bankTransaction }
+    
+    member ths.setProcessing transaction_id =
+        let transactionIndex =
+            storage 
+            |> Array.findIndex (fun t -> t.transaction_id = transaction_id)
+        storage[transactionIndex] <- { storage[transactionIndex] with status = Processing }
 
 type ErrorCode =
     | InvalidCardNumber
@@ -193,10 +211,10 @@ let accept_card (transaction_id) (date: int64) (card: CardInformation) : Result<
                 let (bankResult, bank_transaction) = bank.requestPayment card transaction.intent.amount
                 match bankResult with
                 | AuthorizedSuccessfully -> 
-                    storage.setCard transaction_id card
+                    storage.setCard transaction_id card bank_transaction
                     Ok PaymentSuccessul
                 | AuthorizationRequired -> 
-                    storage.setCard transaction_id card
+                    storage.set3DSCard transaction_id card bank_transaction
                     Ok PaymentAuthorizationRequired
                 | BankErrorCode.InvalidCardInformation ->                     
                     Error InvalidCardInformation
@@ -205,6 +223,21 @@ let accept_card (transaction_id) (date: int64) (card: CardInformation) : Result<
             Error TransactionNotFound
     else
         Error InvalidCardInformation
+
+let accept_3ds_authorization (transaction_id: string) (date: int64) (security_code: SecurityCode) : Result<string, ErrorCode> = 
+    let transaction = storage.findTransaction transaction_id
+    match transaction with
+    | Some t when t.card.IsSome && t.bankTransaction.IsSome ->
+        let (bankResult, bank_transaction) = bank.authorize t.bankTransaction.Value security_code
+        match bankResult with
+        | AuthorizedSuccessfully -> 
+            storage.setProcessing transaction_id
+            Ok bank_transaction
+        | AuthorizationRejected -> 
+            Error (BankRejected bankResult)
+        | _ -> Error InvalidCardInformation
+    | Some _ -> Error TransactionNotFound
+    | None -> Error TransactionNotFound
 
 let confirm_transaction (transaction_id: string) = 
     ()
