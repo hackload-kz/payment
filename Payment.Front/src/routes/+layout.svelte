@@ -1,7 +1,7 @@
 <script>
     import '../app.css';
     import { onMount } from 'svelte';
-    import { loadBooks } from '$lib/stores.js';
+    import { loadBooks } from '$lib/stores';
 
     onMount(() => {
         loadBooks();

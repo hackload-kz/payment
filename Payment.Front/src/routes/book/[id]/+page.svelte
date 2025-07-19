@@ -1,21 +1,21 @@
-<script>
+<script lang="ts">
   import { page } from '$app/stores';
-  import { booksStore } from '$lib/stores.js';
+  import { booksStore, type Book } from '$lib/stores';
   import { onMount } from 'svelte';
 
-  let book = null;
+  let book: Book | undefined = undefined;
   let loading = true;
 
   onMount(() => {
-  const unsubscribe = booksStore.subscribe(books => {
-  if (books.length > 0) {
-  const bookId = parseInt($page.params.id);
-  book = books.find(b => b.id === bookId);
-  loading = false;
-  }
-  });
+    const unsubscribe = booksStore.subscribe(books => {
+      if (books.length > 0) {
+        const bookId = parseInt($page.params.id);
+        book = books.find(b => b.id === bookId);
+        loading = false;
+      }
+    });
 
-  return unsubscribe;
+    return unsubscribe;
   });
 </script>
 

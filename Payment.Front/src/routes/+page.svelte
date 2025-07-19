@@ -1,8 +1,8 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte';
-    import { booksStore } from '$lib/stores.js';
+    import { booksStore, type Book } from '$lib/stores';
 
-    let books = [];
+    let books: Book[] = [];
 
     onMount(() => {
         const unsubscribe = booksStore.subscribe(value => {
