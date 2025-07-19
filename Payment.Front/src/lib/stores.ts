@@ -13,20 +13,3 @@ export async function loadBooks() {
         return [];
     }
 }
-```
-
-## 📄 src/routes/+layout.svelte
-```svelte
-    < script >
-    import '../app.css';
-import { onMount } from 'svelte';
-import { loadBooks } from '$lib/stores.js';
-
-onMount(() => {
-    loadBooks();
-});
-</script >
-
-    <main>
-        <slot />
-    </main>
