@@ -47,6 +47,10 @@
     <a href="{book.link}" target="_blank" rel="noopener noreferrer" class="external-link">
       Перейти к книге
     </a>
+    <form method="POST" action="?/buy">
+      <input type="hidden" name="bookId" value={book.id} />
+      <button type="submit" class="buy-btn external-link" aria-label="Купить">Купить</button>
+    </form>
   </div>
   {:else}
   <div class="book-detail-content">
