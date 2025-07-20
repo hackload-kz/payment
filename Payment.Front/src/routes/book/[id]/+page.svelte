@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2024-2025 Friedrich von Never <friedrich@fornever.me>
+
+SPDX-License-Identifier: MIT
+-->
 <script lang="ts">
   import { page } from '$app/stores';
   import { booksStore, type Book } from '$lib/stores';

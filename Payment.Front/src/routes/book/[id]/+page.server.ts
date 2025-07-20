@@ -1,3 +1,8 @@
+/*
+SPDX-FileCopyrightText: 2024-2025 Friedrich von Never <friedrich@fornever.me>
+
+SPDX-License-Identifier: MIT
+*/
 import { fail, redirect } from '@sveltejs/kit';
 //import * as db from '$lib/server/db';
 import type { Actions } from './$types';
