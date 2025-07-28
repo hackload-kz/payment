@@ -1,0 +1,28 @@
+namespace Payment.Gateway.Models;
+
+public enum PaymentStatus
+{
+    INIT = 0,
+    NEW = 1,
+    CANCELLED = 2,
+    DEADLINE_EXPIRED = 3,
+    FORM_SHOWED = 4,
+    ONECHOOSEVISION = 5,
+    FINISHAUTHORIZE = 6,
+    AUTHORIZING = 7,
+    THREE_DS_CHECKING = 8,
+    THREE_DS_CHECKED = 9,
+    SUBMITPASSIVIZATION = 10,
+    SUBMITPASSIVIZATION2 = 11,
+    AUTHORIZED = 12,
+    AUTH_FAIL = 13,
+    REJECTED = 14,
+    CONFIRMING = 15,
+    CONFIRMED = 16,
+    REVERSING = 17,
+    REVERSED = 18,
+    PARTIAL_REVERSED = 19,
+    REFUNDING = 20,
+    REFUNDED = 21,
+    PARTIAL_REFUNDED = 22
+}
