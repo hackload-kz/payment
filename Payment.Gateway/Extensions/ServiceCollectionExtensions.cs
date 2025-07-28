@@ -1,4 +1,5 @@
 using Payment.Gateway.Services;
+using Payment.Gateway.Validators;
 
 namespace Payment.Gateway.Extensions;
 
@@ -15,6 +16,9 @@ public static class ServiceCollectionExtensions
         // Register repositories
         services.AddScoped<IPaymentRepository, PaymentRepository>();
         services.AddScoped<IMerchantRepository, MerchantRepository>();
+
+        // Register validators
+        services.AddScoped<InitPaymentRequestValidator>();
 
         return services;
     }
