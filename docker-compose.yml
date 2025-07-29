@@ -3,40 +3,62 @@ version: '3.8'
 services:
   payment-gateway:
     build:
-      context: ./Payment.Gateway
+      context: .
       dockerfile: Dockerfile
+      target: runtime
+    container_name: payment-gateway-api
     ports:
-      - "5000:8080"
+      - "8080:8080"   # API port
+      - "8081:8081"   # Metrics port
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Host=postgres;Database=payment_gateway_dev;Username=payment_user;Password=payment_password
-      - PaymentGateway__EnablePrometheus=true
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=PaymentGateway;Username=postgres;Password=postgres123!
+      - Serilog__MinimumLevel=Information
+      - Prometheus__Enabled=true
+      - Prometheus__Port=8081
     depends_on:
-      - postgres
-      - prometheus
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
     networks:
       - payment-network
 
   postgres:
-    image: postgres:15
+    image: postgres:16-alpine
+    container_name: payment-postgres
     environment:
-      POSTGRES_DB: payment_gateway_dev
-      POSTGRES_USER: payment_user
-      POSTGRES_PASSWORD: payment_password
+      - POSTGRES_DB=PaymentGateway
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres123!
+      - PGDATA=/var/lib/postgresql/data/pgdata
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d PaymentGateway"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
     networks:
       - payment-network
 
   prometheus:
     image: prom/prometheus:latest
+    container_name: payment-prometheus
     ports:
       - "9090:9090"
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -45,30 +67,60 @@ services:
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--storage.tsdb.retention.time=200h'
       - '--web.enable-lifecycle'
+    restart: unless-stopped
     networks:
       - payment-network
 
   grafana:
     image: grafana/grafana:latest
+    container_name: payment-grafana
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123!
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
     depends_on:
       - prometheus
+    restart: unless-stopped
+    networks:
+      - payment-network
+
+  # Redis (for caching and distributed locking)
+  redis:
+    image: redis:7-alpine
+    container_name: payment-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass redis123!
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
     networks:
       - payment-network
 
 volumes:
   postgres_data:
+    driver: local
+  redis_data:
+    driver: local
   prometheus_data:
+    driver: local
   grafana_data:
+    driver: local
 
 networks:
   payment-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
