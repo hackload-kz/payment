@@ -5,6 +5,7 @@ using PaymentGateway.Core.DTOs.PaymentConfirm;
 using PaymentGateway.Core.DTOs.PaymentCancel;
 using PaymentGateway.Core.DTOs.PaymentCheck;
 using PaymentGateway.Core.Entities;
+using PaymentGateway.Core.Enums;
 
 namespace PaymentGateway.Core.DTOs.Mapping;
 

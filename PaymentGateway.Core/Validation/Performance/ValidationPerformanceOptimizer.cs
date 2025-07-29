@@ -126,7 +126,9 @@ public class ValidationPerformanceOptimizer : IValidationPerformanceOptimizer
         metrics = new ValidationPerformanceMetrics
         {
             ValidationTypeName = typeof(T).Name,
-            ExecutionTime = stopwatch.Elapsed,
+            AverageExecutionTime = stopwatch.Elapsed,
+            MaxExecutionTime = stopwatch.Elapsed,
+            MinExecutionTime = stopwatch.Elapsed,
             MemoryUsed = memoryAfter - memoryBefore,
             IsValid = result.IsValid,
             ErrorCount = result.Errors.Count,
@@ -134,7 +136,7 @@ public class ValidationPerformanceOptimizer : IValidationPerformanceOptimizer
             Timestamp = DateTime.UtcNow
         };
 
-        UpdatePerformanceMetrics(metrics.ValidationTypeName, metrics.ExecutionTime, false, metrics.IsValid);
+        UpdatePerformanceMetrics(metrics.ValidationTypeName, metrics.AverageExecutionTime, false, metrics.IsValid);
         return result;
     }
 
@@ -213,7 +215,7 @@ public class ValidationPerformanceOptimizer : IValidationPerformanceOptimizer
         // Enable cascade mode to stop on first failure for better performance
         if (_configuration.EnableCascadeMode)
         {
-            validator.CascadeMode = CascadeMode.Stop;
+            validator.RuleLevelCascadeMode = CascadeMode.Stop;
         }
 
         // Configure async validation timeout

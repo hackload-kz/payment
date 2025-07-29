@@ -2,6 +2,7 @@
 // Copyright (c) 2025 HackLoad Payment Gateway
 
 using PaymentGateway.Core.Entities;
+using PaymentGateway.Core.Enums;
 using PaymentGateway.Core.Interfaces;
 using PaymentGateway.Core.Repositories;
 using Microsoft.Extensions.Hosting;

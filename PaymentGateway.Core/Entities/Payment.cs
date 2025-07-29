@@ -1,4 +1,5 @@
 using PaymentGateway.Core.Interfaces;
+using PaymentGateway.Core.Enums;
 using System.ComponentModel.DataAnnotations;
 
 namespace PaymentGateway.Core.Entities;
@@ -51,10 +52,20 @@ public class Payment : BaseEntity, IAuditableEntity
     public DateTime? RefundedAt { get; set; }
     public DateTime? RejectedAt { get; set; }
     public DateTime? ExpiredAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
     
     // Payment processing details
     [StringLength(1000)]
     public string? FailureReason { get; set; }
+    
+    [StringLength(50)]
+    public string? ErrorCode { get; set; }
+    
+    [StringLength(1000)]
+    public string? ErrorMessage { get; set; }
+    
+    [StringLength(2000)]
+    public string? Receipt { get; set; }
     
     [StringLength(100)]
     public string? BankOrderId { get; set; }
@@ -227,51 +238,3 @@ public class Payment : BaseEntity, IAuditableEntity
     }
 }
 
-public enum PaymentStatus
-{
-    // Initialization Phase
-    INIT = 0,
-    NEW = 1,
-    FORM_SHOWED = 2,
-    
-    // Authorization Phase
-    ONECHOOSEVISION = 10,
-    FINISHAUTHORIZE = 11,
-    AUTHORIZING = 12,
-    AUTHORIZED = 13,
-    AUTH_FAIL = 14,
-    
-    // Confirmation Phase
-    CONFIRM = 20,
-    CONFIRMING = 21,
-    CONFIRMED = 22,
-    
-    // Cancellation and Reversal
-    CANCEL = 30,
-    CANCELLING = 31,
-    CANCELLED = 32,
-    REVERSING = 33,
-    REVERSED = 34,
-    
-    // Refund Operations
-    REFUNDING = 40,
-    REFUNDED = 41,
-    PARTIAL_REFUNDED = 42,
-    
-    // Final States
-    REJECTED = 50,
-    DEADLINE_EXPIRED = 51,
-    EXPIRED = 52
-}
-
-public enum PaymentMethod
-{
-    Card = 0,
-    SBP = 1,        // Faster Payment System (Russia)
-    Wallet = 2,
-    ApplePay = 3,
-    GooglePay = 4,
-    SamsungPay = 5,
-    BankTransfer = 6,
-    Cryptocurrency = 7
-}

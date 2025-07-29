@@ -22,6 +22,7 @@ public interface ICustomerRepository : IRepository<Customer>
     Task<IEnumerable<Customer>> GetRecentCustomersAsync(int count = 50, CancellationToken cancellationToken = default);
     Task<bool> IsCustomerIdUniqueAsync(string customerId, Guid? excludeCustomerId = null, CancellationToken cancellationToken = default);
     Task<bool> IsEmailUniqueForTeamAsync(int teamId, string email, Guid? excludeCustomerId = null, CancellationToken cancellationToken = default);
+    Task<Customer?> GetByCustomerKeyAsync(string teamSlug, string customerKey, CancellationToken cancellationToken = default);
 }
 
 public class CustomerRepository : Repository<Customer>, ICustomerRepository
@@ -280,6 +281,21 @@ public class CustomerRepository : Repository<Customer>, ICustomerRepository
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting customer by ID {Id}", id);
+            throw;
+        }
+    }
+
+    public async Task<Customer?> GetByCustomerKeyAsync(string teamSlug, string customerKey, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _dbSet
+                .Include(c => c.Team)
+                .FirstOrDefaultAsync(c => c.Team.TeamSlug == teamSlug && c.CustomerId == customerKey, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting customer by TeamSlug {TeamSlug} and CustomerKey {CustomerKey}", teamSlug, customerKey);
             throw;
         }
     }

@@ -39,34 +39,14 @@ public class PaymentCheckRequestValidator : AbstractValidator<PaymentCheckReques
             .WithErrorCode("PAYMENT_OR_ORDER_ID_REQUIRED")
             .WithMessage("Either PaymentId or OrderId must be provided");
 
-        // CustomData validation (optional)
-        RuleFor(x => x.CustomData)
-            .Must(HaveValidDataDictionary)
-            .WithErrorCode("CUSTOM_DATA_INVALID")
-            .WithMessage("CustomData dictionary contains invalid entries")
-            .When(x => x.CustomData != null);
-
-        // IncludeHistory validation (optional)
-        RuleFor(x => x.IncludeHistory)
-            .NotNull()
-            .WithErrorCode("INCLUDE_HISTORY_INVALID")
-            .WithMessage("IncludeHistory must be a valid boolean value")
-            .When(x => x.IncludeHistory.HasValue);
+        // Language validation
+        RuleFor(x => x.Language)
+            .NotEmpty()
+            .WithErrorCode("LANGUAGE_REQUIRED")
+            .WithMessage("Language is required")
+            .Must(language => language == "ru" || language == "en")
+            .WithErrorCode("LANGUAGE_INVALID")
+            .WithMessage("Language must be 'ru' or 'en'");
     }
 
-    private bool HaveValidDataDictionary(Dictionary<string, string>? data)
-    {
-        if (data == null)
-            return true;
-
-        foreach (var kvp in data)
-        {
-            if (string.IsNullOrEmpty(kvp.Key) || kvp.Key.Length > 50)
-                return false;
-            if (kvp.Value != null && kvp.Value.Length > 1000)
-                return false;
-        }
-
-        return true;
-    }
 }

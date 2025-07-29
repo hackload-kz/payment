@@ -497,7 +497,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
 
             _rules.TryAdd(rule.Id, rule);
             
-            await LogRuleChangeAsync(rule.Id, rule.TeamId, "CREATE", "", JsonSerializer.Serialize(rule), "System", "Rule created", cancellationToken);
+            await LogRuleChangeAsync(rule.Id.ToString(), rule.TeamId.ToString(), "CREATE", "", JsonSerializer.Serialize(rule), "System", "Rule created", cancellationToken);
             
             ActiveRules.WithLabels(rule.TeamId.ToString(), rule.Type.ToString()).Inc();
             RuleChanges.WithLabels(rule.TeamId.ToString(), "create").Inc();
@@ -537,7 +537,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
 
             _rules.TryUpdate(rule.Id, rule, existingRule);
             
-            await LogRuleChangeAsync(rule.Id, rule.TeamId, "UPDATE", oldRuleData, JsonSerializer.Serialize(rule), "System", "Rule updated", cancellationToken);
+            await LogRuleChangeAsync(rule.Id.ToString(), rule.TeamId.ToString(), "UPDATE", oldRuleData, JsonSerializer.Serialize(rule), "System", "Rule updated", cancellationToken);
             
             RuleChanges.WithLabels(rule.TeamId.ToString(), "update").Inc();
             

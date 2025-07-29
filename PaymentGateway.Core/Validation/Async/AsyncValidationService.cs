@@ -444,17 +444,17 @@ public class AsyncValidationService : IAsyncValidationService
         }
     }
 
-    private bool IsPaymentConfirmable(PaymentStatus status)
+    private bool IsPaymentConfirmable(Enums.PaymentStatus status)
     {
-        return status == PaymentStatus.AUTHORIZED || status == PaymentStatus.NEW;
+        return status == Enums.PaymentStatus.AUTHORIZED || status == Enums.PaymentStatus.NEW;
     }
 
-    private bool IsPaymentCancellable(PaymentStatus status)
+    private bool IsPaymentCancellable(Enums.PaymentStatus status)
     {
-        return status == PaymentStatus.NEW || 
-               status == PaymentStatus.AUTHORIZED || 
-               status == PaymentStatus.CONFIRMED ||
-               status == PaymentStatus.CAPTURED;
+        return status == Enums.PaymentStatus.NEW || 
+               status == Enums.PaymentStatus.AUTHORIZED || 
+               status == Enums.PaymentStatus.CONFIRMED ||
+               status == Enums.PaymentStatus.CAPTURED;
     }
 
     private async Task<TeamLimits?> GetTeamLimitsAsync(string teamSlug, CancellationToken cancellationToken)

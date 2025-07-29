@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PaymentGateway.Core.Entities;
+using PaymentGateway.Core.Enums;
 using System.Collections.Concurrent;
 
 namespace PaymentGateway.Core.Services;
@@ -8,6 +9,7 @@ namespace PaymentGateway.Core.Services;
 public interface IPaymentStateTransitionEventService
 {
     Task PublishTransitionEventAsync(PaymentStateTransitionEvent transitionEvent, CancellationToken cancellationToken = default);
+    Task PublishStateTransitionAsync(Guid paymentId, PaymentStatus fromStatus, PaymentStatus toStatus, CancellationToken cancellationToken = default);
     void Subscribe<THandler>(PaymentStatus? fromStatus = null, PaymentStatus? toStatus = null) where THandler : IPaymentStateTransitionHandler;
     void Subscribe(IPaymentStateTransitionHandler handler, PaymentStatus? fromStatus = null, PaymentStatus? toStatus = null);
     Task UnsubscribeAsync<THandler>() where THandler : IPaymentStateTransitionHandler;
@@ -171,6 +173,20 @@ public class PaymentStateTransitionEventService : IPaymentStateTransitionEventSe
 
         _logger.LogInformation("Unregistered handler instance {HandlerType}", handler.GetType().Name);
         await Task.CompletedTask;
+    }
+
+    public async Task PublishStateTransitionAsync(Guid paymentId, PaymentStatus fromStatus, PaymentStatus toStatus, CancellationToken cancellationToken = default)
+    {
+        var transitionEvent = new PaymentStateTransitionEvent
+        {
+            PaymentId = paymentId,
+            FromStatus = fromStatus,
+            ToStatus = toStatus,
+            TransitionId = $"{fromStatus}_{toStatus}_{DateTime.UtcNow:yyyyMMddHHmmss}",
+            TransitionedAt = DateTime.UtcNow
+        };
+
+        await PublishTransitionEventAsync(transitionEvent, cancellationToken);
     }
 
     private IEnumerable<IPaymentStateTransitionHandler> GetApplicableHandlers(PaymentStatus fromStatus, PaymentStatus toStatus)

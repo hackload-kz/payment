@@ -54,6 +54,9 @@ public class Customer : BaseEntity, IAuditableEntity
     public DateTime? BlacklistedAt { get; set; }
     public string? BlacklistReason { get; set; }
     
+    // Customer status
+    public bool IsActive { get; set; } = true;
+    
     // Customer activity tracking
     public DateTime? LastPaymentAt { get; set; }
     public int TotalPaymentCount { get; set; } = 0;

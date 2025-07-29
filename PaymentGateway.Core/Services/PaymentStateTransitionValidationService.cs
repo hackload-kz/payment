@@ -4,7 +4,7 @@
 using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Interfaces;
 using PaymentGateway.Core.Repositories;
-using PaymentStatus = PaymentGateway.Core.Entities.PaymentStatus;
+using PaymentGateway.Core.Enums;
 using Microsoft.Extensions.Logging;
 using Prometheus;
 
@@ -15,14 +15,14 @@ namespace PaymentGateway.Core.Services;
 /// </summary>
 public interface IPaymentStateTransitionValidationService
 {
-    Task<ValidationResult> ValidateTransitionAsync(long paymentId, PaymentStatus fromStatus, PaymentStatus toStatus, CancellationToken cancellationToken = default);
+    Task<ValidationResult> ValidateTransitionAsync(Guid paymentId, PaymentStatus fromStatus, PaymentStatus toStatus, CancellationToken cancellationToken = default);
     Task<ValidationResult> ValidatePaymentBusinessRulesAsync(Payment payment, PaymentStatus targetStatus, CancellationToken cancellationToken = default);
     Task<ValidationResult> ValidateTeamLimitsAsync(int teamId, decimal amount, CancellationToken cancellationToken = default);
     Task<ValidationResult> ValidatePaymentExpirationAsync(Payment payment, CancellationToken cancellationToken = default);
     Task<ValidationResult> ValidateRefundRulesAsync(Payment payment, decimal refundAmount, CancellationToken cancellationToken = default);
     Task<ValidationResult> ValidateConcurrencyRulesAsync(Payment payment, PaymentStatus targetStatus, CancellationToken cancellationToken = default);
     ValidationResult ValidateStateTransitionMatrix(PaymentStatus fromStatus, PaymentStatus toStatus);
-    Task<bool> CanProcessPaymentAsync(long paymentId, CancellationToken cancellationToken = default);
+    Task<bool> CanProcessPaymentAsync(Guid paymentId, CancellationToken cancellationToken = default);
 }
 
 public class ValidationResult
@@ -81,7 +81,7 @@ public class PaymentStateTransitionValidationService : IPaymentStateTransitionVa
         _logger = logger;
     }
 
-    public async Task<ValidationResult> ValidateTransitionAsync(long paymentId, PaymentStatus fromStatus, PaymentStatus toStatus, CancellationToken cancellationToken = default)
+    public async Task<ValidationResult> ValidateTransitionAsync(Guid paymentId, PaymentStatus fromStatus, PaymentStatus toStatus, CancellationToken cancellationToken = default)
     {
         using var activity = ValidationDuration.WithLabels("transition").NewTimer();
         
@@ -492,7 +492,7 @@ public class PaymentStateTransitionValidationService : IPaymentStateTransitionVa
         }
     }
 
-    public async Task<bool> CanProcessPaymentAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<bool> CanProcessPaymentAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         try
         {

@@ -34,30 +34,10 @@ public class PaymentConfirmRequestValidator : AbstractValidator<PaymentConfirmRe
 
         // Receipt validation (optional)
         RuleFor(x => x.Receipt)
-            .SetValidator(new ReceiptValidator())
+            .NotNull()
+            .WithErrorCode("RECEIPT_REQUIRED")
+            .WithMessage("Receipt is required")
             .When(x => x.Receipt != null);
-
-        // AdditionalData validation (optional)
-        RuleFor(x => x.AdditionalData)
-            .Must(HaveValidDataDictionary)
-            .WithErrorCode("ADDITIONAL_DATA_INVALID")
-            .WithMessage("AdditionalData dictionary contains invalid entries")
-            .When(x => x.AdditionalData != null);
     }
 
-    private bool HaveValidDataDictionary(Dictionary<string, string>? data)
-    {
-        if (data == null)
-            return true;
-
-        foreach (var kvp in data)
-        {
-            if (string.IsNullOrEmpty(kvp.Key) || kvp.Key.Length > 50)
-                return false;
-            if (kvp.Value != null && kvp.Value.Length > 1000)
-                return false;
-        }
-
-        return true;
-    }
 }

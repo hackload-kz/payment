@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using PaymentGateway.Core.Data;
 using PaymentGateway.Core.Entities;
+using PaymentGateway.Core.Enums;
 using PaymentGateway.Core.Interfaces;
 using System.Linq.Expressions;
 
@@ -21,6 +22,7 @@ public interface ITeamRepository : IRepository<Team>
     Task<decimal> GetCurrentMonthlyAmountAsync(int teamId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Team>> GetTeamsWithHighFailedAuthAttemptsAsync(int threshold = 3, CancellationToken cancellationToken = default);
     Task<IEnumerable<Team>> GetTeamsForRiskReviewAsync(CancellationToken cancellationToken = default);
+    Task<Team> UpdateAsync(Team team, CancellationToken cancellationToken = default);
 }
 
 public class TeamRepository : Repository<Team>, ITeamRepository
@@ -273,6 +275,22 @@ public class TeamRepository : Repository<Team>, ITeamRepository
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting team by ID {Id}", id);
+            throw;
+        }
+    }
+
+    public async Task<Team> UpdateAsync(Team team, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            team.MarkAsUpdated();
+            Update(team);
+            await _context.SaveChangesAsync(cancellationToken);
+            return team;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating team with TeamSlug {TeamSlug}", team.TeamSlug);
             throw;
         }
     }

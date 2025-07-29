@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using PaymentGateway.Core.Entities;
+using PaymentGateway.Core.Enums;
 using PaymentGateway.Core.Interfaces;
 using PaymentGateway.Core.Repositories;
 using System.Collections.Concurrent;

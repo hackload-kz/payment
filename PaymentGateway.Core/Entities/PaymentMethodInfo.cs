@@ -1,4 +1,5 @@
 using PaymentGateway.Core.Interfaces;
+using PaymentGateway.Core.Enums;
 using System.ComponentModel.DataAnnotations;
 
 namespace PaymentGateway.Core.Entities;

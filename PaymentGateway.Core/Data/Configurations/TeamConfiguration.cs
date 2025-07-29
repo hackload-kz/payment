@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using PaymentGateway.Core.Entities;
+using PaymentGateway.Core.Enums;
 
 namespace PaymentGateway.Core.Data.Configurations;
 

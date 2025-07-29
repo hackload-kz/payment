@@ -4,7 +4,7 @@
 using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Interfaces;
 using PaymentGateway.Core.Repositories;
-using PaymentStatus = PaymentGateway.Core.Entities.PaymentStatus;
+using PaymentGateway.Core.Enums;
 using Microsoft.Extensions.Logging;
 using Prometheus;
 using System.Collections.Concurrent;
@@ -18,16 +18,16 @@ namespace PaymentGateway.Core.Services;
 public interface IPaymentLifecycleManagementService
 {
     Task<Payment> InitializePaymentAsync(Payment payment, CancellationToken cancellationToken = default);
-    Task<Payment> ProcessPaymentAsync(long paymentId, CancellationToken cancellationToken = default);
-    Task<Payment> AuthorizePaymentAsync(long paymentId, CancellationToken cancellationToken = default);
-    Task<Payment> ConfirmPaymentAsync(long paymentId, CancellationToken cancellationToken = default);
-    Task<Payment> CancelPaymentAsync(long paymentId, string reason, CancellationToken cancellationToken = default);
-    Task<Payment> RefundPaymentAsync(long paymentId, decimal amount, string reason, CancellationToken cancellationToken = default);
-    Task<Payment> ExpirePaymentAsync(long paymentId, CancellationToken cancellationToken = default);
-    Task<Payment> FailPaymentAsync(long paymentId, string errorCode, string errorMessage, CancellationToken cancellationToken = default);
-    Task<Payment> GetPaymentStatusAsync(long paymentId, CancellationToken cancellationToken = default);
+    Task<Payment> ProcessPaymentAsync(Guid paymentId, CancellationToken cancellationToken = default);
+    Task<Payment> AuthorizePaymentAsync(Guid paymentId, CancellationToken cancellationToken = default);
+    Task<Payment> ConfirmPaymentAsync(Guid paymentId, CancellationToken cancellationToken = default);
+    Task<Payment> CancelPaymentAsync(Guid paymentId, string reason, CancellationToken cancellationToken = default);
+    Task<Payment> RefundPaymentAsync(Guid paymentId, decimal amount, string reason, CancellationToken cancellationToken = default);
+    Task<Payment> ExpirePaymentAsync(Guid paymentId, CancellationToken cancellationToken = default);
+    Task<Payment> FailPaymentAsync(Guid paymentId, string errorCode, string errorMessage, CancellationToken cancellationToken = default);
+    Task<Payment> GetPaymentStatusAsync(Guid paymentId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Payment>> GetActivePaymentsAsync(int teamId, CancellationToken cancellationToken = default);
-    Task<bool> IsPaymentExpiredAsync(long paymentId, CancellationToken cancellationToken = default);
+    Task<bool> IsPaymentExpiredAsync(Guid paymentId, CancellationToken cancellationToken = default);
     Task ProcessExpiredPaymentsAsync(CancellationToken cancellationToken = default);
 }
 
@@ -142,7 +142,7 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
         }
     }
 
-    public async Task<Payment> ProcessPaymentAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<Payment> ProcessPaymentAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         using var activity = PaymentLifecycleOperationDuration.WithLabels("process").NewTimer();
         var lockKey = $"payment:process:{paymentId}";
@@ -198,7 +198,7 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
         }
     }
 
-    public async Task<Payment> AuthorizePaymentAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<Payment> AuthorizePaymentAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         using var activity = PaymentLifecycleOperationDuration.WithLabels("authorize").NewTimer();
         var lockKey = $"payment:authorize:{paymentId}";
@@ -254,7 +254,7 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
         }
     }
 
-    public async Task<Payment> ConfirmPaymentAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<Payment> ConfirmPaymentAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         using var activity = PaymentLifecycleOperationDuration.WithLabels("confirm").NewTimer();
         var lockKey = $"payment:confirm:{paymentId}";
@@ -314,7 +314,7 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
         }
     }
 
-    public async Task<Payment> CancelPaymentAsync(long paymentId, string reason, CancellationToken cancellationToken = default)
+    public async Task<Payment> CancelPaymentAsync(Guid paymentId, string reason, CancellationToken cancellationToken = default)
     {
         using var activity = PaymentLifecycleOperationDuration.WithLabels("cancel").NewTimer();
         var lockKey = $"payment:cancel:{paymentId}";
@@ -375,7 +375,7 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
         }
     }
 
-    public async Task<Payment> RefundPaymentAsync(long paymentId, decimal amount, string reason, CancellationToken cancellationToken = default)
+    public async Task<Payment> RefundPaymentAsync(Guid paymentId, decimal amount, string reason, CancellationToken cancellationToken = default)
     {
         using var activity = PaymentLifecycleOperationDuration.WithLabels("refund").NewTimer();
         var lockKey = $"payment:refund:{paymentId}";
@@ -445,7 +445,7 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
         }
     }
 
-    public async Task<Payment> ExpirePaymentAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<Payment> ExpirePaymentAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         using var activity = PaymentLifecycleOperationDuration.WithLabels("expire").NewTimer();
         var lockKey = $"payment:expire:{paymentId}";
@@ -505,7 +505,7 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
         }
     }
 
-    public async Task<Payment> FailPaymentAsync(long paymentId, string errorCode, string errorMessage, CancellationToken cancellationToken = default)
+    public async Task<Payment> FailPaymentAsync(Guid paymentId, string errorCode, string errorMessage, CancellationToken cancellationToken = default)
     {
         using var activity = PaymentLifecycleOperationDuration.WithLabels("fail").NewTimer();
         var lockKey = $"payment:fail:{paymentId}";
@@ -559,7 +559,7 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
         }
     }
 
-    public async Task<Payment> GetPaymentStatusAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<Payment> GetPaymentStatusAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -600,7 +600,7 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
         }
     }
 
-    public async Task<bool> IsPaymentExpiredAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<bool> IsPaymentExpiredAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         try
         {

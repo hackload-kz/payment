@@ -1,4 +1,5 @@
 using PaymentGateway.Core.Entities;
+using PaymentGateway.Core.Enums;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 

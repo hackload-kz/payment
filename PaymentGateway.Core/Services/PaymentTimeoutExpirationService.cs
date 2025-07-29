@@ -4,7 +4,7 @@
 using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Interfaces;
 using PaymentGateway.Core.Repositories;
-using PaymentStatus = PaymentGateway.Core.Entities.PaymentStatus;
+using PaymentGateway.Core.Enums;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,13 +18,13 @@ namespace PaymentGateway.Core.Services;
 /// </summary>
 public interface IPaymentTimeoutExpirationService
 {
-    Task<bool> IsPaymentExpiredAsync(long paymentId, CancellationToken cancellationToken = default);
-    Task<TimeSpan?> GetTimeToExpirationAsync(long paymentId, CancellationToken cancellationToken = default);
+    Task<bool> IsPaymentExpiredAsync(Guid paymentId, CancellationToken cancellationToken = default);
+    Task<TimeSpan?> GetTimeToExpirationAsync(Guid paymentId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Payment>> GetExpiringPaymentsAsync(TimeSpan warningPeriod, CancellationToken cancellationToken = default);
     Task<IEnumerable<Payment>> GetExpiredPaymentsAsync(CancellationToken cancellationToken = default);
-    Task<int> ExpirePaymentsAsync(IEnumerable<long> paymentIds, CancellationToken cancellationToken = default);
+    Task<int> ExpirePaymentsAsync(IEnumerable<Guid> paymentIds, CancellationToken cancellationToken = default);
     Task<int> ProcessAllExpiredPaymentsAsync(CancellationToken cancellationToken = default);
-    Task SchedulePaymentExpirationAsync(long paymentId, DateTime expirationTime, CancellationToken cancellationToken = default);
+    Task SchedulePaymentExpirationAsync(Guid paymentId, DateTime expirationTime, CancellationToken cancellationToken = default);
     Task<PaymentTimeoutConfiguration> GetTimeoutConfigurationAsync(int teamId, CancellationToken cancellationToken = default);
     Task UpdateTimeoutConfigurationAsync(int teamId, PaymentTimeoutConfiguration configuration, CancellationToken cancellationToken = default);
     Task<ExpirationStatistics> GetExpirationStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
@@ -96,7 +96,7 @@ public class PaymentTimeoutExpirationService : IPaymentTimeoutExpirationService
         _logger = logger;
     }
 
-    public async Task<bool> IsPaymentExpiredAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<bool> IsPaymentExpiredAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -123,7 +123,7 @@ public class PaymentTimeoutExpirationService : IPaymentTimeoutExpirationService
         }
     }
 
-    public async Task<TimeSpan?> GetTimeToExpirationAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<TimeSpan?> GetTimeToExpirationAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -222,7 +222,7 @@ public class PaymentTimeoutExpirationService : IPaymentTimeoutExpirationService
         }
     }
 
-    public async Task<int> ExpirePaymentsAsync(IEnumerable<long> paymentIds, CancellationToken cancellationToken = default)
+    public async Task<int> ExpirePaymentsAsync(IEnumerable<Guid> paymentIds, CancellationToken cancellationToken = default)
     {
         using var activity = ExpirationProcessingDuration.NewTimer();
         var expiredCount = 0;
@@ -282,7 +282,7 @@ public class PaymentTimeoutExpirationService : IPaymentTimeoutExpirationService
         }
     }
 
-    public async Task SchedulePaymentExpirationAsync(long paymentId, DateTime expirationTime, CancellationToken cancellationToken = default)
+    public async Task SchedulePaymentExpirationAsync(Guid paymentId, DateTime expirationTime, CancellationToken cancellationToken = default)
     {
         try
         {

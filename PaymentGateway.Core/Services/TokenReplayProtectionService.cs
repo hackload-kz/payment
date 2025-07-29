@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using PaymentGateway.Core.Interfaces;
+using PaymentGateway.Core.Entities;
 using System.Security.Cryptography;
 using System.Text;
 

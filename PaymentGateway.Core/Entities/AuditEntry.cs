@@ -199,11 +199,19 @@ public enum AuditAction
     // Authentication and authorization
     AuthenticationAttempt = 400,
     AuthenticationSuccess = 401,
+    AuthenticationSucceeded = 401, // Alias
     AuthenticationFailure = 402,
-    TokenGenerated = 403,
-    TokenExpired = 404,
-    TokenRevoked = 405,
-    PasswordChanged = 406,
+    AuthenticationFailed = 402, // Alias
+    AuthenticationBlocked = 403,
+    TokenGenerated = 404,
+    TokenExpired = 405,
+    TokenRevoked = 406,
+    TokenUsed = 407,
+    TokenReplayDetected = 408,
+    NonceReplayDetected = 409, 
+    PasswordChanged = 410,
+    AccountLocked = 411,
+    AccountUnlocked = 412,
     
     // Configuration changes
     ConfigurationChanged = 500,

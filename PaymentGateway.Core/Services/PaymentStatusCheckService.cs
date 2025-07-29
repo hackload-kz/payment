@@ -4,7 +4,7 @@
 using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Interfaces;
 using PaymentGateway.Core.Repositories;
-using PaymentStatus = PaymentGateway.Core.Entities.PaymentStatus;
+using PaymentGateway.Core.Enums;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;

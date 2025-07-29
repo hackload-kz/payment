@@ -41,30 +41,17 @@ public class PaymentCancelRequestValidator : AbstractValidator<PaymentCancelRequ
 
         // Receipt validation (optional)
         RuleFor(x => x.Receipt)
-            .SetValidator(new ReceiptValidator())
-            .When(x => x.Receipt != null);
+            .NotNull()
+            .WithErrorCode("RECEIPT_REQUIRED")
+            .WithMessage("Receipt is required for refunds")
+            .When(x => x.Amount.HasValue);
 
-        // AdditionalData validation (optional)
-        RuleFor(x => x.AdditionalData)
-            .Must(HaveValidDataDictionary)
-            .WithErrorCode("ADDITIONAL_DATA_INVALID")
-            .WithMessage("AdditionalData dictionary contains invalid entries")
-            .When(x => x.AdditionalData != null);
+        // Amount validation (optional)
+        RuleFor(x => x.Amount)
+            .GreaterThan(0)
+            .WithErrorCode("AMOUNT_INVALID")
+            .WithMessage("Amount must be greater than 0")
+            .When(x => x.Amount.HasValue);
     }
 
-    private bool HaveValidDataDictionary(Dictionary<string, string>? data)
-    {
-        if (data == null)
-            return true;
-
-        foreach (var kvp in data)
-        {
-            if (string.IsNullOrEmpty(kvp.Key) || kvp.Key.Length > 50)
-                return false;
-            if (kvp.Value != null && kvp.Value.Length > 1000)
-                return false;
-        }
-
-        return true;
-    }
 }

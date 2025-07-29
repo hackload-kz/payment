@@ -7,10 +7,13 @@ namespace PaymentGateway.Core.Services;
 public interface IDistributedLockService
 {
     Task<IDistributedLock?> AcquireLockAsync(string resource, TimeSpan expiry, CancellationToken cancellationToken = default);
+    Task<bool> AcquireLockAsync(string resource, TimeSpan expiry);
     Task<bool> ReleaseLockAsync(string resource, string lockId);
+    Task ReleaseLockAsync(string resource);
+    Task<Dictionary<string, List<string>>> GetLockDependenciesAsync();
 }
 
-public interface IDistributedLock : IDisposable
+public interface IDistributedLock : IDisposable, IAsyncDisposable
 {
     string Resource { get; }
     string LockId { get; }
@@ -110,6 +113,34 @@ public class InMemoryDistributedLockService : IDistributedLockService
         }
     }
 
+    public async Task<bool> AcquireLockAsync(string resource, TimeSpan expiry)
+    {
+        var lockResult = await AcquireLockAsync(resource, expiry, CancellationToken.None);
+        return lockResult != null;
+    }
+
+    public async Task ReleaseLockAsync(string resource)
+    {
+        if (_locks.TryRemove(resource, out var lockInfo))
+        {
+            _logger.LogDebug("Released distributed lock for resource {Resource}", resource);
+        }
+        await Task.CompletedTask;
+    }
+
+    public async Task<Dictionary<string, List<string>>> GetLockDependenciesAsync()
+    {
+        var dependencies = new Dictionary<string, List<string>>();
+        
+        foreach (var lockKvp in _locks)
+        {
+            var resource = lockKvp.Key;
+            dependencies[resource] = new List<string>();
+        }
+        
+        return await Task.FromResult(dependencies);
+    }
+
     public void Dispose()
     {
         _cleanupTimer?.Dispose();
@@ -151,6 +182,16 @@ public class DistributedLock : IDistributedLock
             return;
 
         _lockService.ReleaseLockAsync(Resource, LockId).ConfigureAwait(false);
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return;
+
+        await _lockService.ReleaseLockAsync(Resource, LockId);
         _disposed = true;
         GC.SuppressFinalize(this);
     }

@@ -31,31 +31,24 @@ public class BaseRequestValidator : AbstractValidator<BaseRequestDto>
             .WithErrorCode("TOKEN_TOO_LONG")
             .WithMessage("Token cannot exceed 256 characters");
 
-        // Timestamp validation (optional)
+        // Timestamp validation
         RuleFor(x => x.Timestamp)
             .Must(BeValidTimestamp)
             .WithErrorCode("TIMESTAMP_INVALID")
-            .WithMessage("Timestamp must be within acceptable range")
-            .When(x => x.Timestamp.HasValue);
+            .WithMessage("Timestamp must be within acceptable range");
 
-        // RequestId validation (optional)
-        RuleFor(x => x.RequestId)
+        // CorrelationId validation (optional)
+        RuleFor(x => x.CorrelationId)
             .MaximumLength(50)
-            .WithErrorCode("REQUEST_ID_TOO_LONG")
-            .WithMessage("RequestId cannot exceed 50 characters")
-            .Matches("^[a-zA-Z0-9_-]+$")
-            .WithErrorCode("REQUEST_ID_INVALID_FORMAT")
-            .WithMessage("RequestId can only contain letters, numbers, hyphens, and underscores")
-            .When(x => !string.IsNullOrEmpty(x.RequestId));
+            .WithErrorCode("CORRELATION_ID_TOO_LONG")
+            .WithMessage("CorrelationId cannot exceed 50 characters")
+            .When(x => !string.IsNullOrEmpty(x.CorrelationId));
     }
 
-    private bool BeValidTimestamp(DateTime? timestamp)
+    private bool BeValidTimestamp(DateTime timestamp)
     {
-        if (!timestamp.HasValue)
-            return true;
-
         var now = DateTime.UtcNow;
-        var diff = Math.Abs((now - timestamp.Value).TotalMinutes);
+        var diff = Math.Abs((now - timestamp).TotalMinutes);
         
         // Allow timestamps within 15 minutes of current time to account for clock skew
         return diff <= 15;
