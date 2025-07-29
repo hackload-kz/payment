@@ -36,7 +36,7 @@ public class PaymentFormStatusUpdateService
     // Connection management
     private readonly ConcurrentDictionary<string, PaymentStatusConnection> _connections;
     private readonly ConcurrentDictionary<string, List<string>> _paymentConnections;
-    private readonly ConcurrentDictionary<string, PaymentStatusHistory> _statusHistory;
+    private readonly ConcurrentDictionary<string, FormPaymentStatusHistory> _statusHistory;
 
     // Status update queues for buffering
     private readonly ConcurrentQueue<PaymentStatusUpdateMessage> _updateQueue;
@@ -71,7 +71,7 @@ public class PaymentFormStatusUpdateService
         // Initialize collections
         _connections = new ConcurrentDictionary<string, PaymentStatusConnection>();
         _paymentConnections = new ConcurrentDictionary<string, List<string>>();
-        _statusHistory = new ConcurrentDictionary<string, PaymentStatusHistory>();
+        _statusHistory = new ConcurrentDictionary<string, FormPaymentStatusHistory>();
         _updateQueue = new ConcurrentQueue<PaymentStatusUpdateMessage>();
 
         // Start background processing
@@ -138,7 +138,7 @@ public class PaymentFormStatusUpdateService
             // Initialize status history for payment if not exists
             if (!_statusHistory.ContainsKey(request.PaymentId))
             {
-                _statusHistory[request.PaymentId] = new PaymentStatusHistory
+                _statusHistory[request.PaymentId] = new FormPaymentStatusHistory
                 {
                     PaymentId = request.PaymentId,
                     CreatedAt = DateTime.UtcNow,
@@ -483,7 +483,7 @@ public class PaymentFormStatusUpdateService
     {
         try
         {
-            var history = _statusHistory.GetOrAdd(paymentId, _ => new PaymentStatusHistory
+            var history = _statusHistory.GetOrAdd(paymentId, _ => new FormPaymentStatusHistory
             {
                 PaymentId = paymentId,
                 CreatedAt = DateTime.UtcNow,
@@ -603,7 +603,7 @@ public class PaymentStatusUpdateMessage
     public Dictionary<string, object> AdditionalData { get; set; } = new();
 }
 
-public class PaymentStatusHistory
+public class FormPaymentStatusHistory
 {
     public string PaymentId { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }

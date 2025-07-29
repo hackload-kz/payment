@@ -86,7 +86,7 @@ public class SessionSecurityService
             }
 
             // Create session data
-            var sessionData = new PaymentSession
+            var sessionData = new SecurityPaymentSession
             {
                 SessionId = sessionId,
                 PaymentId = request.PaymentId,
@@ -391,7 +391,7 @@ public class SessionSecurityService
         };
     }
 
-    private async Task StoreSessionAsync(PaymentSession sessionData)
+    private async Task StoreSessionAsync(SecurityPaymentSession sessionData)
     {
         // Encrypt sensitive session data
         var encryptedData = EncryptSessionData(sessionData);
@@ -402,7 +402,7 @@ public class SessionSecurityService
         _memoryCache.Set(cacheKey, encryptedData, expiry);
     }
 
-    private async Task<PaymentSession?> GetSessionAsync(string sessionId)
+    private async Task<SecurityPaymentSession?> GetSessionAsync(string sessionId)
     {
         var cacheKey = SESSION_PREFIX + sessionId;
         
@@ -414,7 +414,7 @@ public class SessionSecurityService
         return null;
     }
 
-    private string EncryptSessionData(PaymentSession sessionData)
+    private string EncryptSessionData(SecurityPaymentSession sessionData)
     {
         var json = JsonSerializer.Serialize(sessionData);
         var keyBytes = Convert.FromBase64String(_sessionEncryptionKey);
@@ -434,7 +434,7 @@ public class SessionSecurityService
         return Convert.ToBase64String(result);
     }
 
-    private PaymentSession? DecryptSessionData(string encryptedData)
+    private SecurityPaymentSession? DecryptSessionData(string encryptedData)
     {
         try
         {
@@ -455,7 +455,7 @@ public class SessionSecurityService
             var decryptedBytes = decryptor.TransformFinalBlock(encryptedBytes, 0, encryptedBytes.Length);
             
             var json = Encoding.UTF8.GetString(decryptedBytes);
-            return JsonSerializer.Deserialize<PaymentSession>(json);
+            return JsonSerializer.Deserialize<SecurityPaymentSession>(json);
         }
         catch (Exception ex)
         {
@@ -507,7 +507,7 @@ public class SessionSecurityService
         _memoryCache.Set(deviceSessionsKey, sessions, TimeSpan.FromHours(1));
     }
 
-    private async Task RemoveSessionTrackingAsync(PaymentSession sessionData)
+    private async Task RemoveSessionTrackingAsync(SecurityPaymentSession sessionData)
     {
         // Remove from IP tracking
         var ipSessionsKey = IP_SESSIONS_PREFIX + sessionData.ClientIp;
@@ -574,12 +574,12 @@ public class SessionValidationResult
     public string? FailureReason { get; set; }
     public bool RequiresNewSession { get; set; }
     public bool RequiresWarning { get; set; }
-    public PaymentSession? SessionData { get; set; }
+    public SecurityPaymentSession? SessionData { get; set; }
     public DateTime? ExpiresAt { get; set; }
     public DateTime? WarningAt { get; set; }
 }
 
-public class PaymentSession
+public class SecurityPaymentSession
 {
     public string SessionId { get; set; } = string.Empty;
     public string PaymentId { get; set; } = string.Empty;

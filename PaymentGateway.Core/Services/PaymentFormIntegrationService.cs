@@ -5,8 +5,8 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using PaymentGateway.Core.Entities;
-using PaymentGateway.Core.Enums;
 using PaymentGateway.Core.Interfaces;
+using PaymentGateway.Core.Repositories;
 using System.Text.Json;
 
 namespace PaymentGateway.Core.Services;
@@ -146,7 +146,7 @@ public class PaymentFormIntegrationService
             }
 
             // Validate payment status for form initialization
-            if (payment.Status != PaymentStatus.NEW)
+            if (payment.Status != Enums.PaymentStatus.NEW)
             {
                 _formIntegrationCounter.Add(1, new KeyValuePair<string, object?>("result", "invalid_payment_status"));
                 return new PaymentFormInitializationResult
@@ -325,7 +325,7 @@ public class PaymentFormIntegrationService
 
             // Get payment data
             var payment = await _paymentRepository.GetByPaymentIdAsync(request.PaymentId);
-            if (payment == null || payment.Status != PaymentStatus.NEW)
+            if (payment == null || payment.Status != Enums.PaymentStatus.NEW)
             {
                 _formIntegrationCounter.Add(1, new KeyValuePair<string, object?>("result", "payment_invalid"));
                 return new PaymentFormProcessingResult
@@ -354,7 +354,7 @@ public class PaymentFormIntegrationService
                 _formIntegrationCounter.Add(1, new KeyValuePair<string, object?>("result", "card_processing_failed"));
                 
                 // Notify subscribers of failure
-                await NotifyStatusUpdateAsync(request.PaymentId, PaymentStatus.FAILED, cardProcessingResult.ErrorMessage);
+                await NotifyStatusUpdateAsync(request.PaymentId, Enums.PaymentStatus.FAILED, cardProcessingResult.ErrorMessage);
 
                 return new PaymentFormProcessingResult
                 {
@@ -365,7 +365,7 @@ public class PaymentFormIntegrationService
             }
 
             // Update payment through lifecycle management
-            var lifecycleResult = await _lifecycleService.TransitionPaymentAsync(payment.Id, PaymentStatus.AUTHORIZED);
+            var lifecycleResult = await _lifecycleService.TransitionPaymentAsync(payment.Id, Enums.PaymentStatus.AUTHORIZED);
             if (!lifecycleResult.Success)
             {
                 context.ProcessingStage = PaymentFormProcessingStage.Failed;
@@ -391,7 +391,7 @@ public class PaymentFormIntegrationService
             };
 
             // Notify subscribers of success
-            await NotifyStatusUpdateAsync(request.PaymentId, PaymentStatus.AUTHORIZED, "Payment authorized successfully");
+            await NotifyStatusUpdateAsync(request.PaymentId, Enums.PaymentStatus.AUTHORIZED, "Payment authorized successfully");
 
             // Send webhook notification to merchant
             await _notificationService.SendNotificationAsync(new NotificationRequest
@@ -401,7 +401,7 @@ public class PaymentFormIntegrationService
                 PaymentId = payment.PaymentId,
                 Data = new Dictionary<string, object>
                 {
-                    ["Status"] = PaymentStatus.AUTHORIZED.ToString(),
+                    ["Status"] = Enums.PaymentStatus.AUTHORIZED.ToString(),
                     ["Amount"] = payment.Amount,
                     ["Currency"] = payment.Currency,
                     ["TransactionId"] = cardProcessingResult.TransactionId ?? ""
@@ -420,7 +420,7 @@ public class PaymentFormIntegrationService
                 Success = true,
                 PaymentId = request.PaymentId,
                 TransactionId = cardProcessingResult.TransactionId,
-                Status = PaymentStatus.AUTHORIZED,
+                Status = Enums.PaymentStatus.AUTHORIZED,
                 ProcessingDuration = stopwatch.Elapsed,
                 AdditionalData = context.ProcessingResult
             };
@@ -608,7 +608,7 @@ public class PaymentFormIntegrationService
 
     // Private helper methods
 
-    private async Task NotifyStatusUpdateAsync(string paymentId, PaymentStatus status, string? message = null)
+    private async Task NotifyStatusUpdateAsync(string paymentId, Enums.PaymentStatus status, string? message = null)
     {
         if (!_enableRealTimeUpdates)
             return;
@@ -638,14 +638,14 @@ public class PaymentFormIntegrationService
         }
     }
 
-    private string GetStatusDescription(PaymentStatus status) => status switch
+    private string GetStatusDescription(Enums.PaymentStatus status) => status switch
     {
-        PaymentStatus.NEW => "Payment initialized, ready for processing",
-        PaymentStatus.AUTHORIZED => "Payment authorized successfully",
-        PaymentStatus.CONFIRMED => "Payment confirmed and settled",
-        PaymentStatus.FAILED => "Payment processing failed",
-        PaymentStatus.CANCELLED => "Payment cancelled",
-        PaymentStatus.REFUNDED => "Payment refunded",
+        Enums.PaymentStatus.NEW => "Payment initialized, ready for processing",
+        Enums.PaymentStatus.AUTHORIZED => "Payment authorized successfully",
+        Enums.PaymentStatus.CONFIRMED => "Payment confirmed and settled",
+        Enums.PaymentStatus.FAILED => "Payment processing failed",
+        Enums.PaymentStatus.CANCELLED => "Payment cancelled",
+        Enums.PaymentStatus.REFUNDED => "Payment refunded",
         _ => status.ToString()
     };
 }
@@ -701,7 +701,7 @@ public class PaymentFormProcessingResult
     public bool Success { get; set; }
     public string? PaymentId { get; set; }
     public string? TransactionId { get; set; }
-    public PaymentStatus Status { get; set; }
+    public Enums.PaymentStatus Status { get; set; }
     public string? ErrorMessage { get; set; }
     public string? ErrorCode { get; set; }
     public TimeSpan ProcessingDuration { get; set; }
@@ -759,7 +759,7 @@ public class PaymentFormStatusResult
 {
     public bool Success { get; set; }
     public string? PaymentId { get; set; }
-    public PaymentStatus Status { get; set; }
+    public Enums.PaymentStatus Status { get; set; }
     public PaymentFormProcessingStage ProcessingStage { get; set; }
     public DateTime? LastUpdated { get; set; }
     public string? StatusDescription { get; set; }
@@ -767,10 +767,3 @@ public class PaymentFormStatusResult
     public Dictionary<string, object> AdditionalData { get; set; } = new();
 }
 
-public class NotificationRequest
-{
-    public Guid TeamId { get; set; }
-    public NotificationType NotificationType { get; set; }
-    public string PaymentId { get; set; } = string.Empty;
-    public Dictionary<string, object> Data { get; set; } = new();
-}

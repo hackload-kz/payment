@@ -177,7 +177,7 @@ public class SecureFormTokenService
     /// <summary>
     /// Validate a CSRF token
     /// </summary>
-    public async Task<TokenValidationResult> ValidateCsrfTokenAsync(CsrfTokenValidationRequest request)
+    public async Task<CsrfTokenValidationResult> ValidateCsrfTokenAsync(CsrfTokenValidationRequest request)
     {
         try
         {
@@ -189,7 +189,7 @@ public class SecureFormTokenService
             if (tokenData == null)
             {
                 _logger.LogWarning("Invalid CSRF token format for PaymentId: {PaymentId}", request.PaymentId);
-                return new TokenValidationResult
+                return new CsrfTokenValidationResult
                 {
                     IsValid = false,
                     FailureReason = "Invalid token format",
@@ -203,7 +203,7 @@ public class SecureFormTokenService
             {
                 _logger.LogWarning("CSRF token not found: {TokenId}, PaymentId: {PaymentId}",
                     tokenData.TokenId, request.PaymentId);
-                return new TokenValidationResult
+                return new CsrfTokenValidationResult
                 {
                     IsValid = false,
                     FailureReason = "Token not found or expired",
@@ -218,7 +218,7 @@ public class SecureFormTokenService
                     tokenData.TokenId, storedTokenData.ExpiresAt);
                 
                 await InvalidateTokenAsync(tokenData.TokenId);
-                return new TokenValidationResult
+                return new CsrfTokenValidationResult
                 {
                     IsValid = false,
                     FailureReason = "Token expired"
@@ -232,7 +232,7 @@ public class SecureFormTokenService
                     tokenData.TokenId, request.PaymentId);
                 
                 await InvalidateTokenAsync(tokenData.TokenId);
-                return new TokenValidationResult
+                return new CsrfTokenValidationResult
                 {
                     IsValid = false,
                     FailureReason = "Token already used",
@@ -246,7 +246,7 @@ public class SecureFormTokenService
                 _logger.LogWarning("Payment ID mismatch in CSRF token: {TokenId}, Expected: {Expected}, Actual: {Actual}",
                     tokenData.TokenId, storedTokenData.PaymentId, request.PaymentId);
                 
-                return new TokenValidationResult
+                return new CsrfTokenValidationResult
                 {
                     IsValid = false,
                     FailureReason = "Token payment ID mismatch",
@@ -260,7 +260,7 @@ public class SecureFormTokenService
                 _logger.LogWarning("IP address mismatch in CSRF token: {TokenId}, Expected: {Expected}, Actual: {Actual}",
                     tokenData.TokenId, storedTokenData.ClientIp, request.ClientIp);
                 
-                return new TokenValidationResult
+                return new CsrfTokenValidationResult
                 {
                     IsValid = false,
                     FailureReason = "IP address mismatch",
@@ -274,7 +274,7 @@ public class SecureFormTokenService
                 _logger.LogWarning("Session ID mismatch in CSRF token: {TokenId}, Expected: {Expected}, Actual: {Actual}",
                     tokenData.TokenId, storedTokenData.SessionId, request.SessionId);
                 
-                return new TokenValidationResult
+                return new CsrfTokenValidationResult
                 {
                     IsValid = false,
                     FailureReason = "Session mismatch",
@@ -289,7 +289,7 @@ public class SecureFormTokenService
                 _logger.LogWarning("Form action mismatch in CSRF token: {TokenId}, Expected: {Expected}, Actual: {Actual}",
                     tokenData.TokenId, storedTokenData.FormAction, request.FormAction);
                 
-                return new TokenValidationResult
+                return new CsrfTokenValidationResult
                 {
                     IsValid = false,
                     FailureReason = "Form action mismatch",
@@ -306,7 +306,7 @@ public class SecureFormTokenService
                     _logger.LogWarning("Unexpected form fields in CSRF token validation: {TokenId}, UnexpectedFields: {Fields}",
                         tokenData.TokenId, string.Join(", ", unexpectedFields));
                     
-                    return new TokenValidationResult
+                    return new CsrfTokenValidationResult
                     {
                         IsValid = false,
                         FailureReason = "Unexpected form fields detected",
@@ -326,7 +326,7 @@ public class SecureFormTokenService
             _logger.LogInformation("CSRF token validation successful: {TokenId}, PaymentId: {PaymentId}",
                 tokenData.TokenId, request.PaymentId);
 
-            return new TokenValidationResult
+            return new CsrfTokenValidationResult
             {
                 IsValid = true,
                 TokenData = storedTokenData
@@ -335,7 +335,7 @@ public class SecureFormTokenService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error validating CSRF token for PaymentId: {PaymentId}", request.PaymentId);
-            return new TokenValidationResult
+            return new CsrfTokenValidationResult
             {
                 IsValid = false,
                 FailureReason = "Token validation error",
@@ -700,7 +700,7 @@ public class FormTokenResult
     public string? ErrorMessage { get; set; }
 }
 
-public class TokenValidationResult
+public class CsrfTokenValidationResult
 {
     public bool IsValid { get; set; }
     public string? FailureReason { get; set; }

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Net.Http;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -221,14 +222,14 @@ public class AntiBotProtectionService
         };
     }
 
-    private async Task<ValidationResult> CheckRateLimit(string clientIp)
+    private async Task<AntiBotValidationResult> CheckRateLimit(string clientIp)
     {
         var rateLimitKey = $"antibot_rate:{clientIp}";
         var requestCount = _memoryCache.Get<int>(rateLimitKey);
         
         if (requestCount >= _maxRequestsPerMinute)
         {
-            return new ValidationResult
+            return new AntiBotValidationResult
             {
                 IsValid = false,
                 ValidationDetails = new List<string> { $"Rate limit exceeded: {requestCount} requests per minute" }
@@ -238,18 +239,18 @@ public class AntiBotProtectionService
         // Increment counter
         _memoryCache.Set(rateLimitKey, requestCount + 1, TimeSpan.FromMinutes(1));
         
-        return new ValidationResult
+        return new AntiBotValidationResult
         {
             IsValid = true,
             ValidationDetails = new List<string> { $"Rate limit OK: {requestCount + 1}/{_maxRequestsPerMinute}" }
         };
     }
 
-    private ValidationResult AnalyzeUserAgent(string userAgent)
+    private AntiBotValidationResult AnalyzeUserAgent(string userAgent)
     {
         if (string.IsNullOrWhiteSpace(userAgent))
         {
-            return new ValidationResult
+            return new AntiBotValidationResult
             {
                 IsValid = false,
                 ValidationDetails = new List<string> { "Missing User-Agent header" }
@@ -261,7 +262,7 @@ public class AntiBotProtectionService
         {
             if (userAgent.Contains(botPattern, StringComparison.OrdinalIgnoreCase))
             {
-                return new ValidationResult
+                return new AntiBotValidationResult
                 {
                     IsValid = false,
                     ValidationDetails = new List<string> { $"Bot-like User-Agent detected: {botPattern}" }
@@ -272,25 +273,25 @@ public class AntiBotProtectionService
         // Check for suspiciously short or long user agents
         if (userAgent.Length < 10 || userAgent.Length > 500)
         {
-            return new ValidationResult
+            return new AntiBotValidationResult
             {
                 IsValid = false,
                 ValidationDetails = new List<string> { $"Suspicious User-Agent length: {userAgent.Length}" }
             };
         }
 
-        return new ValidationResult
+        return new AntiBotValidationResult
         {
             IsValid = true,
             ValidationDetails = new List<string> { "User-Agent analysis passed" }
         };
     }
 
-    private ValidationResult ValidateHoneypot(Dictionary<string, string>? honeypotValues)
+    private AntiBotValidationResult ValidateHoneypot(Dictionary<string, string>? honeypotValues)
     {
         if (!_enableHoneypot || honeypotValues == null)
         {
-            return new ValidationResult { IsValid = true, ValidationDetails = new List<string>() };
+            return new AntiBotValidationResult { IsValid = true, ValidationDetails = new List<string>() };
         }
 
         // Honeypot fields should be empty (filled by bots but hidden from users)
@@ -300,7 +301,7 @@ public class AntiBotProtectionService
         {
             if (honeypotValues.TryGetValue(field, out var value) && !string.IsNullOrWhiteSpace(value))
             {
-                return new ValidationResult
+                return new AntiBotValidationResult
                 {
                     IsValid = false,
                     ValidationDetails = new List<string> { $"Honeypot field '{field}' was filled: {value}" }
@@ -308,23 +309,23 @@ public class AntiBotProtectionService
             }
         }
 
-        return new ValidationResult
+        return new AntiBotValidationResult
         {
             IsValid = true,
             ValidationDetails = new List<string> { "Honeypot validation passed" }
         };
     }
 
-    private async Task<ValidationResult> ValidateJavaScriptChallenge(string? challengeResponse, string paymentId)
+    private async Task<AntiBotValidationResult> ValidateJavaScriptChallenge(string? challengeResponse, string paymentId)
     {
         if (!_enableJsChallenge)
         {
-            return new ValidationResult { IsValid = true, ValidationDetails = new List<string>() };
+            return new AntiBotValidationResult { IsValid = true, ValidationDetails = new List<string>() };
         }
 
         if (string.IsNullOrWhiteSpace(challengeResponse))
         {
-            return new ValidationResult
+            return new AntiBotValidationResult
             {
                 IsValid = false,
                 ValidationDetails = new List<string> { "Missing JavaScript challenge response" }
@@ -334,7 +335,7 @@ public class AntiBotProtectionService
         var cacheKey = $"js_challenge:{paymentId}";
         if (!_memoryCache.TryGetValue(cacheKey, out string? storedChallenge))
         {
-            return new ValidationResult
+            return new AntiBotValidationResult
             {
                 IsValid = false,
                 ValidationDetails = new List<string> { "JavaScript challenge expired or not found" }
@@ -343,7 +344,7 @@ public class AntiBotProtectionService
 
         if (challengeResponse != storedChallenge)
         {
-            return new ValidationResult
+            return new AntiBotValidationResult
             {
                 IsValid = false,
                 ValidationDetails = new List<string> { "Invalid JavaScript challenge response" }
@@ -353,7 +354,7 @@ public class AntiBotProtectionService
         // Remove used challenge
         _memoryCache.Remove(cacheKey);
 
-        return new ValidationResult
+        return new AntiBotValidationResult
         {
             IsValid = true,
             ValidationDetails = new List<string> { "JavaScript challenge validation passed" }
@@ -427,7 +428,7 @@ public class AntiBotProtectionService
         }
     }
 
-    private async Task<ValidationResult> AnalyzeBehavior(AntiBotValidationRequest request)
+    private async Task<AntiBotValidationResult> AnalyzeBehavior(AntiBotValidationRequest request)
     {
         var details = new List<string>();
         var suspiciousIndicators = 0;
@@ -478,21 +479,21 @@ public class AntiBotProtectionService
 
         var isValid = suspiciousIndicators < 2; // Allow some suspicious behavior
 
-        return new ValidationResult
+        return new AntiBotValidationResult
         {
             IsValid = isValid,
             ValidationDetails = details
         };
     }
 
-    private ValidationResult AnalyzeDeviceFingerprint(DeviceFingerprint? fingerprint)
+    private AntiBotValidationResult AnalyzeDeviceFingerprint(DeviceFingerprint? fingerprint)
     {
         var details = new List<string>();
         
         if (fingerprint == null)
         {
             details.Add("No device fingerprint provided");
-            return new ValidationResult { IsValid = true, ValidationDetails = details };
+            return new AntiBotValidationResult { IsValid = true, ValidationDetails = details };
         }
 
         // Analyze fingerprint components
@@ -523,14 +524,14 @@ public class AntiBotProtectionService
             details.Add("No language detected (suspicious)");
         }
 
-        return new ValidationResult
+        return new AntiBotValidationResult
         {
             IsValid = suspiciousIndicators < 2,
             ValidationDetails = details
         };
     }
 
-    private double CalculateRiskScore(AntiBotValidationRequest request, params ValidationResult[] validationResults)
+    private double CalculateRiskScore(AntiBotValidationRequest request, params AntiBotValidationResult[] validationResults)
     {
         var riskScore = 0.0;
         var maxScore = 100.0;
@@ -584,13 +585,8 @@ public class AntiBotValidationResult
     public List<string> ValidationDetails { get; set; } = new();
 }
 
-public class ValidationResult
-{
-    public bool IsValid { get; set; }
-    public List<string> ValidationDetails { get; set; } = new();
-}
 
-public class CaptchaValidationResult : ValidationResult
+public class CaptchaValidationResult : AntiBotValidationResult
 {
     public string? FailureReason { get; set; }
     public double? Score { get; set; }

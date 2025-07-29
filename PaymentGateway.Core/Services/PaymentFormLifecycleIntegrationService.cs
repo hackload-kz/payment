@@ -4,8 +4,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using PaymentGateway.Core.Entities;
-using PaymentGateway.Core.Enums;
 using PaymentGateway.Core.Interfaces;
+using PaymentGateway.Core.Repositories;
 
 namespace PaymentGateway.Core.Services;
 
@@ -106,7 +106,7 @@ public class PaymentFormLifecycleIntegrationService
 
             // Validate current payment state for form initialization
             var stateValidation = await _stateValidationService.ValidateStateTransitionAsync(
-                payment.Id, payment.Status, PaymentStatus.NEW);
+                payment.Id, payment.Status, Enums.PaymentStatus.NEW);
 
             if (!stateValidation.IsValid)
             {
@@ -293,7 +293,7 @@ public class PaymentFormLifecycleIntegrationService
                     };
                 }
 
-                lifecycleContext.CurrentStatus = PaymentStatus.AUTHORIZED;
+                lifecycleContext.CurrentStatus = Enums.PaymentStatus.AUTHORIZED;
                 lifecycleContext.Operations.Add(new FormLifecycleOperation
                 {
                     OperationType = FormLifecycleOperationType.PaymentAuthorization,
@@ -551,7 +551,7 @@ public class PaymentFormLifecycleIntegrationService
             });
 
             // Transition payment to AUTHORIZED status
-            var transitionResult = await _lifecycleService.TransitionPaymentAsync(payment.Id, PaymentStatus.AUTHORIZED);
+            var transitionResult = await _lifecycleService.TransitionPaymentAsync(payment.Id, Enums.PaymentStatus.AUTHORIZED);
             if (!transitionResult.Success)
             {
                 return new OperationResult
@@ -601,7 +601,7 @@ public class PaymentFormLifecycleIntegrationService
         }
     }
 
-    private FormErrorRecoveryStrategy DetermineRecoveryStrategy(FormLifecycleErrorType errorType, PaymentStatus currentStatus)
+    private FormErrorRecoveryStrategy DetermineRecoveryStrategy(FormLifecycleErrorType errorType, Enums.PaymentStatus currentStatus)
     {
         return errorType switch
         {
@@ -635,7 +635,7 @@ public class PaymentFormLifecycleIntegrationService
                 {
                     Success = true,
                     ErrorMessage = "Session terminated for security",
-                    NewStatus = PaymentStatus.CANCELLED
+                    NewStatus = Enums.PaymentStatus.CANCELLED
                 },
                 FormErrorRecoveryStrategy.RequireReinitialization => new OperationResult
                 {
@@ -666,9 +666,9 @@ public class PaymentFormLifecycleIntegrationService
     {
         try
         {
-            if (payment.Status != PaymentStatus.NEW)
+            if (payment.Status != Enums.PaymentStatus.NEW)
             {
-                var resetResult = await _lifecycleService.TransitionPaymentAsync(payment.Id, PaymentStatus.NEW);
+                var resetResult = await _lifecycleService.TransitionPaymentAsync(payment.Id, Enums.PaymentStatus.NEW);
                 if (!resetResult.Success)
                 {
                     return new OperationResult
@@ -683,7 +683,7 @@ public class PaymentFormLifecycleIntegrationService
             {
                 Success = true,
                 ErrorMessage = "Payment reset to initial state",
-                NewStatus = PaymentStatus.NEW
+                NewStatus = Enums.PaymentStatus.NEW
             };
         }
         catch (Exception ex)
@@ -697,16 +697,16 @@ public class PaymentFormLifecycleIntegrationService
         }
     }
 
-    private List<string> GetNextAllowedOperations(PaymentStatus currentStatus)
+    private List<string> GetNextAllowedOperations(Enums.PaymentStatus currentStatus)
     {
         return currentStatus switch
         {
-            PaymentStatus.NEW => new List<string> { "SUBMIT_FORM", "CANCEL_PAYMENT" },
-            PaymentStatus.AUTHORIZED => new List<string> { "CONFIRM_PAYMENT", "CANCEL_PAYMENT" },
-            PaymentStatus.CONFIRMED => new List<string> { "REFUND_PAYMENT" },
-            PaymentStatus.FAILED => new List<string> { "RETRY_PAYMENT", "CANCEL_PAYMENT" },
-            PaymentStatus.CANCELLED => new List<string>(),
-            PaymentStatus.REFUNDED => new List<string>(),
+            Enums.PaymentStatus.NEW => new List<string> { "SUBMIT_FORM", "CANCEL_PAYMENT" },
+            Enums.PaymentStatus.AUTHORIZED => new List<string> { "CONFIRM_PAYMENT", "CANCEL_PAYMENT" },
+            Enums.PaymentStatus.CONFIRMED => new List<string> { "REFUND_PAYMENT" },
+            Enums.PaymentStatus.FAILED => new List<string> { "RETRY_PAYMENT", "CANCEL_PAYMENT" },
+            Enums.PaymentStatus.CANCELLED => new List<string>(),
+            Enums.PaymentStatus.REFUNDED => new List<string>(),
             _ => new List<string>()
         };
     }
@@ -792,7 +792,7 @@ public class PaymentFormLifecycleResult
     public bool Success { get; set; }
     public string? ErrorMessage { get; set; }
     public PaymentFormLifecycleContext? LifecycleContext { get; set; }
-    public PaymentStatus CurrentStatus { get; set; }
+    public Enums.PaymentStatus CurrentStatus { get; set; }
     public List<string> NextAllowedOperations { get; set; } = new();
 }
 
@@ -800,8 +800,8 @@ public class PaymentFormLifecycleContext
 {
     public string PaymentId { get; set; } = string.Empty;
     public Guid PaymentEntityId { get; set; }
-    public PaymentStatus InitialStatus { get; set; }
-    public PaymentStatus CurrentStatus { get; set; }
+    public Enums.PaymentStatus InitialStatus { get; set; }
+    public Enums.PaymentStatus CurrentStatus { get; set; }
     public string FormSessionId { get; set; } = string.Empty;
     public string ClientIp { get; set; } = string.Empty;
     public string UserAgent { get; set; } = string.Empty;
@@ -824,7 +824,7 @@ public class OperationResult
 {
     public bool Success { get; set; }
     public string? ErrorMessage { get; set; }
-    public PaymentStatus? NewStatus { get; set; }
+    public Enums.PaymentStatus? NewStatus { get; set; }
     public Dictionary<string, object>? AdditionalData { get; set; }
 }
 
@@ -832,6 +832,6 @@ public class RollbackOperation
 {
     public string OperationType { get; set; } = string.Empty;
     public string PaymentId { get; set; } = string.Empty;
-    public PaymentStatus OriginalStatus { get; set; }
+    public Enums.PaymentStatus OriginalStatus { get; set; }
     public Func<Task> ExecuteRollback { get; set; } = () => Task.CompletedTask;
 }
