@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PaymentGateway.Core.Configuration;
@@ -77,7 +78,7 @@ public class FeatureFlagsService : IFeatureFlagsService
             }
 
             // Check configuration
-            var configValue = await GetConfigurationValueAsync<bool>(featureName);
+            var configValue = await GetConfigurationValueAsync<bool?>(featureName);
             if (configValue.HasValue)
             {
                 _logger.LogDebug("Feature flag {FeatureName} resolved from configuration: {IsEnabled}",

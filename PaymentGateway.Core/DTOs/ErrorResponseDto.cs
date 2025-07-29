@@ -55,7 +55,7 @@ public class ErrorResponseDto
         };
     }
 
-    public static ErrorResponseDto Success(object? data = null, string? correlationId = null)
+    public static ErrorResponseDto CreateSuccess(object? data = null, string? correlationId = null)
     {
         return new ErrorResponseDto
         {

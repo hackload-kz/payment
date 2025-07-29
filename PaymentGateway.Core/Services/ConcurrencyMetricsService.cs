@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using PaymentGateway.Core.Interfaces;
 using Prometheus;
 using System.Collections.Concurrent;
 
@@ -287,7 +288,7 @@ public class ConcurrencyMonitoringBackgroundService : BackgroundService
             try
             {
                 // Update connection pool metrics
-                var poolStats = await _connectionPoolService.GetConnectionPoolStatsAsync();
+                var poolStats = await _connectionPoolService.GetMetricsAsync();
                 _metricsService.RecordConnectionPoolUsage(
                     poolStats.TotalConnections, 
                     poolStats.MaxPoolSize, 

@@ -25,7 +25,7 @@ public record PaymentQueueItem(
 public interface IPaymentQueueService
 {
     Task EnqueueAsync(PaymentQueueItem item, CancellationToken cancellationToken = default);
-    Task<bool> TryDequeueAsync(out PaymentQueueItem? item, CancellationToken cancellationToken = default);
+    Task<(bool Success, PaymentQueueItem? Item)> TryDequeueAsync(CancellationToken cancellationToken = default);
     int GetQueueLength();
     int GetProcessingCount();
 }
@@ -84,39 +84,37 @@ public class PaymentQueueService : IPaymentQueueService
         }
     }
 
-    public async Task<bool> TryDequeueAsync(out PaymentQueueItem? item, CancellationToken cancellationToken = default)
+    public async Task<(bool Success, PaymentQueueItem? Item)> TryDequeueAsync(CancellationToken cancellationToken = default)
     {
-        item = null;
-
         if (_processing.Count >= _options.MaxConcurrentProcessing)
         {
-            return false;
+            return (false, null);
         }
 
         try
         {
-            if (_reader.TryRead(out item))
+            if (_reader.TryRead(out var item))
             {
                 _processing.TryAdd(item.PaymentId, item);
                 _logger.LogDebug("Dequeued payment operation {Operation} for payment {PaymentId}", 
                     item.Operation, item.PaymentId);
-                return true;
+                return (true, item);
             }
 
             item = await _reader.ReadAsync(cancellationToken);
             _processing.TryAdd(item.PaymentId, item);
             _logger.LogDebug("Dequeued payment operation {Operation} for payment {PaymentId}", 
                 item.Operation, item.PaymentId);
-            return true;
+            return (true, item);
         }
         catch (OperationCanceledException)
         {
-            return false;
+            return (false, null);
         }
         catch (InvalidOperationException)
         {
             _logger.LogWarning("Queue reader has been completed");
-            return false;
+            return (false, null);
         }
     }
 
@@ -170,9 +168,10 @@ public class PaymentQueueBackgroundService : BackgroundService
         {
             try
             {
-                if (await _queueService.TryDequeueAsync(out var item, stoppingToken))
+                var dequeueResult = await _queueService.TryDequeueAsync(stoppingToken);
+                if (dequeueResult.Success && dequeueResult.Item != null)
                 {
-                    var processingTask = ProcessPaymentItemAsync(item!, stoppingToken);
+                    var processingTask = ProcessPaymentItemAsync(dequeueResult.Item, stoppingToken);
                     processingTasks.Add(processingTask);
 
                     processingTasks.RemoveAll(t => t.IsCompleted);

@@ -12,3 +12,10 @@ public interface IVersionedEntity
 {
     byte[] RowVersion { get; set; }
 }
+
+public interface ISoftDeletableEntity
+{
+    bool IsDeleted { get; set; }
+    DateTime? DeletedAt { get; set; }
+    string? DeletedBy { get; set; }
+}
