@@ -578,7 +578,7 @@ Create payment confirmation service:
 - ✅ Statistics and analytics for confirmation operations
 - ✅ Integration with PaymentLifecycleManagementService for state changes
 
-#### Task 25: Payment Status Check Service
+#### Task 25: Payment Status Check Service ✅ COMPLETED
 **Objective**: Implement payment status checking functionality.
 **Commands for Claude**:
 ```
@@ -593,6 +593,20 @@ Create payment status service:
 - Create status monitoring and alerting
 ```
 **References**: payment-check.md specification
+
+**Implementation Summary**:
+- ✅ Created comprehensive PaymentStatusCheckService.cs with full interface implementation
+- ✅ Implemented CheckOrder API endpoint following payment-check.md specification
+- ✅ Added efficient payment status querying with multiple lookup methods (OrderId, PaymentId, PaymentIdString)
+- ✅ Built comprehensive status caching using IMemoryCache with configurable expiration times
+- ✅ Implemented status change notification system with subscriber management
+- ✅ Created status history tracking with PaymentStatusHistory entity and audit capabilities
+- ✅ Built status-based business logic with final status detection and business rules
+- ✅ Added intelligent rate limiting with per-team and per-order limits
+- ✅ Comprehensive Prometheus metrics for status check operations, cache performance, and active payments monitoring
+- ✅ Rich status information with user-friendly descriptions and metadata
+- ✅ Support for payment status summaries and analytics
+- ✅ Integration with existing repository patterns and caching infrastructure
 
 #### Task 26: Payment Cancellation Service
 **Objective**: Implement payment cancellation with full refund support only.
