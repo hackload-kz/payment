@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title data-i18n="page_title">Secure Payment - HackLoad Payment Gateway</title>
+    
+    <!-- Security Headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; form-action 'self';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta name="referrer" content="no-referrer">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="/css/payment-form.css">
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/js/payment-form.js" as="script">
+    <link rel="preload" href="/js/payment-validation.js" as="script">
+    
+    <!-- OpenGraph meta tags for security -->
+    <meta property="og:title" content="Secure Payment">
+    <meta property="og:type" content="website">
+    <meta name="robots" content="noindex, nofollow">
+</head>
+<body class="payment-page">
+    <!-- Skip navigation for accessibility -->
+    <a href="#main-content" class="skip-nav" data-i18n="skip_to_content">Skip to main content</a>
+    
+    <!-- Header -->
+    <header class="payment-header" role="banner">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <img src="/images/hackload-logo.svg" alt="HackLoad Payment Gateway" class="logo-img">
+                    <span class="logo-text" data-i18n="payment_gateway">Payment Gateway</span>
+                </div>
+                <div class="security-indicators">
+                    <div class="ssl-indicator">
+                        <svg class="icon-lock" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M4 7V5a4 4 0 0 1 8 0v2h1a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h1zM6 5v2h4V5a2 2 0 1 0-4 0z"/>
+                        </svg>
+                        <span data-i18n="secure_connection">Secure Connection</span>
+                    </div>
+                    <div class="language-selector">
+                        <button type="button" class="language-toggle" aria-label="Change language" data-current-lang="en">
+                            <span class="language-flag">🇺🇸</span>
+                            <span class="language-code">EN</span>
+                        </button>
+                        <div class="language-dropdown" hidden>
+                            <button type="button" class="language-option" data-lang="en">
+                                <span class="language-flag">🇺🇸</span>
+                                <span>English</span>
+                            </button>
+                            <button type="button" class="language-option" data-lang="ru">
+                                <span class="language-flag">🇷🇺</span>
+                                <span>Русский</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="main-content" class="payment-main" role="main">
+        <div class="container">
+            <div class="payment-container">
+                
+                <!-- Payment Summary -->
+                <section class="payment-summary" aria-labelledby="payment-summary-title">
+                    <h1 id="payment-summary-title" data-i18n="payment_summary">Payment Summary</h1>
+                    <div class="summary-details">
+                        <div class="merchant-info">
+                            <div class="merchant-name" id="merchant-name">Sample Store</div>
+                            <div class="order-info">
+                                <span data-i18n="order_number">Order #:</span>
+                                <span id="order-id">ORDER-12345</span>
+                            </div>
+                        </div>
+                        <div class="amount-info">
+                            <div class="amount-display">
+                                <span class="currency" id="currency">RUB</span>
+                                <span class="amount" id="payment-amount">1,500.00</span>
+                            </div>
+                            <div class="amount-description" id="amount-description" data-i18n="total_amount">Total Amount</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Payment Items (if available) -->
+                    <details class="payment-items" id="payment-items-details">
+                        <summary data-i18n="view_order_details">View Order Details</summary>
+                        <div class="items-list" id="payment-items-list">
+                            <!-- Items will be populated by JavaScript -->
+                        </div>
+                    </details>
+                </section>
+
+                <!-- Payment Form -->
+                <section class="payment-form-section" aria-labelledby="payment-form-title">
+                    <h2 id="payment-form-title" data-i18n="payment_details">Payment Details</h2>
+                    
+                    <!-- Progress Indicator -->
+                    <div class="payment-progress" role="progressbar" aria-valuenow="1" aria-valuemin="1" aria-valuemax="3">
+                        <div class="progress-steps">
+                            <div class="progress-step active" data-step="1">
+                                <span class="step-number">1</span>
+                                <span class="step-label" data-i18n="payment_info">Payment Info</span>
+                            </div>
+                            <div class="progress-step" data-step="2">
+                                <span class="step-number">2</span>
+                                <span class="step-label" data-i18n="verification">Verification</span>
+                            </div>
+                            <div class="progress-step" data-step="3">
+                                <span class="step-number">3</span>
+                                <span class="step-label" data-i18n="confirmation">Confirmation</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Error/Success Messages -->
+                    <div class="alert-container" role="alert" aria-live="polite" aria-atomic="true">
+                        <div class="alert alert-error" id="error-message" hidden>
+                            <svg class="alert-icon" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+                                <path d="M10 0C4.48 0 0 4.48 0 10s4.48 10 10 10 10-4.48 10-10S15.52 0 10 0zm1 15H9v-2h2v2zm0-4H9V5h2v6z"/>
+                            </svg>
+                            <div class="alert-content">
+                                <div class="alert-title" data-i18n="error_occurred">An error occurred</div>
+                                <div class="alert-message" id="error-message-text"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-success" id="success-message" hidden>
+                            <svg class="alert-icon" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+                                <path d="M10 0C4.48 0 0 4.48 0 10s4.48 10 10 10 10-4.48 10-10S15.52 0 10 0zm-2 15l-5-5 1.41-1.41L8 12.17l7.59-7.59L17 6l-9 9z"/>
+                            </svg>
+                            <div class="alert-content">
+                                <div class="alert-title" data-i18n="success">Success</div>
+                                <div class="alert-message" id="success-message-text"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Form -->
+                    <form id="payment-form" class="payment-form" novalidate aria-label="Payment form">
+                        <!-- Hidden fields for security -->
+                        <input type="hidden" name="payment_token" id="payment_token" value="">
+                        <input type="hidden" name="session_id" id="session_id" value="">
+                        <input type="hidden" name="csrf_token" id="csrf_token" value="">
+                        
+                        <!-- Card Information -->
+                        <fieldset class="form-fieldset" aria-labelledby="card-info-legend">
+                            <legend id="card-info-legend" data-i18n="card_information">Card Information</legend>
+                            
+                            <div class="form-row">
+                                <div class="form-group full-width">
+                                    <label for="card_number" class="form-label required" data-i18n="card_number">
+                                        Card Number
+                                    </label>
+                                    <div class="input-container">
+                                        <input 
+                                            type="text" 
+                                            id="card_number" 
+                                            name="card_number" 
+                                            class="form-input card-input" 
+                                            placeholder="0000 0000 0000 0000"
+                                            maxlength="19"
+                                            autocomplete="cc-number"
+                                            inputmode="numeric"
+                                            pattern="[0-9\s]{13,19}"
+                                            required
+                                            aria-describedby="card_number_help card_number_error"
+                                            data-testid="card-number-input">
+                                        <div class="card-type-indicator" id="card_type_indicator" aria-hidden="true">
+                                            <img src="/images/cards/unknown.svg" alt="" class="card-type-icon" id="card_type_icon">
+                                        </div>
+                                    </div>
+                                    <div class="form-help" id="card_number_help" data-i18n="card_number_help">
+                                        Enter your 13-19 digit card number
+                                    </div>
+                                    <div class="form-error" id="card_number_error" role="alert" aria-live="polite"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group half-width">
+                                    <label for="expiry_date" class="form-label required" data-i18n="expiry_date">
+                                        Expiry Date
+                                    </label>
+                                    <div class="input-container">
+                                        <input 
+                                            type="text" 
+                                            id="expiry_date" 
+                                            name="expiry_date" 
+                                            class="form-input" 
+                                            placeholder="MM/YY"
+                                            maxlength="5"
+                                            autocomplete="cc-exp"
+                                            inputmode="numeric"
+                                            pattern="[0-9]{2}/[0-9]{2}"
+                                            required
+                                            aria-describedby="expiry_date_help expiry_date_error"
+                                            data-testid="expiry-date-input">
+                                    </div>
+                                    <div class="form-help" id="expiry_date_help" data-i18n="expiry_date_help">
+                                        MM/YY format
+                                    </div>
+                                    <div class="form-error" id="expiry_date_error" role="alert" aria-live="polite"></div>
+                                </div>
+
+                                <div class="form-group half-width">
+                                    <label for="cvv" class="form-label required" data-i18n="cvv">
+                                        CVV
+                                    </label>
+                                    <div class="input-container">
+                                        <input 
+                                            type="text" 
+                                            id="cvv" 
+                                            name="cvv" 
+                                            class="form-input" 
+                                            placeholder="123"
+                                            maxlength="4"
+                                            autocomplete="cc-csc"
+                                            inputmode="numeric"
+                                            pattern="[0-9]{3,4}"
+                                            required
+                                            aria-describedby="cvv_help cvv_error"
+                                            data-testid="cvv-input">
+                                        <button type="button" class="cvv-help-button" aria-label="CVV help" data-testid="cvv-help-button">
+                                            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                                                <path d="M8 0C3.58 0 0 3.58 0 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm1 13H7v-2h2v2zm0-3H7V4h2v6z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <div class="form-help" id="cvv_help" data-i18n="cvv_help">
+                                        3-4 digit security code
+                                    </div>
+                                    <div class="form-error" id="cvv_error" role="alert" aria-live="polite"></div>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <!-- Cardholder Information -->
+                        <fieldset class="form-fieldset" aria-labelledby="cardholder-info-legend">
+                            <legend id="cardholder-info-legend" data-i18n="cardholder_information">Cardholder Information</legend>
+                            
+                            <div class="form-row">
+                                <div class="form-group full-width">
+                                    <label for="cardholder_name" class="form-label required" data-i18n="cardholder_name">
+                                        Cardholder Name
+                                    </label>
+                                    <div class="input-container">
+                                        <input 
+                                            type="text" 
+                                            id="cardholder_name" 
+                                            name="cardholder_name" 
+                                            class="form-input" 
+                                            placeholder="John Doe"
+                                            maxlength="100"
+                                            autocomplete="cc-name"
+                                            pattern="[A-Za-z\s\-\.]{2,100}"
+                                            required
+                                            aria-describedby="cardholder_name_help cardholder_name_error"
+                                            data-testid="cardholder-name-input">
+                                    </div>
+                                    <div class="form-help" id="cardholder_name_help" data-i18n="cardholder_name_help">
+                                        Name as it appears on your card
+                                    </div>
+                                    <div class="form-error" id="cardholder_name_error" role="alert" aria-live="polite"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group half-width">
+                                    <label for="email" class="form-label required" data-i18n="email">
+                                        Email Address
+                                    </label>
+                                    <div class="input-container">
+                                        <input 
+                                            type="email" 
+                                            id="email" 
+                                            name="email" 
+                                            class="form-input" 
+                                            placeholder="john@example.com"
+                                            maxlength="100"
+                                            autocomplete="email"
+                                            required
+                                            aria-describedby="email_help email_error"
+                                            data-testid="email-input">
+                                    </div>
+                                    <div class="form-help" id="email_help" data-i18n="email_help">
+                                        For payment confirmation
+                                    </div>
+                                    <div class="form-error" id="email_error" role="alert" aria-live="polite"></div>
+                                </div>
+
+                                <div class="form-group half-width">
+                                    <label for="phone" class="form-label" data-i18n="phone">
+                                        Phone Number (Optional)
+                                    </label>
+                                    <div class="input-container">
+                                        <input 
+                                            type="tel" 
+                                            id="phone" 
+                                            name="phone" 
+                                            class="form-input" 
+                                            placeholder="+7 (900) 123-45-67"
+                                            maxlength="20"
+                                            autocomplete="tel"
+                                            pattern="[\+]?[0-9\s\-\(\)]{10,20}"
+                                            aria-describedby="phone_help phone_error"
+                                            data-testid="phone-input">
+                                    </div>
+                                    <div class="form-help" id="phone_help" data-i18n="phone_help">
+                                        For SMS notifications
+                                    </div>
+                                    <div class="form-error" id="phone_error" role="alert" aria-live="polite"></div>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <!-- Security and Agreement -->
+                        <fieldset class="form-fieldset" aria-labelledby="agreement-legend">
+                            <legend id="agreement-legend" data-i18n="agreement_and_security">Agreement and Security</legend>
+                            
+                            <div class="form-row">
+                                <div class="form-group full-width">
+                                    <div class="checkbox-group">
+                                        <input 
+                                            type="checkbox" 
+                                            id="save_card" 
+                                            name="save_card" 
+                                            class="form-checkbox"
+                                            aria-describedby="save_card_help"
+                                            data-testid="save-card-checkbox">
+                                        <label for="save_card" class="checkbox-label" data-i18n="save_card">
+                                            Save card for future payments
+                                        </label>
+                                    </div>
+                                    <div class="form-help" id="save_card_help" data-i18n="save_card_help">
+                                        Your card will be securely tokenized and stored
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group full-width">
+                                    <div class="checkbox-group">
+                                        <input 
+                                            type="checkbox" 
+                                            id="terms_agreement" 
+                                            name="terms_agreement" 
+                                            class="form-checkbox"
+                                            required
+                                            aria-describedby="terms_agreement_error"
+                                            data-testid="terms-agreement-checkbox">
+                                        <label for="terms_agreement" class="checkbox-label required" data-i18n="terms_agreement">
+                                            I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>
+                                        </label>
+                                    </div>
+                                    <div class="form-error" id="terms_agreement_error" role="alert" aria-live="polite"></div>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <!-- Submit Button -->
+                        <div class="form-actions">
+                            <button 
+                                type="submit" 
+                                class="btn btn-primary btn-payment" 
+                                id="submit_payment"
+                                disabled
+                                data-testid="submit-payment-button">
+                                <span class="btn-content">
+                                    <svg class="btn-icon" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+                                        <path d="M4 7V5a4 4 0 0 1 8 0v2h1a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h1zM6 5v2h4V5a2 2 0 1 0-4 0z"/>
+                                    </svg>
+                                    <span class="btn-text" data-i18n="pay_now">Pay Now</span>
+                                    <span class="btn-amount">
+                                        <span id="submit_currency">RUB</span>
+                                        <span id="submit_amount">1,500.00</span>
+                                    </span>
+                                </span>
+                                <span class="btn-loading" hidden>
+                                    <svg class="loading-spinner" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+                                        <circle cx="10" cy="10" r="8" stroke-width="2" stroke="currentColor" fill="none" opacity="0.25"/>
+                                        <path d="M10 2a8 8 0 0 1 8 8" stroke="currentColor" stroke-width="2" fill="none"/>
+                                    </svg>
+                                    <span data-i18n="processing">Processing...</span>
+                                </span>
+                            </button>
+                            
+                            <button type="button" class="btn btn-secondary btn-cancel" id="cancel_payment" data-testid="cancel-payment-button">
+                                <span data-i18n="cancel">Cancel</span>
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Security Information -->
+                <section class="security-info" aria-labelledby="security-info-title">
+                    <h3 id="security-info-title" data-i18n="security_info">Security Information</h3>
+                    <div class="security-features">
+                        <div class="security-feature">
+                            <svg class="security-icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                            </svg>
+                            <div class="security-text">
+                                <div class="security-title" data-i18n="ssl_encryption">256-bit SSL Encryption</div>
+                                <div class="security-description" data-i18n="ssl_description">Your data is encrypted and secure</div>
+                            </div>
+                        </div>
+                        
+                        <div class="security-feature">
+                            <svg class="security-icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L17 8l-9 9z"/>
+                            </svg>
+                            <div class="security-text">
+                                <div class="security-title" data-i18n="pci_compliance">PCI DSS Compliant</div>
+                                <div class="security-description" data-i18n="pci_description">Meets industry security standards</div>
+                            </div>
+                        </div>
+                        
+                        <div class="security-feature">
+                            <svg class="security-icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <div class="security-text">
+                                <div class="security-title" data-i18n="fraud_protection">Fraud Protection</div>
+                                <div class="security-description" data-i18n="fraud_description">Advanced security monitoring</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="payment-footer" role="contentinfo">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-links">
+                    <a href="/help" data-i18n="help">Help</a>
+                    <a href="/contact" data-i18n="contact">Contact</a>
+                    <a href="/terms" data-i18n="terms">Terms</a>
+                    <a href="/privacy" data-i18n="privacy">Privacy</a>
+                </div>
+                <div class="footer-info">
+                    <span data-i18n="powered_by">Powered by</span>
+                    <strong>HackLoad Payment Gateway</strong>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- CVV Help Modal -->
+    <div class="modal" id="cvv_help_modal" role="dialog" aria-labelledby="cvv_help_modal_title" aria-hidden="true">
+        <div class="modal-backdrop" data-modal-close></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 id="cvv_help_modal_title" data-i18n="cvv_help_title">Where to find CVV</h4>
+                <button type="button" class="modal-close" data-modal-close aria-label="Close modal">
+                    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="cvv-explanation">
+                    <div class="cvv-card-example">
+                        <img src="/images/cvv-example.svg" alt="CVV location on card" class="cvv-example-img">
+                    </div>
+                    <p data-i18n="cvv_explanation">
+                        The CVV (Card Verification Value) is a 3 or 4 digit security code on your card:
+                    </p>
+                    <ul>
+                        <li data-i18n="cvv_visa_mc">Visa/MasterCard: 3 digits on the back</li>
+                        <li data-i18n="cvv_amex">American Express: 4 digits on the front</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="/js/payment-validation.js"></script>
+    <script src="/js/payment-localization.js"></script>
+    <script src="/js/payment-form.js"></script>
+    
+    <!-- Performance monitoring -->
+    <script>
+        if (window.performance && window.performance.mark) {
+            window.performance.mark('payment-form-loaded');
+        }
+    </script>
+</body>
+</html>
