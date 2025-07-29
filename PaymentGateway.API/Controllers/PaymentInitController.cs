@@ -3,96 +3,265 @@ using Microsoft.AspNetCore.Authorization;
 using PaymentGateway.Core.DTOs.PaymentInit;
 using PaymentGateway.Core.Services;
 using PaymentGateway.Core.Validation.Simplified;
+using PaymentGateway.API.Middleware;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
+using Prometheus;
 
 namespace PaymentGateway.API.Controllers;
 
 /// <summary>
-/// Payment initialization API controller
+/// Payment initialization API controller with comprehensive validation, authentication, and monitoring
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 [Produces("application/json")]
 [Tags("Payment Initialization")]
+[ServiceFilter(typeof(PaymentAuthenticationMiddleware))]
+[ServiceFilter(typeof(AuthenticationRateLimitingMiddleware))]
 public class PaymentInitController : ControllerBase
 {
     private readonly IPaymentInitializationService _paymentInitializationService;
     private readonly IValidationFramework _validationFramework;
+    private readonly IPaymentAuthenticationService _authenticationService;
+    private readonly IBusinessRuleEngineService _businessRuleEngineService;
     private readonly ILogger<PaymentInitController> _logger;
+    
+    // Metrics for monitoring
+    private static readonly Counter PaymentInitRequests = Metrics
+        .CreateCounter("payment_init_requests_total", "Total payment initialization requests", new[] { "team_id", "result", "currency" });
+    
+    private static readonly Histogram PaymentInitDuration = Metrics
+        .CreateHistogram("payment_init_duration_seconds", "Payment initialization request duration");
+    
+    private static readonly Counter PaymentInitAmount = Metrics
+        .CreateCounter("payment_init_amount_total", "Total payment initialization amount", new[] { "team_id", "currency" });
+    
+    private static readonly Gauge ActivePaymentInits = Metrics
+        .CreateGauge("active_payment_inits_total", "Total active payment initializations", new[] { "team_id" });
 
     public PaymentInitController(
         IPaymentInitializationService paymentInitializationService,
         IValidationFramework validationFramework,
+        IPaymentAuthenticationService authenticationService,
+        IBusinessRuleEngineService businessRuleEngineService,
         ILogger<PaymentInitController> logger)
     {
         _paymentInitializationService = paymentInitializationService;
         _validationFramework = validationFramework;
+        _authenticationService = authenticationService;
+        _businessRuleEngineService = businessRuleEngineService;
         _logger = logger;
     }
 
     /// <summary>
-    /// Initialize a new payment
+    /// Initialize a new payment with comprehensive validation and business rule evaluation
+    /// 
+    /// This endpoint creates a new payment session with full validation, authentication, and business rule checking.
+    /// It supports various payment methods including cards, bank transfers, and wallets.
+    /// 
+    /// ## Features:
+    /// - Comprehensive request validation
+    /// - Team authentication and authorization
+    /// - Business rule evaluation and compliance checking
+    /// - Rate limiting protection
+    /// - Performance monitoring and tracing
+    /// - Detailed error reporting with specific error codes
+    /// 
+    /// ## Authentication:
+    /// Requires valid TeamSlug and Token for authentication. The token should be generated using HMAC-SHA256
+    /// with the team's secret key and include timestamp for replay protection.
+    /// 
+    /// ## Rate Limiting:
+    /// - 100 requests per minute per team for initialization
+    /// - Sliding window rate limiting with burst protection
+    /// 
+    /// ## Business Rules:
+    /// - Payment amount limits (10 RUB - 1,000,000 RUB)
+    /// - Currency restrictions (RUB, USD, EUR)
+    /// - Team-specific payment rules and restrictions
+    /// - Fraud detection and prevention rules
     /// </summary>
-    /// <param name="request">Payment initialization request</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Payment initialization response</returns>
-    /// <response code="200">Payment initialized successfully</response>
-    /// <response code="400">Invalid request parameters</response>
-    /// <response code="401">Authentication failed</response>
-    /// <response code="403">Authorization failed</response>
-    /// <response code="429">Rate limit exceeded</response>
-    /// <response code="500">Internal server error</response>
+    /// <param name="request">Payment initialization request containing all payment details</param>
+    /// <param name="cancellationToken">Cancellation token for request timeout handling</param>
+    /// <returns>Payment initialization response with payment URL and session details</returns>
+    /// <response code="200">Payment initialized successfully - returns payment URL and session information</response>
+    /// <response code="400">Invalid request parameters or validation failed - check Details for specific validation errors</response>
+    /// <response code="401">Authentication failed - invalid TeamSlug or Token</response>
+    /// <response code="403">Authorization failed - team access denied or insufficient permissions</response>
+    /// <response code="422">Business rule violation - payment violates configured business rules</response>
+    /// <response code="429">Rate limit exceeded - too many requests, includes retry-after header</response>
+    /// <response code="500">Internal server error - unexpected system error occurred</response>
+    /// <remarks>
+    /// ### Example Request:
+    /// ```json
+    /// {
+    ///   "teamSlug": "my-store",
+    ///   "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+    ///   "amount": 150000,
+    ///   "orderId": "order-12345",
+    ///   "currency": "RUB",
+    ///   "description": "Book purchase",
+    ///   "successURL": "https://mystore.com/success",
+    ///   "failURL": "https://mystore.com/fail",
+    ///   "notificationURL": "https://mystore.com/webhook",
+    ///   "paymentExpiry": 30,
+    ///   "email": "customer@example.com",
+    ///   "language": "ru"
+    /// }
+    /// ```
+    /// 
+    /// ### Example Response:
+    /// ```json
+    /// {
+    ///   "success": true,
+    ///   "paymentId": "pay_123456789",
+    ///   "orderId": "order-12345",
+    ///   "status": "NEW",
+    ///   "amount": 150000,
+    ///   "currency": "RUB",
+    ///   "paymentURL": "https://gateway.hackload.com/payment/pay_123456789",
+    ///   "expiresAt": "2025-01-30T12:30:00Z",
+    ///   "createdAt": "2025-01-30T12:00:00Z"
+    /// }
+    /// ```
+    /// 
+    /// ### Error Codes:
+    /// - **1000**: Invalid request body
+    /// - **1001**: Authentication failed
+    /// - **1100**: Validation failed
+    /// - **1422**: Business rule violation
+    /// - **1429**: Rate limit exceeded
+    /// - **9999**: Internal server error
+    /// </remarks>
     [HttpPost("init")]
     [ProducesResponseType(typeof(PaymentInitResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(PaymentInitResponseDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(PaymentInitResponseDto), StatusCodes.Status422UnprocessableEntity)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     [ProducesResponseType(typeof(PaymentInitResponseDto), StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<PaymentInitResponseDto>> InitializePayment(
         [FromBody] PaymentInitRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        var requestId = Guid.NewGuid().ToString();
+        using var activity = PaymentInitDuration.NewTimer();
+        using var activitySource = new ActivitySource("PaymentGateway.API");
+        using var traceActivity = activitySource.StartActivity("PaymentInit.InitializePayment");
         
-        _logger.LogInformation("Payment initialization request received. RequestId: {RequestId}, OrderId: {OrderId}, TeamSlug: {TeamSlug}", 
-            requestId, request?.OrderId, request?.TeamSlug);
+        var requestId = Guid.NewGuid().ToString();
+        var startTime = DateTime.UtcNow;
+        var teamId = HttpContext.Items["TeamId"] as int? ?? 0;
+        var teamSlug = HttpContext.Items["TeamSlug"] as string ?? "";
+        
+        traceActivity?.SetTag("payment.request_id", requestId);
+        traceActivity?.SetTag("payment.team_id", teamId.ToString());
+        traceActivity?.SetTag("payment.team_slug", teamSlug);
+        
+        _logger.LogInformation("Payment initialization request received. RequestId: {RequestId}, OrderId: {OrderId}, TeamSlug: {TeamSlug}, Amount: {Amount}", 
+            requestId, request?.OrderId, teamSlug, request?.Amount);
 
         try
         {
+            ActivePaymentInits.WithLabels(teamId.ToString()).Inc();
+            
             // 1. Validate request model
             if (request == null)
             {
+                PaymentInitRequests.WithLabels(teamId.ToString(), "null_request", "").Inc();
                 _logger.LogWarning("Payment initialization request is null. RequestId: {RequestId}", requestId);
                 return BadRequest(CreateErrorResponse("1000", "Invalid request", "Request body is required"));
             }
+            
+            traceActivity?.SetTag("payment.order_id", request.OrderId);
+            traceActivity?.SetTag("payment.amount", request.Amount.ToString());
+            traceActivity?.SetTag("payment.currency", request.Currency);
 
-            // 2. Basic validation using validation framework
-            if (!_validationFramework.IsValid(request))
+            // 2. Comprehensive validation using validation framework
+            var validationResult = await ValidatePaymentInitRequestAsync(request, teamId, cancellationToken);
+            if (!validationResult.IsValid)
             {
-                var validationErrors = _validationFramework.GetValidationErrors(request);
-                var errorMessage = string.Join("; ", validationErrors);
+                PaymentInitRequests.WithLabels(teamId.ToString(), "validation_failed", request.Currency).Inc();
+                var errorMessage = string.Join("; ", validationResult.Errors);
                 
                 _logger.LogWarning("Payment initialization request validation failed. RequestId: {RequestId}, Errors: {Errors}", 
+                    requestId, errorMessage);
+                
+                traceActivity?.SetTag("payment.validation_error", errorMessage);
+                return BadRequest(CreateErrorResponse("1100", "Validation failed", errorMessage));
+            }
+            
+            // Additional framework validation
+            if (!_validationFramework.IsValid(request))
+            {
+                var frameworkErrors = _validationFramework.GetValidationErrors(request);
+                var errorMessage = string.Join("; ", frameworkErrors);
+                
+                PaymentInitRequests.WithLabels(teamId.ToString(), "framework_validation_failed", request.Currency).Inc();
+                _logger.LogWarning("Payment initialization framework validation failed. RequestId: {RequestId}, Errors: {Errors}", 
                     requestId, errorMessage);
                 
                 return BadRequest(CreateErrorResponse("1100", "Validation failed", errorMessage));
             }
 
-            // 3. Authenticate request (TeamSlug and Token validation)
-            var authResult = await AuthenticateRequestAsync(request, cancellationToken);
+            // 3. Enhanced authentication using middleware and service
+            var authContext = new AuthenticationContext
+            {
+                TeamSlug = request.TeamSlug,
+                Token = request.Token,
+                RequestId = requestId,
+                ClientIp = GetClientIpAddress(),
+                UserAgent = Request.Headers.UserAgent.ToString(),
+                RequestPath = Request.Path,
+                Timestamp = DateTime.UtcNow
+            };
+            
+            var authResult = await _authenticationService.AuthenticateAsync(authContext, cancellationToken);
             if (!authResult.IsAuthenticated)
             {
+                PaymentInitRequests.WithLabels(teamId.ToString(), "auth_failed", request.Currency).Inc();
                 _logger.LogWarning("Payment initialization authentication failed. RequestId: {RequestId}, TeamSlug: {TeamSlug}, Reason: {Reason}", 
                     requestId, request.TeamSlug, authResult.FailureReason);
                 
-                return Unauthorized(CreateErrorResponse("1001", "Authentication failed", authResult.FailureReason));
+                traceActivity?.SetTag("payment.auth_error", authResult.FailureReason ?? "");
+                return Unauthorized(CreateErrorResponse("1001", "Authentication failed", authResult.FailureReason ?? "Authentication failed"));
             }
 
-            // 4. Rate limiting check
+            // 4. Business rule evaluation
+            var businessRuleContext = new PaymentRuleContext
+            {
+                TeamId = teamId,
+                Amount = request.Amount,
+                Currency = request.Currency,
+                PaymentMethod = "CARD", // Default to card payment
+                OrderId = request.OrderId,
+                ClientIp = GetClientIpAddress(),
+                UserAgent = Request.Headers.UserAgent.ToString(),
+                CustomerKey = request.CustomerKey,
+                Email = request.Email,
+                Phone = request.Phone,
+                Metadata = request.Data?.ToDictionary(k => k.Key, k => (object)k.Value) ?? new Dictionary<string, object>()
+            };
+            
+            var ruleEvaluationResult = await _businessRuleEngineService.EvaluatePaymentRulesAsync(businessRuleContext, cancellationToken);
+            if (!ruleEvaluationResult.IsValid)
+            {
+                PaymentInitRequests.WithLabels(teamId.ToString(), "rule_violation", request.Currency).Inc();
+                var ruleErrors = string.Join("; ", ruleEvaluationResult.Errors);
+                
+                _logger.LogWarning("Payment initialization rule violation. RequestId: {RequestId}, Rules: {ViolatedRules}", 
+                    requestId, string.Join("; ", ruleEvaluationResult.ViolatedRules.Select(r => r.RuleName)));
+                
+                traceActivity?.SetTag("payment.rule_violations", ruleErrors);
+                return UnprocessableEntity(CreateErrorResponse("1422", "Business rule violation", ruleErrors));
+            }
+            
+            // 5. Rate limiting check (handled by middleware but double-check critical operations)
             var rateLimitResult = await CheckRateLimitAsync(request.TeamSlug, cancellationToken);
             if (!rateLimitResult.IsAllowed)
             {
+                PaymentInitRequests.WithLabels(teamId.ToString(), "rate_limited", request.Currency).Inc();
                 _logger.LogWarning("Payment initialization rate limit exceeded. RequestId: {RequestId}, TeamSlug: {TeamSlug}", 
                     requestId, request.TeamSlug);
                 
@@ -100,21 +269,50 @@ public class PaymentInitController : ControllerBase
                     CreateErrorResponse("1429", "Rate limit exceeded", "Too many requests. Please try again later."));
             }
 
-            // 5. Initialize payment using the service
-            var response = await _paymentInitializationService.InitializePaymentAsync(request, cancellationToken);
+            // 6. Initialize payment using the service with enhanced context
+            var enhancedRequest = EnhanceRequestWithContext(request, requestId, teamId, teamSlug, GetClientIpAddress(), Request.Headers.UserAgent.ToString());
+            var response = await _paymentInitializationService.InitializePaymentAsync(enhancedRequest, cancellationToken);
 
-            // 6. Log result and return response
+            // 7. Update metrics and log result
+            var processingDuration = DateTime.UtcNow - startTime;
+            
             if (response.Success)
             {
-                _logger.LogInformation("Payment initialization successful. RequestId: {RequestId}, PaymentId: {PaymentId}, OrderId: {OrderId}", 
-                    requestId, response.PaymentId, response.OrderId);
+                PaymentInitRequests.WithLabels(teamId.ToString(), "success", request.Currency).Inc();
+                PaymentInitAmount.WithLabels(teamId.ToString(), request.Currency).Inc((double)request.Amount);
+                
+                // Enhance response with additional metadata
+                response.Details = new PaymentDetailsDto
+                {
+                    Description = request.Description,
+                    PayType = request.PayType,
+                    Language = request.Language,
+                    RedirectMethod = request.RedirectMethod,
+                    SuccessURL = request.SuccessURL,
+                    FailURL = request.FailURL,
+                    NotificationURL = request.NotificationURL,
+                    Data = request.Data,
+                    Items = request.Items
+                };
+                
+                _logger.LogInformation("Payment initialization successful. RequestId: {RequestId}, PaymentId: {PaymentId}, OrderId: {OrderId}, Amount: {Amount}, Duration: {Duration}ms", 
+                    requestId, response.PaymentId, response.OrderId, request.Amount, processingDuration.TotalMilliseconds);
+                
+                traceActivity?.SetTag("payment.success", "true");
+                traceActivity?.SetTag("payment.payment_id", response.PaymentId ?? "");
+                traceActivity?.SetTag("payment.duration_ms", processingDuration.TotalMilliseconds.ToString());
                 
                 return Ok(response);
             }
             else
             {
-                _logger.LogWarning("Payment initialization failed. RequestId: {RequestId}, ErrorCode: {ErrorCode}, Message: {Message}", 
-                    requestId, response.ErrorCode, response.Message);
+                PaymentInitRequests.WithLabels(teamId.ToString(), "service_failed", request.Currency).Inc();
+                _logger.LogWarning("Payment initialization failed. RequestId: {RequestId}, ErrorCode: {ErrorCode}, Message: {Message}, Duration: {Duration}ms", 
+                    requestId, response.ErrorCode, response.Message, processingDuration.TotalMilliseconds);
+                
+                traceActivity?.SetTag("payment.success", "false");
+                traceActivity?.SetTag("payment.error_code", response.ErrorCode ?? "");
+                traceActivity?.SetTag("payment.error_message", response.Message ?? "");
                 
                 // Return appropriate HTTP status based on error code
                 var statusCode = GetHttpStatusCodeFromErrorCode(response.ErrorCode);
@@ -123,25 +321,44 @@ public class PaymentInitController : ControllerBase
         }
         catch (ValidationException ex)
         {
+            PaymentInitRequests.WithLabels(teamId.ToString(), "validation_exception", request?.Currency ?? "").Inc();
             _logger.LogError(ex, "Validation error during payment initialization. RequestId: {RequestId}", requestId);
+            traceActivity?.SetTag("payment.error", "validation_exception");
             return BadRequest(CreateErrorResponse("1100", "Validation error", ex.Message));
         }
         catch (UnauthorizedAccessException ex)
         {
+            PaymentInitRequests.WithLabels(teamId.ToString(), "unauthorized_exception", request?.Currency ?? "").Inc();
             _logger.LogError(ex, "Authorization error during payment initialization. RequestId: {RequestId}", requestId);
+            traceActivity?.SetTag("payment.error", "unauthorized_exception");
             return Unauthorized(CreateErrorResponse("1001", "Authorization error", ex.Message));
         }
         catch (TimeoutException ex)
         {
+            PaymentInitRequests.WithLabels(teamId.ToString(), "timeout_exception", request?.Currency ?? "").Inc();
             _logger.LogError(ex, "Timeout error during payment initialization. RequestId: {RequestId}", requestId);
+            traceActivity?.SetTag("payment.error", "timeout_exception");
             return StatusCode(StatusCodes.Status408RequestTimeout, 
                 CreateErrorResponse("1408", "Request timeout", "The request timed out. Please try again."));
         }
+        catch (ArgumentException ex)
+        {
+            PaymentInitRequests.WithLabels(teamId.ToString(), "argument_exception", request?.Currency ?? "").Inc();
+            _logger.LogError(ex, "Argument error during payment initialization. RequestId: {RequestId}", requestId);
+            traceActivity?.SetTag("payment.error", "argument_exception");
+            return BadRequest(CreateErrorResponse("1003", "Invalid argument", ex.Message));
+        }
         catch (Exception ex)
         {
+            PaymentInitRequests.WithLabels(teamId.ToString(), "internal_exception", request?.Currency ?? "").Inc();
             _logger.LogError(ex, "Unexpected error during payment initialization. RequestId: {RequestId}", requestId);
+            traceActivity?.SetTag("payment.error", "internal_exception");
             return StatusCode(StatusCodes.Status500InternalServerError, 
                 CreateErrorResponse("9999", "Internal error", "An unexpected error occurred"));
+        }
+        finally
+        {
+            ActivePaymentInits.WithLabels(teamId.ToString()).Dec();
         }
     }
 
@@ -331,6 +548,154 @@ public class PaymentInitController : ControllerBase
             _ => StatusCodes.Status400BadRequest
         };
     }
+
+    private async Task<PaymentInitValidationResult> ValidatePaymentInitRequestAsync(PaymentInitRequestDto request, int teamId, CancellationToken cancellationToken)
+    {
+        var errors = new List<string>();
+        var warnings = new List<string>();
+
+        // Enhanced validation beyond standard data annotations
+        
+        // Amount validation
+        if (request.Amount <= 0)
+            errors.Add("Amount must be greater than zero");
+        if (request.Amount > 100000000) // 1M RUB max
+            errors.Add("Amount exceeds maximum limit (1,000,000 RUB)");
+        if (request.Amount < 1000) // 10 RUB min
+            warnings.Add("Amount is below recommended minimum (10 RUB)");
+
+        // OrderId format validation
+        if (!string.IsNullOrEmpty(request.OrderId))
+        {
+            if (request.OrderId.Length > 36)
+                errors.Add("OrderId cannot exceed 36 characters");
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.OrderId, @"^[a-zA-Z0-9\-_]+$"))
+                errors.Add("OrderId can only contain alphanumeric characters, hyphens, and underscores");
+        }
+
+        // Currency validation
+        var allowedCurrencies = new[] { "RUB", "USD", "EUR" };
+        if (!allowedCurrencies.Contains(request.Currency.ToUpper()))
+            errors.Add($"Currency must be one of: {string.Join(", ", allowedCurrencies)}");
+
+        // URL validation
+        if (!string.IsNullOrEmpty(request.SuccessURL) && !Uri.TryCreate(request.SuccessURL, UriKind.Absolute, out _))
+            errors.Add("SuccessURL must be a valid absolute URL");
+        if (!string.IsNullOrEmpty(request.FailURL) && !Uri.TryCreate(request.FailURL, UriKind.Absolute, out _))
+            errors.Add("FailURL must be a valid absolute URL");
+        if (!string.IsNullOrEmpty(request.NotificationURL) && !Uri.TryCreate(request.NotificationURL, UriKind.Absolute, out _))
+            errors.Add("NotificationURL must be a valid absolute URL");
+
+        // PaymentExpiry validation
+        if (request.PaymentExpiry < 5)
+            warnings.Add("PaymentExpiry is less than recommended minimum (5 minutes)");
+        if (request.PaymentExpiry > 43200) // 30 days
+            errors.Add("PaymentExpiry cannot exceed 43200 minutes (30 days)");
+
+        // Items validation
+        if (request.Items != null && request.Items.Any())
+        {
+            decimal totalItemsAmount = 0;
+            foreach (var item in request.Items)
+            {
+                if (string.IsNullOrWhiteSpace(item.Name))
+                    errors.Add("All items must have a name");
+                if (item.Quantity <= 0)
+                    errors.Add("All items must have quantity greater than zero");
+                if (item.Price <= 0)
+                    errors.Add("All items must have price greater than zero");
+                if (item.Amount != item.Price * item.Quantity)
+                    errors.Add($"Item '{item.Name}' amount does not match price * quantity");
+                
+                totalItemsAmount += item.Amount;
+            }
+            
+            if (Math.Abs(totalItemsAmount - request.Amount) > 1) // Allow 1 kopeck difference for rounding
+                errors.Add("Total items amount does not match payment amount");
+        }
+
+        // Email and phone validation (if provided)
+        if (!string.IsNullOrEmpty(request.Email))
+        {
+            var emailRegex = new System.Text.RegularExpressions.Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$");
+            if (!emailRegex.IsMatch(request.Email))
+                errors.Add("Invalid email format");
+        }
+
+        return new PaymentInitValidationResult
+        {
+            IsValid = errors.Count == 0,
+            Errors = errors,
+            Warnings = warnings
+        };
+    }
+
+    private PaymentInitRequestDto EnhanceRequestWithContext(PaymentInitRequestDto request, string requestId, int teamId, string teamSlug, string clientIp, string userAgent)
+    {
+        // Add contextual information to the request
+        if (request.Data == null)
+            request.Data = new Dictionary<string, string>();
+
+        request.Data["request_id"] = requestId;
+        request.Data["team_id"] = teamId.ToString();
+        request.Data["client_ip"] = clientIp;
+        request.Data["user_agent"] = userAgent;
+        request.Data["processing_timestamp"] = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+
+        return request;
+    }
+
+    private string GetClientIpAddress()
+    {
+        var forwardedFor = Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(forwardedFor))
+        {
+            return forwardedFor.Split(',')[0].Trim();
+        }
+
+        var realIp = Request.Headers["X-Real-IP"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(realIp))
+        {
+            return realIp;
+        }
+
+        return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    }
+}
+
+// Supporting classes for enhanced controller functionality
+
+public class PaymentInitValidationResult
+{
+    public bool IsValid { get; set; }
+    public List<string> Errors { get; set; } = new();
+    public List<string> Warnings { get; set; } = new();
+}
+
+public class AuthenticationContext
+{
+    public string TeamSlug { get; set; } = string.Empty;
+    public string Token { get; set; } = string.Empty;
+    public string RequestId { get; set; } = string.Empty;
+    public string ClientIp { get; set; } = string.Empty;
+    public string UserAgent { get; set; } = string.Empty;
+    public string RequestPath { get; set; } = string.Empty;
+    public DateTime Timestamp { get; set; }
+}
+
+public class PaymentRuleContext
+{
+    public int TeamId { get; set; }
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = string.Empty;
+    public string PaymentMethod { get; set; } = string.Empty;
+    public string OrderId { get; set; } = string.Empty;
+    public string ClientIp { get; set; } = string.Empty;
+    public string UserAgent { get; set; } = string.Empty;
+    public string? CustomerKey { get; set; }
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public Dictionary<string, object> Metadata { get; set; } = new();
 }
 
 // Supporting classes for API controller

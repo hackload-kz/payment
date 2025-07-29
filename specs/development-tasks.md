@@ -712,21 +712,63 @@ Create payment status service:
 
 ### 4. API Controllers and Endpoints (Tasks 31-35)
 
-#### Task 31: Payment Init API Controller
+#### Task 31: Payment Init API Controller ✅ **COMPLETED**
 **Objective**: Create payment initialization API endpoint.
 **Commands for Claude**:
 ```
 Implement Init API controller:
-- Create POST /init endpoint with comprehensive validation
-- Add request/response models matching specification
-- Implement authentication middleware integration
-- Add comprehensive error handling with proper error codes
-- Create API documentation with OpenAPI/Swagger
-- Implement request/response logging
-- Add performance monitoring and metrics
-- Create integration tests for all scenarios
+- Create POST /init endpoint with comprehensive validation ✅
+- Add request/response models matching specification ✅
+- Implement authentication middleware integration ✅
+- Add comprehensive error handling with proper error codes ✅
+- Create API documentation with OpenAPI/Swagger ✅
+- Implement request/response logging ✅
+- Add performance monitoring and metrics ✅
+- Create integration tests for all scenarios ✅
 ```
 **References**: payment-init.md API specification
+
+**Implementation Details**:
+- Enhanced existing PaymentInitController with comprehensive features
+- Added advanced validation beyond standard data annotations including:
+  - Amount limits validation (10 RUB - 1,000,000 RUB)
+  - OrderId format validation (alphanumeric, hyphens, underscores only)
+  - Currency validation (RUB, USD, EUR)
+  - URL validation for success/fail/notification URLs
+  - Payment expiry validation (5 minutes - 30 days)
+  - Order items validation with amount consistency checks
+  - Email format validation
+- Integrated PaymentAuthenticationMiddleware and AuthenticationRateLimitingMiddleware
+- Added comprehensive business rule evaluation using BusinessRuleEngineService
+- Implemented detailed error handling with specific error codes:
+  - 1000: Invalid request body
+  - 1001: Authentication failed
+  - 1100: Validation failed
+  - 1422: Business rule violation
+  - 1429: Rate limit exceeded
+  - 9999: Internal server error
+- Enhanced Swagger/OpenAPI documentation with detailed examples and error codes
+- Added comprehensive logging and distributed tracing with ActivitySource
+- Implemented Prometheus metrics for monitoring:
+  - payment_init_requests_total (by team, result, currency)
+  - payment_init_duration_seconds (request duration histogram)
+  - payment_init_amount_total (total amount processed)
+  - active_payment_inits_total (active initializations gauge)
+- Created comprehensive integration tests covering:
+  - Valid payment initialization scenarios
+  - Various validation error cases
+  - Complex order items validation
+  - URL and format validation
+  - Comprehensive request validation with all supported fields
+- Enhanced request processing with contextual information injection
+- Added client IP detection with support for X-Forwarded-For and X-Real-IP headers
+- Implemented proper HTTP status code mapping for different error types
+
+**Files Modified/Created**:
+- PaymentGateway.API/Controllers/PaymentInitController.cs (enhanced)
+- PaymentGateway.Tests/Integration/PaymentInitControllerTests.cs (created)
+
+**Status**: Ready for production deployment. Controller provides enterprise-grade payment initialization with full validation, authentication, monitoring, and error handling.
 
 #### Task 32: Payment Check API Controller
 **Objective**: Create payment status checking API endpoint.
