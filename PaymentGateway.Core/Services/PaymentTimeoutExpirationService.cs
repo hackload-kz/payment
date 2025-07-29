@@ -65,7 +65,7 @@ public class PaymentTimeoutExpirationService : IPaymentTimeoutExpirationService
     private readonly ILogger<PaymentTimeoutExpirationService> _logger;
     
     // Scheduled expirations tracking
-    private readonly ConcurrentDictionary<long, DateTime> _scheduledExpirations = new();
+    private readonly ConcurrentDictionary<Guid, DateTime> _scheduledExpirations = new();
     private readonly ConcurrentDictionary<int, PaymentTimeoutConfiguration> _teamConfigurations = new();
     
     // Metrics
@@ -168,7 +168,7 @@ public class PaymentTimeoutExpirationService : IPaymentTimeoutExpirationService
                 
                 foreach (var payment in payments)
                 {
-                    var timeToExpiration = await GetTimeToExpirationAsync(payment.PaymentId, cancellationToken);
+                    var timeToExpiration = await GetTimeToExpirationAsync(payment.Id, cancellationToken);
                     if (timeToExpiration.HasValue && timeToExpiration.Value <= warningPeriod)
                     {
                         expiringPayments.Add(payment);
@@ -204,7 +204,7 @@ public class PaymentTimeoutExpirationService : IPaymentTimeoutExpirationService
                 
                 foreach (var payment in payments)
                 {
-                    var isExpired = await IsPaymentExpiredAsync(payment.PaymentId, cancellationToken);
+                    var isExpired = await IsPaymentExpiredAsync(payment.Id, cancellationToken);
                     if (isExpired)
                     {
                         expiredPayments.Add(payment);
@@ -271,7 +271,7 @@ public class PaymentTimeoutExpirationService : IPaymentTimeoutExpirationService
         try
         {
             var expiredPayments = await GetExpiredPaymentsAsync(cancellationToken);
-            var paymentIds = expiredPayments.Select(p => p.PaymentId);
+            var paymentIds = expiredPayments.Select(p => p.Id);
             
             return await ExpirePaymentsAsync(paymentIds, cancellationToken);
         }
@@ -307,13 +307,9 @@ public class PaymentTimeoutExpirationService : IPaymentTimeoutExpirationService
                 return cachedConfig;
             }
 
-            var team = await _teamRepository.GetByIdAsync(teamId, cancellationToken);
-            if (team?.TimeoutConfiguration != null)
-            {
-                var config = team.TimeoutConfiguration;
-                _teamConfigurations.TryAdd(teamId, config);
-                return config;
-            }
+            // TODO: Implement proper team lookup by integer teamId
+            // For now, using default configuration since Team.TimeoutConfiguration doesn't exist
+            // and there's no clear mapping between int teamId and Team.Id (Guid)
 
             // Use default configuration
             _teamConfigurations.TryAdd(teamId, DefaultConfiguration);

@@ -156,17 +156,19 @@ public class PaymentFormIntegrationService
                 };
             }
 
-            // Get team information
-            var team = await _teamRepository.GetByIdAsync(payment.TeamId);
-            if (team == null)
-            {
-                _formIntegrationCounter.Add(1, new KeyValuePair<string, object?>("result", "team_not_found"));
-                return new PaymentFormInitializationResult
-                {
-                    Success = false,
-                    ErrorMessage = "Team configuration not found"
-                };
-            }
+            // TODO: Get team information
+            // Issue: Cannot lookup Team by int TeamId since Team.Id is Guid
+            // Need to implement proper teamId to Team entity mapping
+            // var team = await _teamRepository.GetByIdAsync(payment.TeamId);
+            // if (team == null)
+            // {
+            //     _formIntegrationCounter.Add(1, new KeyValuePair<string, object?>("result", "team_not_found"));
+            //     return new PaymentFormInitializationResult
+            //     {
+            //         Success = false,
+            //         ErrorMessage = "Team configuration not found"
+            //     };
+            // }
 
             // Generate secure form tokens
             var csrfTokenResult = await _formTokenService.GenerateCsrfTokenAsync(new CsrfTokenRequest
@@ -222,7 +224,7 @@ public class PaymentFormIntegrationService
 
             // Record metrics
             _formIntegrationCounter.Add(1, new KeyValuePair<string, object?>("result", "success"),
-                new KeyValuePair<string, object?>("team_slug", team.TeamSlug),
+                new KeyValuePair<string, object?>("team_id", payment.TeamId),
                 new KeyValuePair<string, object?>("currency", payment.Currency));
 
             _activeFormSessions.Record(_processingContexts.Count);

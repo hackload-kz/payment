@@ -18,12 +18,12 @@ namespace PaymentGateway.Core.Services;
 /// </summary>
 public interface IPaymentConfirmationService
 {
-    Task<ConfirmationResult> ConfirmPaymentAsync(long paymentId, ConfirmationRequest request, CancellationToken cancellationToken = default);
+    Task<ConfirmationResult> ConfirmPaymentAsync(Guid paymentId, ConfirmationRequest request, CancellationToken cancellationToken = default);
     Task<ConfirmationResult> ConfirmPaymentByOrderIdAsync(string orderId, int teamId, ConfirmationRequest request, CancellationToken cancellationToken = default);
-    Task<bool> CanConfirmPaymentAsync(long paymentId, CancellationToken cancellationToken = default);
+    Task<bool> CanConfirmPaymentAsync(Guid paymentId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Payment>> GetConfirmablePaymentsAsync(int teamId, int limit = 100, CancellationToken cancellationToken = default);
     Task<ConfirmationStatistics> GetConfirmationStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
-    Task<IEnumerable<ConfirmationAuditLog>> GetConfirmationAuditTrailAsync(long paymentId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<ConfirmationAuditLog>> GetConfirmationAuditTrailAsync(Guid paymentId, CancellationToken cancellationToken = default);
 }
 
 public class ConfirmationRequest
@@ -121,7 +121,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         _logger = logger;
     }
 
-    public async Task<ConfirmationResult> ConfirmPaymentAsync(long paymentId, ConfirmationRequest request, CancellationToken cancellationToken = default)
+    public async Task<ConfirmationResult> ConfirmPaymentAsync(Guid paymentId, ConfirmationRequest request, CancellationToken cancellationToken = default)
     {
         using var activity = ConfirmationDuration.NewTimer();
         var startTime = DateTime.UtcNow;
@@ -157,7 +157,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             }
 
             // Get payment and validate
-            var payment = await _paymentRepository.GetByIdAsync(new Guid(paymentId.ToString()), cancellationToken);
+            var payment = await _paymentRepository.GetByIdAsync(paymentId, cancellationToken);
             if (payment == null)
             {
                 var errorResult = new ConfirmationResult
@@ -232,7 +232,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             // Perform confirmation through lifecycle service
             try
             {
-                var confirmedPayment = await _lifecycleService.ConfirmPaymentAsync(payment, cancellationToken);
+                var confirmedPayment = await _lifecycleService.ConfirmPaymentAsync(payment.Id, cancellationToken);
                 
                 result.IsSuccess = true;
                 result.CurrentStatus = confirmedPayment.Status;
@@ -289,7 +289,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
     {
         try
         {
-            var payment = await _paymentRepository.GetByOrderIdAsync(teamId, orderId, cancellationToken);
+            var payment = await _paymentRepository.GetByOrderIdAsync(orderId, teamId, cancellationToken);
             if (payment == null)
             {
                 return new ConfirmationResult
@@ -314,11 +314,11 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         }
     }
 
-    public async Task<bool> CanConfirmPaymentAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<bool> CanConfirmPaymentAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         try
         {
-            var payment = await _paymentRepository.GetByIdAsync(new Guid(paymentId.ToString()), cancellationToken);
+            var payment = await _paymentRepository.GetByIdAsync(paymentId, cancellationToken);
             if (payment == null) return false;
 
             // Must be in AUTHORIZED status
@@ -408,7 +408,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         }
     }
 
-    public async Task<IEnumerable<ConfirmationAuditLog>> GetConfirmationAuditTrailAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<ConfirmationAuditLog>> GetConfirmationAuditTrailAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -423,12 +423,12 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         }
     }
 
-    private async Task LogConfirmationAuditAsync(long paymentId, string confirmationId, ConfirmationRequest request, 
+    private async Task LogConfirmationAuditAsync(Guid paymentId, string confirmationId, ConfirmationRequest request, 
         ConfirmationResult result, DateTime startTime, CancellationToken cancellationToken)
     {
         try
         {
-            var payment = await _paymentRepository.GetByIdAsync(new Guid(paymentId.ToString()), cancellationToken);
+            var payment = await _paymentRepository.GetByIdAsync(paymentId, cancellationToken);
             if (payment == null) return;
 
             var auditLog = new ConfirmationAuditLog

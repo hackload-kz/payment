@@ -18,12 +18,12 @@ namespace PaymentGateway.Core.Services;
 /// </summary>
 public interface IPaymentCancellationService
 {
-    Task<CancellationResult> CancelPaymentAsync(long paymentId, CancellationRequest request, CancellationToken cancellationToken = default);
+    Task<CancellationResult> CancelPaymentAsync(Guid paymentId, CancellationRequest request, CancellationToken cancellationToken = default);
     Task<CancellationResult> CancelPaymentByPaymentIdAsync(string paymentId, CancellationRequest request, CancellationToken cancellationToken = default);
-    Task<bool> CanCancelPaymentAsync(long paymentId, CancellationToken cancellationToken = default);
+    Task<bool> CanCancelPaymentAsync(Guid paymentId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Payment>> GetCancellablePaymentsAsync(int teamId, int limit = 100, CancellationToken cancellationToken = default);
     Task<CancellationStatistics> GetCancellationStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
-    Task<IEnumerable<CancellationAuditLog>> GetCancellationAuditTrailAsync(long paymentId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<CancellationAuditLog>> GetCancellationAuditTrailAsync(Guid paymentId, CancellationToken cancellationToken = default);
 }
 
 public class CancellationRequest
@@ -157,7 +157,7 @@ public class PaymentCancellationService : IPaymentCancellationService
         _logger = logger;
     }
 
-    public async Task<CancellationResult> CancelPaymentAsync(long paymentId, CancellationRequest request, CancellationToken cancellationToken = default)
+    public async Task<CancellationResult> CancelPaymentAsync(Guid paymentId, CancellationRequest request, CancellationToken cancellationToken = default)
     {
         using var activity = CancellationDuration.NewTimer();
         var startTime = DateTime.UtcNow;
@@ -193,7 +193,7 @@ public class PaymentCancellationService : IPaymentCancellationService
             }
 
             // Get payment and validate
-            var payment = await _paymentRepository.GetByIdAsync(new Guid(paymentId.ToString()), cancellationToken);
+            var payment = await _paymentRepository.GetByIdAsync(paymentId, cancellationToken);
             if (payment == null)
             {
                 var errorResult = new CancellationResult
@@ -395,11 +395,11 @@ public class PaymentCancellationService : IPaymentCancellationService
         }
     }
 
-    public async Task<bool> CanCancelPaymentAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<bool> CanCancelPaymentAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         try
         {
-            var payment = await _paymentRepository.GetByIdAsync(new Guid(paymentId.ToString()), cancellationToken);
+            var payment = await _paymentRepository.GetByIdAsync(paymentId, cancellationToken);
             if (payment == null) return false;
 
             // Check if payment status is cancellable
@@ -496,7 +496,7 @@ public class PaymentCancellationService : IPaymentCancellationService
         }
     }
 
-    public async Task<IEnumerable<CancellationAuditLog>> GetCancellationAuditTrailAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<CancellationAuditLog>> GetCancellationAuditTrailAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -511,12 +511,12 @@ public class PaymentCancellationService : IPaymentCancellationService
         }
     }
 
-    private async Task LogCancellationAuditAsync(long paymentId, CancellationRequest request, 
+    private async Task LogCancellationAuditAsync(Guid paymentId, CancellationRequest request, 
         CancellationResult result, DateTime startTime, CancellationToken cancellationToken)
     {
         try
         {
-            var payment = await _paymentRepository.GetByIdAsync(new Guid(paymentId.ToString()), cancellationToken);
+            var payment = await _paymentRepository.GetByIdAsync(paymentId, cancellationToken);
             if (payment == null) return;
 
             var auditLog = new CancellationAuditLog

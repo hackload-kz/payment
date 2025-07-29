@@ -3,7 +3,9 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using PaymentGateway.Core.Data;
 using PaymentGateway.Core.Entities;
+using PaymentGateway.Core.Enums;
 using PaymentGateway.Core.Interfaces;
+using System.Linq;
 using System.Linq.Expressions;
 
 namespace PaymentGateway.Core.Repositories;

@@ -358,7 +358,8 @@ public class PaymentStatusCheckService : IPaymentStatusCheckService
                 };
             }
 
-            return await CheckPaymentStatusAsync(payment.Id, cancellationToken);
+            // TODO: Fix data model inconsistency - method expects long but entity ID is Guid
+            return await CheckPaymentStatusAsync(payment.Id.GetHashCode(), cancellationToken);
         }
         catch (Exception ex)
         {

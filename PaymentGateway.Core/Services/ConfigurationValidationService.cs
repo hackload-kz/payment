@@ -130,7 +130,7 @@ public class ConfigurationValidationService : IConfigurationValidationService
     {
         var issues = new List<ConfigurationIssue>();
         var context = new ValidationContext(options);
-        var validationResults = new List<ValidationResult>();
+        var validationResults = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
 
         // Data annotations validation
         if (!Validator.TryValidateObject(options, context, validationResults, true))

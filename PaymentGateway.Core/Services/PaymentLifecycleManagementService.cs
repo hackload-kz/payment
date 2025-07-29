@@ -54,7 +54,7 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
         .CreateCounter("payment_state_transitions_total", "Total payment state transitions", new[] { "from_state", "to_state", "result" });
 
     // In-memory cache for active payment sessions
-    private readonly ConcurrentDictionary<long, DateTime> _activePaymentSessions = new();
+    private readonly ConcurrentDictionary<Guid, DateTime> _activePaymentSessions = new();
     
     // Lock timeout configurations
     private readonly TimeSpan _lockTimeout = TimeSpan.FromSeconds(30);
@@ -120,11 +120,11 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             // Add to active sessions
-            _activePaymentSessions.TryAdd(payment.PaymentId, DateTime.UtcNow);
+            _activePaymentSessions.TryAdd(payment.Id, DateTime.UtcNow);
             ActivePaymentsGauge.Inc();
 
             // Publish state transition event
-            await _eventService.PublishStateTransitionAsync(payment.PaymentId, PaymentStatus.INIT, PaymentStatus.NEW, cancellationToken);
+            await _eventService.PublishStateTransitionAsync(payment.Id, PaymentStatus.INIT, PaymentStatus.NEW, cancellationToken);
 
             _logger.LogInformation("Payment initialized successfully: {PaymentId}, OrderId: {OrderId}", 
                 payment.PaymentId, payment.OrderId);

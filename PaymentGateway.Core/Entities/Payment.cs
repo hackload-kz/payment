@@ -37,6 +37,12 @@ public class Payment : BaseEntity, IAuditableEntity
     [StringLength(2048)]
     public string? PaymentURL { get; set; }
     
+    [StringLength(2048)]
+    public string? SuccessUrl { get; set; }
+    
+    [StringLength(2048)]
+    public string? FailUrl { get; set; }
+    
     // Payment lifecycle timestamps
     public DateTime? InitializedAt { get; set; }
     public DateTime? FormShowedAt { get; set; }

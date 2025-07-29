@@ -42,7 +42,7 @@ public interface IPaymentTimeoutMonitoringService
 public interface IPaymentStatusSynchronizationService
 {
     Task SynchronizePaymentStatusesAsync(CancellationToken cancellationToken);
-    Task<SynchronizationResult> SynchronizePaymentAsync(long paymentId, CancellationToken cancellationToken);
+    Task<SynchronizationResult> SynchronizePaymentAsync(Guid paymentId, CancellationToken cancellationToken);
     Task<IEnumerable<Payment>> GetUnsynchronizedPaymentsAsync(CancellationToken cancellationToken);
 }
 
@@ -881,7 +881,7 @@ public class PaymentStatusSynchronizationService : IPaymentStatusSynchronization
         }
     }
 
-    public async Task<SynchronizationResult> SynchronizePaymentAsync(long paymentId, CancellationToken cancellationToken)
+    public async Task<SynchronizationResult> SynchronizePaymentAsync(Guid paymentId, CancellationToken cancellationToken)
     {
         var startTime = DateTime.UtcNow;
         

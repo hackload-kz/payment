@@ -10,6 +10,10 @@ public enum PaymentStatus
     NEW = 1,
     FORM_SHOWED = 2,
     
+    // Legacy/Transition states
+    ONECHOOSEVISION = 10,
+    FINISHAUTHORIZE = 11,
+    
     // Authorization Phase
     AUTHORIZING = 12,
     AUTHORIZED = 13,
@@ -19,11 +23,13 @@ public enum PaymentStatus
     PROCESSING = 15,
     
     // Confirmation Phase
+    CONFIRM = 20,           // Alias for workflow
     CONFIRMING = 21,
     CONFIRMED = 22,
     CAPTURED = 23,
     
     // Cancellation and Reversal
+    CANCEL = 30,            // Alias for workflow
     CANCELLING = 31,
     CANCELLED = 32,
     REVERSING = 33,

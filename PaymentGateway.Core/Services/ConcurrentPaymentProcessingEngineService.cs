@@ -18,12 +18,12 @@ namespace PaymentGateway.Core.Services;
 /// </summary>
 public interface IConcurrentPaymentProcessingEngineService
 {
-    Task<ProcessingResult> ProcessPaymentAsync(long paymentId, ProcessingOptions options = null, CancellationToken cancellationToken = default);
-    Task<ProcessingResult> ProcessPaymentBatchAsync(IEnumerable<long> paymentIds, ProcessingOptions options = null, CancellationToken cancellationToken = default);
-    Task QueuePaymentAsync(long paymentId, ProcessingPriority priority = ProcessingPriority.Normal, CancellationToken cancellationToken = default);
-    Task<ProcessingStatus> GetProcessingStatusAsync(long paymentId, CancellationToken cancellationToken = default);
+    Task<ProcessingResult> ProcessPaymentAsync(Guid paymentId, ProcessingOptions options = null, CancellationToken cancellationToken = default);
+    Task<ProcessingResult> ProcessPaymentBatchAsync(IEnumerable<Guid> paymentIds, ProcessingOptions options = null, CancellationToken cancellationToken = default);
+    Task QueuePaymentAsync(Guid paymentId, ProcessingPriority priority = ProcessingPriority.Normal, CancellationToken cancellationToken = default);
+    Task<ProcessingStatus> GetProcessingStatusAsync(Guid paymentId, CancellationToken cancellationToken = default);
     Task<IEnumerable<ProcessingStatus>> GetActiveProcessingAsync(CancellationToken cancellationToken = default);
-    Task<bool> CancelProcessingAsync(long paymentId, CancellationToken cancellationToken = default);
+    Task<bool> CancelProcessingAsync(Guid paymentId, CancellationToken cancellationToken = default);
     Task StartProcessingEngineAsync(CancellationToken cancellationToken = default);
     Task StopProcessingEngineAsync(CancellationToken cancellationToken = default);
 }
@@ -48,7 +48,7 @@ public enum ProcessingPriority
 
 public class ProcessingResult
 {
-    public long PaymentId { get; set; }
+    public Guid PaymentId { get; set; }
     public bool IsSuccess { get; set; }
     public PaymentStatus? ResultStatus { get; set; }
     public List<string> Errors { get; set; } = new();
@@ -57,16 +57,16 @@ public class ProcessingResult
     public int RetryCount { get; set; }
     public Dictionary<string, object> Metadata { get; set; } = new();
 
-    public static ProcessingResult Success(long paymentId, PaymentStatus status, TimeSpan duration) =>
+    public static ProcessingResult Success(Guid paymentId, PaymentStatus status, TimeSpan duration) =>
         new() { PaymentId = paymentId, IsSuccess = true, ResultStatus = status, ProcessingDuration = duration };
 
-    public static ProcessingResult Failure(long paymentId, TimeSpan duration, params string[] errors) =>
+    public static ProcessingResult Failure(Guid paymentId, TimeSpan duration, params string[] errors) =>
         new() { PaymentId = paymentId, IsSuccess = false, ProcessingDuration = duration, Errors = errors.ToList() };
 }
 
 public class ProcessingStatus
 {
-    public long PaymentId { get; set; }
+    public Guid PaymentId { get; set; }
     public ProcessingState State { get; set; }
     public DateTime StartedAt { get; set; }
     public TimeSpan? Duration { get; set; }
@@ -97,7 +97,7 @@ public class ConcurrentPaymentProcessingEngineService : IConcurrentPaymentProces
     private readonly ChannelReader<PaymentProcessingItem> _queueReader;
     
     // Processing state tracking
-    private readonly ConcurrentDictionary<long, ProcessingStatus> _activeProcessing = new();
+    private readonly ConcurrentDictionary<Guid, ProcessingStatus> _activeProcessing = new();
     private readonly ConcurrentDictionary<int, SemaphoreSlim> _teamSemaphores = new();
     private readonly SemaphoreSlim _globalSemaphore;
     
@@ -125,7 +125,7 @@ public class ConcurrentPaymentProcessingEngineService : IConcurrentPaymentProces
 
     private class PaymentProcessingItem
     {
-        public long PaymentId { get; set; }
+        public Guid PaymentId { get; set; }
         public ProcessingPriority Priority { get; set; }
         public ProcessingOptions Options { get; set; }
         public DateTime QueuedAt { get; set; } = DateTime.UtcNow;
@@ -157,7 +157,7 @@ public class ConcurrentPaymentProcessingEngineService : IConcurrentPaymentProces
         _globalSemaphore = new SemaphoreSlim(_maxConcurrentProcessing, _maxConcurrentProcessing);
     }
 
-    public async Task<ProcessingResult> ProcessPaymentAsync(long paymentId, ProcessingOptions options = null, CancellationToken cancellationToken = default)
+    public async Task<ProcessingResult> ProcessPaymentAsync(Guid paymentId, ProcessingOptions options = null, CancellationToken cancellationToken = default)
     {
         using var activity = ProcessingDuration.WithLabels(options?.Priority.ToString() ?? "Normal").NewTimer();
         var lockKey = $"payment:processing:{paymentId}";
@@ -207,7 +207,7 @@ public class ConcurrentPaymentProcessingEngineService : IConcurrentPaymentProces
                 if (payment == null)
                 {
                     ProcessingOperations.WithLabels("not_found", options.Priority.ToString()).Inc();
-                    return ProcessingResult.Failure(paymentId, activity.Value, "Payment not found");
+                    return ProcessingResult.Failure(paymentId, TimeSpan.Zero, "Payment not found");
                 }
 
                 // Acquire team-specific semaphore
@@ -220,7 +220,7 @@ public class ConcurrentPaymentProcessingEngineService : IConcurrentPaymentProces
                 else if (!await teamSemaphore.WaitAsync(100, cancellationToken))
                 {
                     ProcessingOperations.WithLabels("team_limit_exceeded", options.Priority.ToString()).Inc();
-                    return ProcessingResult.Failure(paymentId, activity.Value, "Team concurrent processing limit exceeded");
+                    return ProcessingResult.Failure(paymentId, TimeSpan.Zero, "Team concurrent processing limit exceeded");
                 }
 
                 try
@@ -230,7 +230,7 @@ public class ConcurrentPaymentProcessingEngineService : IConcurrentPaymentProces
                     
                     // Update processing status
                     processingStatus.State = result.IsSuccess ? ProcessingState.Completed : ProcessingState.Failed;
-                    processingStatus.Duration = activity.Value;
+                    processingStatus.Duration = TimeSpan.Zero;
                     
                     if (result.IsSuccess)
                     {
@@ -259,17 +259,17 @@ public class ConcurrentPaymentProcessingEngineService : IConcurrentPaymentProces
         catch (OperationCanceledException)
         {
             ProcessingOperations.WithLabels("cancelled", options?.Priority.ToString() ?? "Normal").Inc();
-            return ProcessingResult.Failure(paymentId, activity.Value, "Processing was cancelled");
+            return ProcessingResult.Failure(paymentId, TimeSpan.Zero, "Processing was cancelled");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Payment processing failed: {PaymentId}", paymentId);
             ProcessingOperations.WithLabels("error", options?.Priority.ToString() ?? "Normal").Inc();
-            return ProcessingResult.Failure(paymentId, activity.Value, "Internal processing error");
+            return ProcessingResult.Failure(paymentId, TimeSpan.Zero, "Internal processing error");
         }
     }
 
-    public async Task<ProcessingResult> ProcessPaymentBatchAsync(IEnumerable<long> paymentIds, ProcessingOptions options = null, CancellationToken cancellationToken = default)
+    public async Task<ProcessingResult> ProcessPaymentBatchAsync(IEnumerable<Guid> paymentIds, ProcessingOptions options = null, CancellationToken cancellationToken = default)
     {
         options ??= new ProcessingOptions();
         var results = new List<ProcessingResult>();
@@ -303,22 +303,22 @@ public class ConcurrentPaymentProcessingEngineService : IConcurrentPaymentProces
             
             if (overallSuccess)
             {
-                return ProcessingResult.Success(0, PaymentStatus.PROCESSING, totalDuration);
+                return ProcessingResult.Success(Guid.Empty, PaymentStatus.PROCESSING, totalDuration);
             }
             else
             {
                 var errors = results.Where(r => !r.IsSuccess).SelectMany(r => r.Errors).ToArray();
-                return ProcessingResult.Failure(0, totalDuration, errors);
+                return ProcessingResult.Failure(Guid.Empty, totalDuration, errors);
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Batch processing failed");
-            return ProcessingResult.Failure(0, TimeSpan.Zero, "Batch processing error");
+            return ProcessingResult.Failure(Guid.Empty, TimeSpan.Zero, "Batch processing error");
         }
     }
 
-    public async Task QueuePaymentAsync(long paymentId, ProcessingPriority priority = ProcessingPriority.Normal, CancellationToken cancellationToken = default)
+    public async Task QueuePaymentAsync(Guid paymentId, ProcessingPriority priority = ProcessingPriority.Normal, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -342,7 +342,7 @@ public class ConcurrentPaymentProcessingEngineService : IConcurrentPaymentProces
         }
     }
 
-    public async Task<ProcessingStatus> GetProcessingStatusAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<ProcessingStatus> GetProcessingStatusAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         return await Task.FromResult(_activeProcessing.GetValueOrDefault(paymentId));
     }
@@ -352,7 +352,7 @@ public class ConcurrentPaymentProcessingEngineService : IConcurrentPaymentProces
         return await Task.FromResult(_activeProcessing.Values.ToList());
     }
 
-    public async Task<bool> CancelProcessingAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<bool> CancelProcessingAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -471,22 +471,22 @@ public class ConcurrentPaymentProcessingEngineService : IConcurrentPaymentProces
             try
             {
                 // Validate payment can be processed
-                var canProcess = await validationService.CanProcessPaymentAsync(payment.PaymentId, cancellationToken);
+                var canProcess = await validationService.CanProcessPaymentAsync(payment.Id, cancellationToken);
                 if (!canProcess)
                 {
-                    return ProcessingResult.Failure(payment.PaymentId, DateTime.UtcNow - startTime, "Payment cannot be processed");
+                    return ProcessingResult.Failure(payment.Id, DateTime.UtcNow - startTime, "Payment cannot be processed");
                 }
 
                 // Process payment based on current status
                 Payment result = payment.Status switch
                 {
-                    PaymentStatus.NEW => await lifecycleService.ProcessPaymentAsync(payment.PaymentId, cancellationToken),
-                    PaymentStatus.PROCESSING => await lifecycleService.AuthorizePaymentAsync(payment.PaymentId, cancellationToken),
-                    PaymentStatus.AUTHORIZED => await lifecycleService.ConfirmPaymentAsync(payment.PaymentId, cancellationToken),
+                    PaymentStatus.NEW => await lifecycleService.ProcessPaymentAsync(payment.Id, cancellationToken),
+                    PaymentStatus.PROCESSING => await lifecycleService.AuthorizePaymentAsync(payment.Id, cancellationToken),
+                    PaymentStatus.AUTHORIZED => await lifecycleService.ConfirmPaymentAsync(payment.Id, cancellationToken),
                     _ => throw new InvalidOperationException($"Cannot process payment in {payment.Status} state")
                 };
 
-                return ProcessingResult.Success(payment.PaymentId, result.Status, DateTime.UtcNow - startTime);
+                return ProcessingResult.Success(payment.Id, result.Status, DateTime.UtcNow - startTime);
             }
             catch (Exception ex) when (retryCount < options.MaxRetries && IsRetryableException(ex))
             {
@@ -499,13 +499,13 @@ public class ConcurrentPaymentProcessingEngineService : IConcurrentPaymentProces
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Payment processing failed permanently for payment {PaymentId}", payment.PaymentId);
-                var result = ProcessingResult.Failure(payment.PaymentId, DateTime.UtcNow - startTime, ex.Message);
+                var result = ProcessingResult.Failure(payment.Id, DateTime.UtcNow - startTime, ex.Message);
                 result.RetryCount = retryCount;
                 return result;
             }
         }
 
-        var failureResult = ProcessingResult.Failure(payment.PaymentId, DateTime.UtcNow - startTime, "Max retries exceeded");
+        var failureResult = ProcessingResult.Failure(payment.Id, DateTime.UtcNow - startTime, "Max retries exceeded");
         failureResult.RetryCount = retryCount;
         return failureResult;
     }

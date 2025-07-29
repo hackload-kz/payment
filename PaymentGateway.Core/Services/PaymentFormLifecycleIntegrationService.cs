@@ -507,7 +507,7 @@ public class PaymentFormLifecycleIntegrationService
                 UserAgent = request.UserAgent
             };
 
-            var ruleResult = await _businessRuleEngine.EvaluateRulesAsync(BusinessRuleType.PAYMENT_LIMIT, ruleContext);
+            var ruleResult = await _businessRuleEngine.EvaluateRulesAsync(RuleType.PAYMENT_LIMIT, ruleContext);
             if (!ruleResult.IsValid)
             {
                 return new OperationResult
