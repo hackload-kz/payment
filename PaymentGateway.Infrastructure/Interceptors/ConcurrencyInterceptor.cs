@@ -67,7 +67,7 @@ public class ConcurrencyInterceptor : SaveChangesInterceptor
         return base.SavedChanges(eventData, result);
     }
 
-    public override async ValueTask SaveChangesFailedAsync(
+    public override async Task SaveChangesFailedAsync(
         DbContextErrorEventData eventData,
         CancellationToken cancellationToken = default)
     {

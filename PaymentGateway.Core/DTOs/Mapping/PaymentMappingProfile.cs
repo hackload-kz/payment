@@ -280,14 +280,14 @@ public class DataDictionaryConverter : ITypeConverter<Dictionary<string, object>
 /// <summary>
 /// Converter for ValidationFailure Context to Dictionary<string, object>
 /// </summary>
-public class ValidationErrorContextConverter : IValueConverter<object, Dictionary<string, object>?>
+public class ValidationErrorContextConverter : IValueResolver<FluentValidation.Results.ValidationFailure, ErrorDetailDto, Dictionary<string, object>?>
 {
-    public Dictionary<string, object>? Convert(object sourceMember, ResolutionContext context)
+    public Dictionary<string, object>? Resolve(FluentValidation.Results.ValidationFailure source, ErrorDetailDto destination, Dictionary<string, object>? destMember, ResolutionContext context)
     {
-        if (sourceMember != null)
+        if (source.CustomState != null)
         {
             var dict = new Dictionary<string, object>();
-            dict["state"] = sourceMember;
+            dict["state"] = source.CustomState;
             return dict;
         }
         return null;

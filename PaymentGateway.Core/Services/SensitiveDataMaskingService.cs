@@ -25,7 +25,7 @@ public class SensitiveDataMaskingService : ISensitiveDataMaskingService
 
     public string MaskSensitiveData(string data)
     {
-        if (!_auditConfig.EnableSensitiveDataMasking || string.IsNullOrEmpty(data))
+        if (!_auditConfig.EnableSensitiveDataEncryption || string.IsNullOrEmpty(data))
             return data;
 
         var maskedData = data;
@@ -65,7 +65,7 @@ public class SensitiveDataMaskingService : ISensitiveDataMaskingService
 
     public string MaskJsonString(string jsonString)
     {
-        if (!_auditConfig.EnableSensitiveDataMasking || string.IsNullOrEmpty(jsonString))
+        if (!_auditConfig.EnableSensitiveDataEncryption || string.IsNullOrEmpty(jsonString))
             return jsonString;
 
         try
@@ -86,7 +86,7 @@ public class SensitiveDataMaskingService : ISensitiveDataMaskingService
 
     public Dictionary<string, object> MaskDictionary(Dictionary<string, object> dictionary)
     {
-        if (!_auditConfig.EnableSensitiveDataMasking || dictionary == null)
+        if (!_auditConfig.EnableSensitiveDataEncryption || dictionary == null)
             return dictionary;
 
         var maskedDict = new Dictionary<string, object>();
@@ -117,7 +117,8 @@ public class SensitiveDataMaskingService : ISensitiveDataMaskingService
     {
         var patterns = new Dictionary<string, Regex>();
 
-        foreach (var field in _auditConfig.SensitiveFields)
+        var sensitiveFields = new[] { "CardNumber", "CVV", "Password", "Token", "TerminalKey" };
+        foreach (var field in sensitiveFields)
         {
             // Pattern to match JSON field: "field": "value"
             var jsonPattern = $@"""{field}"":\s*""([^""]*)""|'{field}':\s*'([^']*)'";
@@ -190,7 +191,8 @@ public class SensitiveDataMaskingService : ISensitiveDataMaskingService
 
     private bool IsSensitiveField(string fieldName)
     {
-        return _auditConfig.SensitiveFields.Any(sf => 
+        var sensitiveFields = new[] { "CardNumber", "CVV", "Password", "Token", "TerminalKey" };
+        return sensitiveFields.Any(sf => 
             string.Equals(sf, fieldName, StringComparison.OrdinalIgnoreCase));
     }
 

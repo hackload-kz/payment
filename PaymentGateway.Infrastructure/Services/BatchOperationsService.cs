@@ -272,7 +272,7 @@ public class BatchOperationsService : IBatchOperationsService
             {
                 BatchOperationType.Insert => await BulkInsertAsync(operation.Entities, cancellationToken),
                 BatchOperationType.Update => await BulkUpdateAsync(operation.Entities, cancellationToken),
-                BatchOperationType.Delete => await BulkDeleteAsync(operation.Entities.Select(e => e.Id), cancellationToken),
+                BatchOperationType.Delete => await BulkDeleteAsync<T>(operation.Entities.Select(e => e.Id), cancellationToken),
                 BatchOperationType.Upsert => await BulkUpsertAsync(operation.Entities, cancellationToken),
                 _ => throw new ArgumentException($"Unsupported batch operation type: {operation.OperationType}")
             };

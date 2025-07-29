@@ -39,7 +39,7 @@ public class GlobalExceptionHandlingMiddleware
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        var correlationId = _correlationIdService.GetCorrelationId();
+        var correlationId = _correlationIdService.CurrentCorrelationId;
         
         _logger.LogError(exception, "Unhandled exception occurred. CorrelationId: {CorrelationId}", correlationId);
 

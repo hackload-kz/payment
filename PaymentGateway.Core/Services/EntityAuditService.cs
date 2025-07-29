@@ -34,7 +34,7 @@ public class EntityAuditService : IEntityAuditService
             UserId = userId,
             Timestamp = DateTime.UtcNow,
             Details = details,
-            EntitySnapshot = JsonSerializer.Serialize(entity, new JsonSerializerOptions 
+            EntitySnapshotAfter = JsonSerializer.Serialize(entity, new JsonSerializerOptions 
             { 
                 WriteIndented = false,
                 DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
@@ -70,28 +70,4 @@ public class EntityAuditService : IEntityAuditService
     }
 }
 
-public class AuditEntry
-{
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid EntityId { get; set; }
-    public string EntityType { get; set; } = string.Empty;
-    public AuditAction Action { get; set; }
-    public string? UserId { get; set; }
-    public DateTime Timestamp { get; set; }
-    public string? Details { get; set; }
-    public string EntitySnapshot { get; set; } = string.Empty;
-}
-
-public enum AuditAction
-{
-    Created = 1,
-    Updated = 2,
-    Deleted = 3,
-    Restored = 4,
-    StatusChanged = 5,
-    AmountChanged = 6,
-    ConfigurationChanged = 7,
-    AuthenticationAttempt = 8,
-    AuthenticationSuccess = 9,
-    AuthenticationFailure = 10
-}
+// Removed - using AuditEntry from PaymentGateway.Core.Entities instead

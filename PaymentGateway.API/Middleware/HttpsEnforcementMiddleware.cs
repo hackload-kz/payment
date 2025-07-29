@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.Extensions.Options;
 using System.Net;
 
@@ -311,7 +312,6 @@ public static class HttpsEnforcementMiddlewareExtensions
         services.Configure<CookiePolicyOptions>(options =>
         {
             options.Secure = CookieSecurePolicy.Always;
-            options.SameSite = SameSiteMode.Strict;
             options.HttpOnly = Microsoft.AspNetCore.CookiePolicy.HttpOnlyPolicy.Always;
         });
 

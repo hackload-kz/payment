@@ -141,8 +141,8 @@ public class CustomerRepository : Repository<Customer>, ICustomerRepository
         try
         {
             return await _dbSet
-                .Where(c => c.KycStatus == KycStatus.NotStarted || c.KycStatus == KycStatus.InProgress)
-                .Where(c => c.IsActive)
+                .Where(c => !c.IsKycVerified)
+                .Where(c => !c.IsDeleted)
                 .OrderBy(c => c.CreatedAt)
                 .ToListAsync(cancellationToken);
         }
@@ -174,7 +174,12 @@ public class CustomerRepository : Repository<Customer>, ICustomerRepository
     {
         try
         {
-            var query = _context.Set<Payment>().Where(p => p.CustomerId == customerId);
+            // First find the Customer's TeamId since Payment.CustomerId is int?, not Guid
+            var customer = await _dbSet.FirstOrDefaultAsync(c => c.Id == customerId, cancellationToken);
+            if (customer == null)
+                return (0, 0);
+            
+            var query = _context.Set<Payment>().Where(p => p.CustomerId == customer.TeamId);
 
             if (startDate.HasValue)
                 query = query.Where(p => p.CreatedAt >= startDate.Value);

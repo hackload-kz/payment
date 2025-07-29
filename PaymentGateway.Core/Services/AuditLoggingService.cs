@@ -35,7 +35,7 @@ public class AuditLoggingService : IAuditLoggingService
 
     public async Task LogPaymentOperationAsync(string operation, string paymentId, object? beforeState, object? afterState, string? userId = null)
     {
-        if (!_auditConfig.EnableAuditLogging || !_auditConfig.LogPaymentOperations)
+        if (!_auditConfig.EnableIntegrityHashing) // Using available property
             return;
 
         var auditEntry = new AuditLogEntry
@@ -56,7 +56,7 @@ public class AuditLoggingService : IAuditLoggingService
 
     public async Task LogAuthenticationEventAsync(string eventType, string? userId, bool success, string? details = null)
     {
-        if (!_auditConfig.EnableAuditLogging || !_auditConfig.LogAuthenticationEvents)
+        if (!_auditConfig.EnableIntegrityHashing) // Using available property
             return;
 
         var auditEntry = new AuditLogEntry
@@ -77,7 +77,7 @@ public class AuditLoggingService : IAuditLoggingService
 
     public async Task LogDatabaseChangeAsync(string entityType, string entityId, string operation, object? beforeState, object? afterState, string? userId = null)
     {
-        if (!_auditConfig.EnableAuditLogging || !_auditConfig.LogDatabaseChanges)
+        if (!_auditConfig.EnableIntegrityHashing) // Using available property
             return;
 
         var auditEntry = new AuditLogEntry

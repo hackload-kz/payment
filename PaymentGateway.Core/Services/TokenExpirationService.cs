@@ -155,7 +155,7 @@ public class TokenExpirationService : ITokenExpirationService
                     {
                         var oldestTokenId = existing.First();
                         existing.Remove(oldestTokenId);
-                        _activeTokens.TryRemove(oldestTokenId, out _);
+                        if (_activeTokens.TryRemove(oldestTokenId, out var _)) { }
                         _logger.LogInformation("Removed oldest token for team {TeamSlug} due to max token limit", teamSlug);
                     }
                     return existing;

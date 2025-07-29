@@ -7,7 +7,7 @@ public class LoggingConfiguration
     public const string SectionName = "Logging";
 
     public SerilogConfiguration Serilog { get; set; } = new();
-    public AuditConfiguration Audit { get; set; } = new();
+    public LoggingAuditConfiguration Audit { get; set; } = new();
     public RetentionConfiguration Retention { get; set; } = new();
 }
 
@@ -24,7 +24,7 @@ public class SerilogConfiguration
     public Dictionary<string, string> MinimumLevelOverrides { get; set; } = new();
 }
 
-public class AuditConfiguration
+public class LoggingAuditConfiguration
 {
     public bool EnableAuditLogging { get; set; } = true;
     public string AuditTableName { get; set; } = "audit_logs";

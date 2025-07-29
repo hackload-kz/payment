@@ -67,7 +67,7 @@ public class SecureConfigurationService : ISecureConfigurationService
             }
 
             // Check in-memory secure values
-            SecureValue? secureValue = null;
+            string? secureValue = null;
             lock (_lock)
             {
                 _secureValues.TryGetValue(key, out secureValue);
