@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using PaymentGateway.Infrastructure.Interceptors;
+using PaymentGateway.Infrastructure.Services;
 using System.Data;
 
 namespace PaymentGateway.Infrastructure.Data;
@@ -16,8 +17,10 @@ public static class DatabaseConfiguration
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Database connection string 'DefaultConnection' not found.");
 
-        // Register database metrics interceptor
+        // Register database interceptors
         services.AddScoped<DatabaseMetricsInterceptor>();
+        services.AddScoped<PerformanceInterceptor>();
+        services.AddScoped<ConcurrencyInterceptor>();
 
         // Configure connection pooling options
         var connectionPoolOptions = configuration.GetSection("Database:ConnectionPool");
@@ -60,12 +63,17 @@ public static class DatabaseConfiguration
                 npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
             });
 
-            // Add database metrics interceptor
+            // Add database interceptors
             var metricsInterceptor = serviceProvider.GetService<DatabaseMetricsInterceptor>();
+            var performanceInterceptor = serviceProvider.GetService<PerformanceInterceptor>();
+            var concurrencyInterceptor = serviceProvider.GetService<ConcurrencyInterceptor>();
+
             if (metricsInterceptor != null)
-            {
                 options.AddInterceptors(metricsInterceptor);
-            }
+            if (performanceInterceptor != null)
+                options.AddInterceptors(performanceInterceptor);
+            if (concurrencyInterceptor != null)
+                options.AddInterceptors(concurrencyInterceptor);
 
             // Configure logging and monitoring
             if (environment.IsDevelopment())
@@ -93,6 +101,7 @@ public static class DatabaseConfiguration
         // Register database services
         services.AddScoped<IDatabaseHealthService, DatabaseHealthService>();
         services.AddScoped<IDatabaseMigrationService, DatabaseMigrationService>();
+        services.AddScoped<IBatchOperationsService, BatchOperationsService>();
         
         // Register migration services
         services.AddScoped<Migrations.MigrationRunner>();
