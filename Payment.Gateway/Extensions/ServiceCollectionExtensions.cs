@@ -19,6 +19,7 @@ public static class ServiceCollectionExtensions
 
         // Register validators
         services.AddScoped<InitPaymentRequestValidator>();
+        services.AddScoped<ConfirmPaymentRequestValidator>();
 
         return services;
     }

@@ -6,7 +6,7 @@ namespace Payment.Gateway.Services;
 public interface IPaymentService
 {
     Task<InitPaymentResponse> InitializePaymentAsync(InitPaymentRequest request);
-    Task<PaymentEntity> ConfirmPaymentAsync(string paymentId, object request);
+    Task<ConfirmPaymentResponse> ConfirmPaymentAsync(ConfirmPaymentRequest request);
     Task<PaymentEntity> CancelPaymentAsync(string paymentId, object request);
     Task<PaymentEntity[]> CheckOrderAsync(string orderId, string terminalKey);
 }

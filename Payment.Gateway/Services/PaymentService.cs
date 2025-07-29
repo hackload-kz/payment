@@ -217,10 +217,222 @@ public class PaymentService : IPaymentService
         return $"https://securepay.gateway.com/pay/form/{paymentId}";
     }
 
-    public Task<PaymentEntity> ConfirmPaymentAsync(string paymentId, object request)
+    public async Task<ConfirmPaymentResponse> ConfirmPaymentAsync(ConfirmPaymentRequest request)
     {
-        // Implementation will be added in Task 5
-        throw new NotImplementedException("Will be implemented in Task 5");
+        try
+        {
+            // Validate merchant credentials
+            var merchant = await _merchantService.GetMerchantAsync(request.TerminalKey);
+            if (merchant == null || !merchant.IsActive)
+            {
+                return new ConfirmPaymentResponse
+                {
+                    TerminalKey = request.TerminalKey,
+                    OrderId = string.Empty,
+                    Success = false,
+                    Status = "ERROR",
+                    PaymentId = request.PaymentId,
+                    ErrorCode = "202", // Terminal blocked
+                    Message = "Terminal not found or inactive"
+                };
+            }
+
+            // Validate token
+            var requestParameters = ConvertConfirmRequestToDictionary(request);
+            var expectedToken = _tokenService.GenerateToken(requestParameters, merchant.Password);
+            
+            if (request.Token != expectedToken)
+            {
+                _logger.LogWarning("Invalid token for TerminalKey: {TerminalKey}, PaymentId: {PaymentId}", 
+                    request.TerminalKey, request.PaymentId);
+                
+                return new ConfirmPaymentResponse
+                {
+                    TerminalKey = request.TerminalKey,
+                    OrderId = string.Empty,
+                    Success = false,
+                    Status = "ERROR",
+                    PaymentId = request.PaymentId,
+                    ErrorCode = "204", // Invalid token
+                    Message = "Invalid token signature"
+                };
+            }
+
+            // Get payment by PaymentId
+            var payment = await _paymentRepository.GetByIdAsync(request.PaymentId);
+            if (payment == null)
+            {
+                _logger.LogWarning("Payment not found: {PaymentId}", request.PaymentId);
+                
+                return new ConfirmPaymentResponse
+                {
+                    TerminalKey = request.TerminalKey,
+                    OrderId = string.Empty,
+                    Success = false,
+                    Status = "ERROR",
+                    PaymentId = request.PaymentId,
+                    ErrorCode = "255", // Payment not found
+                    Message = "Payment not found"
+                };
+            }
+
+            // Verify payment belongs to the terminal
+            if (payment.TerminalKey != request.TerminalKey)
+            {
+                _logger.LogWarning("Payment {PaymentId} does not belong to terminal {TerminalKey}", 
+                    request.PaymentId, request.TerminalKey);
+                
+                return new ConfirmPaymentResponse
+                {
+                    TerminalKey = request.TerminalKey,
+                    OrderId = payment.OrderId,
+                    Success = false,
+                    Status = payment.CurrentStatus.ToString(),
+                    PaymentId = request.PaymentId,
+                    ErrorCode = "255", // Payment not found (security)
+                    Message = "Payment not found"
+                };
+            }
+
+            // Validate payment is in AUTHORIZED status
+            if (payment.CurrentStatus != PaymentStatus.AUTHORIZED)
+            {
+                _logger.LogWarning("Payment {PaymentId} not in AUTHORIZED status. Current: {Status}", 
+                    request.PaymentId, payment.CurrentStatus);
+                
+                return new ConfirmPaymentResponse
+                {
+                    TerminalKey = request.TerminalKey,
+                    OrderId = payment.OrderId,
+                    Success = false,
+                    Status = payment.CurrentStatus.ToString(),
+                    PaymentId = request.PaymentId,
+                    ErrorCode = "1003", // Invalid status
+                    Message = "Payment not in valid status for confirmation",
+                    Details = $"Payment must be in AUTHORIZED status to perform confirmation. Current status: {payment.CurrentStatus}"
+                };
+            }
+
+            // Validate confirmation amount
+            var confirmAmount = request.Amount ?? payment.Amount;
+            if (confirmAmount > payment.Amount)
+            {
+                _logger.LogWarning("Confirmation amount {ConfirmAmount} exceeds authorized amount {AuthorizedAmount} for payment {PaymentId}", 
+                    confirmAmount, payment.Amount, request.PaymentId);
+                
+                return new ConfirmPaymentResponse
+                {
+                    TerminalKey = request.TerminalKey,
+                    OrderId = payment.OrderId,
+                    Success = false,
+                    Status = payment.CurrentStatus.ToString(),
+                    PaymentId = request.PaymentId,
+                    ErrorCode = "1007", // Amount exceeded
+                    Message = "Confirmation amount exceeds authorized amount",
+                    Details = $"Requested: {confirmAmount} kopecks, Authorized: {payment.Amount} kopecks"
+                };
+            }
+
+            // Transition to CONFIRMING state
+            var transitionSuccess = await _stateMachine.TransitionAsync(request.PaymentId, PaymentStatus.CONFIRMING);
+            if (!transitionSuccess)
+            {
+                _logger.LogError("Failed to transition payment {PaymentId} to CONFIRMING status", request.PaymentId);
+                
+                return new ConfirmPaymentResponse
+                {
+                    TerminalKey = request.TerminalKey,
+                    OrderId = payment.OrderId,
+                    Success = false,
+                    Status = payment.CurrentStatus.ToString(),
+                    PaymentId = request.PaymentId,
+                    ErrorCode = "999", // System error
+                    Message = "Internal server error during confirmation"
+                };
+            }
+
+            // Update payment with confirmation details
+            payment.Amount = confirmAmount; // Update to confirmed amount if partial
+            payment.ReceiptJson = request.Receipt != null ? System.Text.Json.JsonSerializer.Serialize(request.Receipt) : payment.ReceiptJson;
+            payment.ShopsJson = request.Shops != null ? System.Text.Json.JsonSerializer.Serialize(request.Shops) : payment.ShopsJson;
+            payment.UpdatedDate = DateTime.UtcNow;
+
+            await _paymentRepository.UpdateAsync(payment);
+
+            // Simulate confirmation processing (in real implementation, this would involve bank processing)
+            // Transition to CONFIRMED state
+            transitionSuccess = await _stateMachine.TransitionAsync(request.PaymentId, PaymentStatus.CONFIRMED);
+            if (!transitionSuccess)
+            {
+                _logger.LogError("Failed to transition payment {PaymentId} to CONFIRMED status", request.PaymentId);
+                
+                // In case of failure, the payment remains in CONFIRMING state for manual review
+                return new ConfirmPaymentResponse
+                {
+                    TerminalKey = request.TerminalKey,
+                    OrderId = payment.OrderId,
+                    Success = true, // Processing started successfully
+                    Status = "CONFIRMING",
+                    PaymentId = request.PaymentId,
+                    ErrorCode = "0"
+                };
+            }
+
+            _logger.LogInformation("Payment {PaymentId} confirmed successfully. Amount: {Amount}", 
+                request.PaymentId, confirmAmount);
+
+            return new ConfirmPaymentResponse
+            {
+                TerminalKey = request.TerminalKey,
+                OrderId = payment.OrderId,
+                Success = true,
+                Status = "CONFIRMED",
+                PaymentId = request.PaymentId,
+                ErrorCode = "0"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error confirming payment {PaymentId}", request.PaymentId);
+            
+            return new ConfirmPaymentResponse
+            {
+                TerminalKey = request.TerminalKey,
+                OrderId = string.Empty,
+                Success = false,
+                Status = "ERROR",
+                PaymentId = request.PaymentId,
+                ErrorCode = "999", // System error
+                Message = "Internal server error",
+                Details = ex.Message
+            };
+        }
+    }
+
+    private static Dictionary<string, object> ConvertConfirmRequestToDictionary(ConfirmPaymentRequest request)
+    {
+        var parameters = new Dictionary<string, object>
+        {
+            ["TerminalKey"] = request.TerminalKey,
+            ["PaymentId"] = request.PaymentId
+        };
+
+        // Add optional simple parameters
+        if (!string.IsNullOrEmpty(request.IP))
+            parameters["IP"] = request.IP;
+        
+        if (request.Amount.HasValue)
+            parameters["Amount"] = request.Amount.Value;
+        
+        if (!string.IsNullOrEmpty(request.Route))
+            parameters["Route"] = request.Route;
+        
+        if (!string.IsNullOrEmpty(request.Source))
+            parameters["Source"] = request.Source;
+
+        // Note: Complex objects (Receipt, Shops) are excluded from token generation per specification
+
+        return parameters;
     }
 
     public Task<PaymentEntity> CancelPaymentAsync(string paymentId, object request)
