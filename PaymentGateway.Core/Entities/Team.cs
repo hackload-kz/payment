@@ -138,6 +138,10 @@ public class Team : BaseEntity, IAuditableEntity
     // Navigation properties
     public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
     public virtual ICollection<Customer> Customers { get; set; } = new List<Customer>();
+    public virtual ICollection<PaymentMethodInfo> PaymentMethods { get; set; } = new List<PaymentMethodInfo>();
+    
+    // Business information metadata
+    public Dictionary<string, string> BusinessInfo { get; set; } = new();
     
     // Domain validation methods
     public bool IsLocked()
@@ -209,29 +213,27 @@ public class Team : BaseEntity, IAuditableEntity
     {
         var errors = new List<string>();
         
-        if (string.IsNullOrWhiteSpace(Name))
+        if (string.IsNullOrWhiteSpace(TeamName))
             errors.Add("Team name is required");
             
-        if (Name.Length > 100)
-            errors.Add("Team name cannot exceed 100 characters");
+        if (TeamName.Length > 200)
+            errors.Add("Team name cannot exceed 200 characters");
             
-        if (string.IsNullOrWhiteSpace(MerchantId))
-            errors.Add("Merchant ID is required");
+        if (string.IsNullOrWhiteSpace(TeamSlug))
+            errors.Add("Team slug is required");
             
-        if (string.IsNullOrWhiteSpace(ApiKey))
-            errors.Add("API key is required");
+        if (string.IsNullOrWhiteSpace(PasswordHash))
+            errors.Add("Password hash is required");
             
-        if (ApiKey.Length < 32)
-            errors.Add("API key must be at least 32 characters long");
+        if (DailyPaymentLimit.HasValue && DailyPaymentLimit <= 0)
+            errors.Add("Daily payment limit must be greater than zero");
             
-        if (DailyTransactionLimit <= 0)
-            errors.Add("Daily transaction limit must be greater than zero");
+        if (DailyPaymentLimit.HasValue && DailyPaymentLimit > 10000000) // 10M daily limit
+            errors.Add("Daily payment limit exceeds maximum allowed");
             
-        if (DailyTransactionLimit > 10000000) // 10M daily limit
-            errors.Add("Daily transaction limit exceeds maximum allowed");
-            
-        if (MonthlyTransactionLimit <= DailyTransactionLimit)
-            errors.Add("Monthly transaction limit must be greater than daily limit");
+        if (MonthlyPaymentLimit.HasValue && DailyPaymentLimit.HasValue && 
+            MonthlyPaymentLimit <= DailyPaymentLimit)
+            errors.Add("Monthly payment limit must be greater than daily limit");
             
         if (SupportedCurrencies.Count == 0)
             errors.Add("At least one supported currency is required");
@@ -246,14 +248,17 @@ public class Team : BaseEntity, IAuditableEntity
         if (!IsActive)
             errors.Add("Team is not active");
             
-        if (IsLockedForAuthentication())
+        if (LockedUntil.HasValue && DateTime.UtcNow < LockedUntil.Value)
             errors.Add("Team is temporarily locked due to authentication failures");
             
         if (!SupportedCurrencies.Contains(currency))
             errors.Add($"Currency {currency} is not supported by this team");
             
-        if (amount > SingleTransactionLimit)
-            errors.Add("Transaction amount exceeds single transaction limit");
+        if (MaxPaymentAmount.HasValue && amount > MaxPaymentAmount.Value)
+            errors.Add("Transaction amount exceeds maximum payment amount");
+            
+        if (MinPaymentAmount.HasValue && amount < MinPaymentAmount.Value)
+            errors.Add("Transaction amount is below minimum payment amount");
             
         // Note: Daily/monthly limits would be checked by a service with current usage data
         
@@ -264,9 +269,9 @@ public class Team : BaseEntity, IAuditableEntity
     {
         var errors = new List<string>();
         
-        if (LastApiKeyRotationAt.HasValue && 
-            DateTime.UtcNow - LastApiKeyRotationAt.Value < TimeSpan.FromDays(1))
-            errors.Add("API key can only be rotated once per day");
+        if (LastPasswordChangeAt.HasValue && 
+            DateTime.UtcNow - LastPasswordChangeAt.Value < TimeSpan.FromDays(1))
+            errors.Add("Password can only be changed once per day");
             
         return (errors.Count == 0, errors);
     }

@@ -43,6 +43,9 @@ public class Transaction : BaseEntity, IAuditableEntity
     [StringLength(100)]
     public string? AcquirerTransactionId { get; set; }
     
+    [StringLength(100)]
+    public string? ExternalTransactionId { get; set; }
+    
     // Card details (masked)
     [StringLength(50)]
     public string? CardMask { get; set; }
@@ -135,6 +138,9 @@ public class Transaction : BaseEntity, IAuditableEntity
     
     // Navigation properties
     public virtual Payment Payment { get; set; } = null!;
+    
+    // Additional metadata
+    public Dictionary<string, string> AdditionalData { get; set; } = new();
     
     // Domain methods
     public bool IsSuccessful()
