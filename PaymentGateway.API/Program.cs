@@ -1,4 +1,6 @@
 using PaymentGateway.API.Extensions;
+using PaymentGateway.API.Configuration;
+using PaymentGateway.API.Middleware;
 using PaymentGateway.Infrastructure.Data;
 using PaymentGateway.Infrastructure.Extensions;
 using Prometheus;
@@ -31,6 +33,19 @@ try
     // Add health checks
     builder.Services.AddHealthChecks();
 
+    // Add middleware services
+    builder.Services.AddRequestResponseLogging();
+    builder.Services.AddGlobalExceptionHandling();
+    builder.Services.AddRequestValidation();
+    builder.Services.AddPaymentGatewaySecurityHeaders();
+
+    // Add CORS configuration
+    builder.Services.AddPaymentGatewayCors(builder.Configuration, builder.Environment);
+
+    // Add API versioning
+    builder.Services.AddPaymentGatewayApiVersioning();
+    builder.Services.AddVersionedSwagger();
+
     // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
     builder.Services.AddOpenApi();
 
@@ -50,13 +65,32 @@ try
 
     app.UseHttpsRedirection();
     
+    // Add security headers (early in pipeline)
+    app.UseSecurityHeaders();
+    
+    // Add global exception handling (early for all errors)
+    app.UseGlobalExceptionHandling();
+    
     // Add correlation ID middleware (must be early in pipeline)
     app.UseCorrelationId();
     
     // Add metrics middleware (after correlation ID)
     app.UseMiddleware<PaymentGateway.API.Middleware.MetricsMiddleware>();
     
-    // Add Serilog request logging (after metrics)
+    // Add request validation (before authentication)
+    app.UseRequestValidation();
+    
+    // Add authentication and rate limiting
+    app.UseAuthenticationRateLimit();
+    app.UsePaymentAuthentication();
+    
+    // Add CORS (after authentication)
+    app.UsePaymentGatewayCors(app.Environment);
+    
+    // Add request/response logging (after authentication for security)
+    app.UseRequestResponseLogging();
+    
+    // Add Serilog request logging (after custom logging)
     app.UseRequestLogging();
 
     // Add routing
