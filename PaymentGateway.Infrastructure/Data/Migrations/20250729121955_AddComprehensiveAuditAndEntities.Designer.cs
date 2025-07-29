@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PaymentGateway.Infrastructure.Data;
@@ -12,9 +13,11 @@ using PaymentGateway.Infrastructure.Data;
 namespace PaymentGateway.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(PaymentGatewayDbContext))]
-    partial class PaymentGatewayDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250729121955_AddComprehensiveAuditAndEntities")]
+    partial class AddComprehensiveAuditAndEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -24,117 +27,6 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "hstore");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("PaymentGateway.Core.Entities.AuditEntry", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<int>("Action")
-                        .HasColumnType("integer")
-                        .HasColumnName("action");
-
-                    b.Property<DateTime?>("ArchivedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("archived_at");
-
-                    b.Property<int>("Category")
-                        .HasColumnType("integer")
-                        .HasColumnName("category");
-
-                    b.Property<string>("CorrelationId")
-                        .HasColumnType("text")
-                        .HasColumnName("correlation_id");
-
-                    b.Property<string>("Details")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("details");
-
-                    b.Property<Guid>("EntityId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("entity_id");
-
-                    b.Property<string>("EntitySnapshotAfter")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("entity_snapshot_after");
-
-                    b.Property<string>("EntitySnapshotBefore")
-                        .HasColumnType("text")
-                        .HasColumnName("entity_snapshot_before");
-
-                    b.Property<string>("EntityType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("entity_type");
-
-                    b.Property<string>("IntegrityHash")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("integrity_hash");
-
-                    b.Property<string>("IpAddress")
-                        .HasMaxLength(45)
-                        .HasColumnType("character varying(45)")
-                        .HasColumnName("ip_address");
-
-                    b.Property<bool>("IsArchived")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_archived");
-
-                    b.Property<bool>("IsSensitive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_sensitive");
-
-                    b.Property<string>("Metadata")
-                        .HasColumnType("text")
-                        .HasColumnName("metadata");
-
-                    b.Property<string>("RequestId")
-                        .HasColumnType("text")
-                        .HasColumnName("request_id");
-
-                    b.Property<decimal?>("RiskScore")
-                        .HasColumnType("numeric")
-                        .HasColumnName("risk_score");
-
-                    b.Property<string>("SessionId")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("session_id");
-
-                    b.Property<int>("Severity")
-                        .HasColumnType("integer")
-                        .HasColumnName("severity");
-
-                    b.Property<string>("TeamSlug")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("team_slug");
-
-                    b.Property<DateTime>("Timestamp")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("timestamp");
-
-                    b.Property<string>("UserAgent")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("user_agent");
-
-                    b.Property<string>("UserId")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id")
-                        .HasName("p_k_audit_entries");
-
-                    b.ToTable("audit_entries", "payment");
-                });
 
             modelBuilder.Entity("PaymentGateway.Core.Entities.AuditLog", b =>
                 {
@@ -414,12 +306,12 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasColumnName("updated_by");
 
                     b.HasKey("Id")
-                        .HasName("p_k_customers");
+                        .HasName("p_k_customer");
 
                     b.HasIndex("TeamId1")
-                        .HasDatabaseName("i_x_customers_team_id1");
+                        .HasDatabaseName("i_x_customer_team_id1");
 
-                    b.ToTable("customers", "payment");
+                    b.ToTable("customer", "payment");
                 });
 
             modelBuilder.Entity("PaymentGateway.Core.Entities.Payment", b =>
@@ -911,15 +803,15 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasColumnName("wallet_provider");
 
                     b.HasKey("Id")
-                        .HasName("p_k_payment_methods");
+                        .HasName("p_k_payment_method_info");
 
                     b.HasIndex("CustomerId1")
-                        .HasDatabaseName("i_x_payment_methods_customer_id1");
+                        .HasDatabaseName("i_x_payment_method_info_customer_id1");
 
                     b.HasIndex("TeamId1")
-                        .HasDatabaseName("i_x_payment_methods_team_id1");
+                        .HasDatabaseName("i_x_payment_method_info_team_id1");
 
-                    b.ToTable("payment_methods", "payment");
+                    b.ToTable("payment_method_info", "payment");
                 });
 
             modelBuilder.Entity("PaymentGateway.Core.Entities.Team", b =>
@@ -1222,7 +1114,7 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                             Id = new Guid("11111111-1111-1111-1111-111111111111"),
                             ApiVersion = "v1",
                             BusinessInfo = new Dictionary<string, string>(),
-                            CreatedAt = new DateTime(2025, 7, 29, 12, 27, 42, 163, DateTimeKind.Utc).AddTicks(6470),
+                            CreatedAt = new DateTime(2025, 7, 29, 12, 19, 55, 36, DateTimeKind.Utc).AddTicks(1630),
                             CreatedBy = "SYSTEM",
                             Enable3DSecure = true,
                             EnableFraudDetection = true,
@@ -1252,7 +1144,7 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                             TeamName = "Demo Team",
                             TeamSlug = "demo-team",
                             TimeZone = "UTC",
-                            UpdatedAt = new DateTime(2025, 7, 29, 12, 27, 42, 163, DateTimeKind.Utc).AddTicks(6630),
+                            UpdatedAt = new DateTime(2025, 7, 29, 12, 19, 55, 36, DateTimeKind.Utc).AddTicks(1790),
                             UpdatedBy = "SYSTEM",
                             WebhookRetryAttempts = 3,
                             WebhookTimeoutSeconds = 30
@@ -1262,7 +1154,7 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                             Id = new Guid("22222222-2222-2222-2222-222222222222"),
                             ApiVersion = "v1",
                             BusinessInfo = new Dictionary<string, string>(),
-                            CreatedAt = new DateTime(2025, 7, 29, 12, 27, 42, 163, DateTimeKind.Utc).AddTicks(7270),
+                            CreatedAt = new DateTime(2025, 7, 29, 12, 19, 55, 36, DateTimeKind.Utc).AddTicks(2240),
                             CreatedBy = "SYSTEM",
                             Enable3DSecure = true,
                             EnableFraudDetection = true,
@@ -1289,7 +1181,7 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                             TeamName = "Test Team",
                             TeamSlug = "test-team",
                             TimeZone = "UTC",
-                            UpdatedAt = new DateTime(2025, 7, 29, 12, 27, 42, 163, DateTimeKind.Utc).AddTicks(7270),
+                            UpdatedAt = new DateTime(2025, 7, 29, 12, 19, 55, 36, DateTimeKind.Utc).AddTicks(2240),
                             UpdatedBy = "SYSTEM",
                             WebhookRetryAttempts = 3,
                             WebhookTimeoutSeconds = 30
@@ -1593,15 +1485,15 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasColumnName("user_agent");
 
                     b.HasKey("Id")
-                        .HasName("p_k_transactions");
+                        .HasName("p_k_transaction");
 
                     b.HasIndex("ParentTransactionId1")
-                        .HasDatabaseName("i_x_transactions_parent_transaction_id1");
+                        .HasDatabaseName("i_x_transaction_parent_transaction_id1");
 
                     b.HasIndex("PaymentId1")
-                        .HasDatabaseName("i_x_transactions_payment_id1");
+                        .HasDatabaseName("i_x_transaction_payment_id1");
 
-                    b.ToTable("transactions", "payment");
+                    b.ToTable("transaction", "payment");
                 });
 
             modelBuilder.Entity("PaymentPaymentMethodInfo", b =>
@@ -1630,7 +1522,7 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasForeignKey("TeamId1")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("f_k_customers_teams_team_id1");
+                        .HasConstraintName("f_k_customer_teams_team_id1");
 
                     b.Navigation("Team");
                 });
@@ -1640,7 +1532,7 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                     b.HasOne("PaymentGateway.Core.Entities.Customer", "Customer")
                         .WithMany("Payments")
                         .HasForeignKey("CustomerId1")
-                        .HasConstraintName("f_k_payments_customers_customer_id1");
+                        .HasConstraintName("f_k_payments_customer_customer_id1");
 
                     b.HasOne("PaymentGateway.Core.Entities.Team", "Team")
                         .WithMany()
@@ -1667,14 +1559,14 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                     b.HasOne("PaymentGateway.Core.Entities.Customer", "Customer")
                         .WithMany("PaymentMethods")
                         .HasForeignKey("CustomerId1")
-                        .HasConstraintName("f_k_payment_methods_customers_customer_id1");
+                        .HasConstraintName("f_k_payment_method_info_customer_customer_id1");
 
                     b.HasOne("PaymentGateway.Core.Entities.Team", "Team")
                         .WithMany("PaymentMethods")
                         .HasForeignKey("TeamId1")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("f_k_payment_methods_teams_team_id1");
+                        .HasConstraintName("f_k_payment_method_info_teams_team_id1");
 
                     b.Navigation("Customer");
 
@@ -1686,14 +1578,14 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                     b.HasOne("PaymentGateway.Core.Entities.Transaction", "ParentTransaction")
                         .WithMany("ChildTransactions")
                         .HasForeignKey("ParentTransactionId1")
-                        .HasConstraintName("f_k_transactions_transactions_parent_transaction_id1");
+                        .HasConstraintName("f_k_transaction_transaction_parent_transaction_id1");
 
                     b.HasOne("PaymentGateway.Core.Entities.Payment", "Payment")
                         .WithMany("Transactions")
                         .HasForeignKey("PaymentId1")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("f_k_transactions_payments_payment_id1");
+                        .HasConstraintName("f_k_transaction_payments_payment_id1");
 
                     b.Navigation("ParentTransaction");
 
@@ -1707,7 +1599,7 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasForeignKey("PaymentMethodsId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("f_k_payment_payment_method_info_payment_methods_payment_methods~");
+                        .HasConstraintName("f_k_payment_payment_method_info_payment_method_info_payment_met~");
 
                     b.HasOne("PaymentGateway.Core.Entities.Payment", null)
                         .WithMany()

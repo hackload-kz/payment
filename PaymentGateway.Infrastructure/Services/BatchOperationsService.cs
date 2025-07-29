@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using PaymentGateway.Core.Data;
 using PaymentGateway.Core.Entities;
+using PaymentGateway.Infrastructure.Data;
 using System.Data;
 using System.Text;
 using Npgsql;

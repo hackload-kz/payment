@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PaymentGateway.Infrastructure.Data;
@@ -12,9 +13,11 @@ using PaymentGateway.Infrastructure.Data;
 namespace PaymentGateway.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(PaymentGatewayDbContext))]
-    partial class PaymentGatewayDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250729122142_AddPerformanceIndexes")]
+    partial class AddPerformanceIndexes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1222,7 +1225,7 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                             Id = new Guid("11111111-1111-1111-1111-111111111111"),
                             ApiVersion = "v1",
                             BusinessInfo = new Dictionary<string, string>(),
-                            CreatedAt = new DateTime(2025, 7, 29, 12, 27, 42, 163, DateTimeKind.Utc).AddTicks(6470),
+                            CreatedAt = new DateTime(2025, 7, 29, 12, 21, 42, 275, DateTimeKind.Utc).AddTicks(8470),
                             CreatedBy = "SYSTEM",
                             Enable3DSecure = true,
                             EnableFraudDetection = true,
@@ -1252,7 +1255,7 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                             TeamName = "Demo Team",
                             TeamSlug = "demo-team",
                             TimeZone = "UTC",
-                            UpdatedAt = new DateTime(2025, 7, 29, 12, 27, 42, 163, DateTimeKind.Utc).AddTicks(6630),
+                            UpdatedAt = new DateTime(2025, 7, 29, 12, 21, 42, 275, DateTimeKind.Utc).AddTicks(8600),
                             UpdatedBy = "SYSTEM",
                             WebhookRetryAttempts = 3,
                             WebhookTimeoutSeconds = 30
@@ -1262,7 +1265,7 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                             Id = new Guid("22222222-2222-2222-2222-222222222222"),
                             ApiVersion = "v1",
                             BusinessInfo = new Dictionary<string, string>(),
-                            CreatedAt = new DateTime(2025, 7, 29, 12, 27, 42, 163, DateTimeKind.Utc).AddTicks(7270),
+                            CreatedAt = new DateTime(2025, 7, 29, 12, 21, 42, 275, DateTimeKind.Utc).AddTicks(8990),
                             CreatedBy = "SYSTEM",
                             Enable3DSecure = true,
                             EnableFraudDetection = true,
@@ -1289,7 +1292,7 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                             TeamName = "Test Team",
                             TeamSlug = "test-team",
                             TimeZone = "UTC",
-                            UpdatedAt = new DateTime(2025, 7, 29, 12, 27, 42, 163, DateTimeKind.Utc).AddTicks(7270),
+                            UpdatedAt = new DateTime(2025, 7, 29, 12, 21, 42, 275, DateTimeKind.Utc).AddTicks(9000),
                             UpdatedBy = "SYSTEM",
                             WebhookRetryAttempts = 3,
                             WebhookTimeoutSeconds = 30

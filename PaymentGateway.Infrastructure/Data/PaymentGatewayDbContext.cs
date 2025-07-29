@@ -14,7 +14,11 @@ public class PaymentGatewayDbContext : DbContext
     // DbSets
     public DbSet<Payment> Payments { get; set; } = null!;
     public DbSet<Team> Teams { get; set; } = null!;
+    public DbSet<Customer> Customers { get; set; } = null!;
+    public DbSet<Transaction> Transactions { get; set; } = null!;
+    public DbSet<PaymentMethodInfo> PaymentMethods { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;
+    public DbSet<AuditEntry> AuditEntries { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

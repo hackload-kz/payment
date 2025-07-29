@@ -22,6 +22,10 @@ public static class LoggingServiceExtensions
         services.AddSingleton(loggingConfig.Serilog);
         services.AddSingleton(loggingConfig.Audit);
         services.AddSingleton(loggingConfig.Retention);
+        
+        // Configure audit configuration
+        var auditConfig = configuration.GetSection("Audit").Get<AuditConfiguration>() ?? new AuditConfiguration();
+        services.AddSingleton(auditConfig);
 
         // Register core logging services
         services.AddSingleton<ICorrelationIdService, CorrelationIdService>();
@@ -29,8 +33,8 @@ public static class LoggingServiceExtensions
         services.AddScoped<IAuditLoggingService, AuditLoggingService>();
         services.AddSingleton<ILoggingMetricsService, LoggingMetricsService>();
 
-        // Register log retention services
-        services.AddScoped<ILogRetentionService, LogRetentionService>();
+        // Register log retention services (singleton for background service compatibility)
+        services.AddSingleton<ILogRetentionService, LogRetentionService>();
         services.AddHostedService<LogRetentionBackgroundService>();
 
         return services;
