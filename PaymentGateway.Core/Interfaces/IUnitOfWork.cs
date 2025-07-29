@@ -11,6 +11,7 @@ public interface IUnitOfWork : IDisposable
     ICustomerRepository Customers { get; }
     ITransactionRepository Transactions { get; }
     IRepository<PaymentMethodInfo> PaymentMethods { get; }
+    IPaymentStateTransitionRepository StateTransitions { get; }
     
     // Transaction management
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

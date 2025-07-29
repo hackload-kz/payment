@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PaymentGateway.Core.Configuration;
 using PaymentGateway.Core.Data.Configurations;
 using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Services;
@@ -20,6 +21,9 @@ public class PaymentGatewayDbContext : DbContext
     public DbSet<Customer> Customers { get; set; } = null!;
     public DbSet<PaymentMethodInfo> PaymentMethods { get; set; } = null!;
     
+    // State machine
+    public DbSet<PaymentStateTransition> PaymentStateTransitions { get; set; } = null!;
+    
     // Audit tables
     public DbSet<AuditEntry> AuditLog { get; set; } = null!;
 
@@ -33,6 +37,7 @@ public class PaymentGatewayDbContext : DbContext
         modelBuilder.ApplyConfiguration(new TeamConfiguration());
         modelBuilder.ApplyConfiguration(new CustomerConfiguration());
         modelBuilder.ApplyConfiguration(new PaymentMethodInfoConfiguration());
+        modelBuilder.ApplyConfiguration(new PaymentStateTransitionConfiguration());
         modelBuilder.ApplyConfiguration(new AuditEntryConfiguration());
 
         // Global query filters for soft delete

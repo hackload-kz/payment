@@ -107,6 +107,8 @@ public class Transaction : BaseEntity, IAuditableEntity
     // Retry and attempt tracking
     public int AttemptNumber { get; set; } = 1;
     public int MaxRetryAttempts { get; set; } = 3;
+    public DateTime? NextRetryAt { get; set; }
+    public DateTime? ExpiresAt { get; set; }
     
     // Fee and commission details
     public decimal ProcessingFee { get; set; } = 0;

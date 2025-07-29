@@ -75,7 +75,7 @@ public class TransactionRepository : Repository<Transaction>, ITransactionReposi
         try
         {
             return await _dbSet
-                .Where(t => t.PaymentId == paymentId)
+                .Where(t => t.Payment.Id == paymentId)
                 .Include(t => t.Payment)
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync(cancellationToken);

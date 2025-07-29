@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using PaymentGateway.Core.Data;
 using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Interfaces;
+using PaymentGateway.Core.Services;
 using System.Diagnostics;
 
 namespace PaymentGateway.Core.Repositories;
@@ -24,6 +25,7 @@ public class UnitOfWork : IUnitOfWork
     private ICustomerRepository? _customers;
     private ITransactionRepository? _transactions;
     private IRepository<PaymentMethodInfo>? _paymentMethods;
+    private IPaymentStateTransitionRepository? _stateTransitions;
     
     public UnitOfWork(
         PaymentGatewayDbContext context,
@@ -88,6 +90,17 @@ public class UnitOfWork : IUnitOfWork
                 NullLogger<Repository<PaymentMethodInfo>>.Instance, 
                 _cache);
             return _paymentMethods;
+        }
+    }
+    
+    public IPaymentStateTransitionRepository StateTransitions
+    {
+        get
+        {
+            _stateTransitions ??= new PaymentStateTransitionRepository(_context, 
+                NullLogger<PaymentStateTransitionRepository>.Instance, 
+                _cache);
+            return _stateTransitions;
         }
     }
     
@@ -344,7 +357,7 @@ public class UnitOfWork : IUnitOfWork
     // Private helper methods
     private void SetUserContextForAuditFields(string userId)
     {
-        var entries = _context.ChangeTracker.Entries<BaseEntity>
+        var entries = _context.ChangeTracker.Entries<BaseEntity>()
             .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
         
         foreach (var entry in entries)
