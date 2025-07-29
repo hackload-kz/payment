@@ -1,4 +1,5 @@
 using PaymentGateway.Core.Enums;
+using PaymentGateway.Core.Exceptions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;

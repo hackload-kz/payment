@@ -357,13 +357,15 @@ public class FeatureFlagsService : IFeatureFlagsService
 
         if (_teamFeatureFlags.TryGetValue(teamSlug, out var teamFlags))
         {
+            Dictionary<string, object> result;
             lock (teamFlags)
             {
-                return await Task.FromResult(new Dictionary<string, object>(teamFlags));
+                result = new Dictionary<string, object>(teamFlags);
             }
+            return result;
         }
 
-        return await Task.FromResult(new Dictionary<string, object>());
+        return new Dictionary<string, object>();
     }
 
     public async Task<List<FeatureFlagAuditEntry>> GetFeatureFlagHistoryAsync(string featureName, TimeSpan period)

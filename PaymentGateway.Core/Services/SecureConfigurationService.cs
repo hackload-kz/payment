@@ -67,14 +67,17 @@ public class SecureConfigurationService : ISecureConfigurationService
             }
 
             // Check in-memory secure values
+            SecureValue? secureValue = null;
             lock (_lock)
             {
-                if (_secureValues.TryGetValue(key, out var secureValue))
-                {
-                    var decryptedValue = await DecryptValueAsync(secureValue);
-                    _logger.LogDebug("Retrieved secure value for key {Key} from secure storage", key);
-                    return decryptedValue;
-                }
+                _secureValues.TryGetValue(key, out secureValue);
+            }
+
+            if (secureValue != null)
+            {
+                var decryptedValue = await DecryptValueAsync(secureValue);
+                _logger.LogDebug("Retrieved secure value for key {Key} from secure storage", key);
+                return decryptedValue;
             }
 
             // Check configuration files (least secure, for development)

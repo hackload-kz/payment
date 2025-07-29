@@ -79,9 +79,9 @@ public class PaymentStateTransitionEventService : IPaymentStateTransitionEventSe
 
             var tasks = new List<Task>();
             
-            foreach (var handlerReg in applicableHandlers)
+            foreach (var handler in applicableHandlers)
             {
-                tasks.Add(ExecuteHandlerAsync(handlerReg, transitionEvent, cancellationToken));
+                tasks.Add(ExecuteHandlerAsync(handler, transitionEvent, cancellationToken));
             }
 
             await Task.WhenAll(tasks);
@@ -216,25 +216,13 @@ public class PaymentStateTransitionEventService : IPaymentStateTransitionEventSe
         return applicableHandlers.OrderBy(h => h.Priority).Select(h => h.Handler);
     }
 
-    private async Task ExecuteHandlerAsync(HandlerRegistration handlerReg, PaymentStateTransitionEvent transitionEvent, CancellationToken cancellationToken)
+    private async Task ExecuteHandlerAsync(IPaymentStateTransitionHandler handler, PaymentStateTransitionEvent transitionEvent, CancellationToken cancellationToken)
     {
-        IPaymentStateTransitionHandler? handler = null;
-        
         try
         {
-            // Get handler instance
-            if (handlerReg.HandlerInstance != null)
-            {
-                handler = handlerReg.HandlerInstance;
-            }
-            else if (handlerReg.HandlerType != null)
-            {
-                handler = (IPaymentStateTransitionHandler)ActivatorUtilities.CreateInstance(_serviceProvider, handlerReg.HandlerType);
-            }
-
             if (handler == null)
             {
-                _logger.LogError("Unable to resolve handler for registration");
+                _logger.LogError("Handler cannot be null");
                 return;
             }
 
