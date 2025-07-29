@@ -19,12 +19,34 @@ public static class DatabaseConfiguration
         // Register database metrics interceptor
         services.AddScoped<DatabaseMetricsInterceptor>();
 
-        // Configure PostgreSQL connection
-        services.AddDbContext<PaymentGatewayDbContext>((serviceProvider, options) =>
+        // Configure connection pooling options
+        var connectionPoolOptions = configuration.GetSection("Database:ConnectionPool");
+        var maxPoolSize = connectionPoolOptions.GetValue<int>("MaxPoolSize", 100);
+        var minPoolSize = connectionPoolOptions.GetValue<int>("MinPoolSize", 10);
+        var connectionLifetime = connectionPoolOptions.GetValue<int>("ConnectionLifetimeMinutes", 30);
+        
+        // Build enhanced connection string with pooling parameters
+        var builder = new NpgsqlConnectionStringBuilder(connectionString)
         {
-            options.UseNpgsql(connectionString, npgsqlOptions =>
+            MaxPoolSize = maxPoolSize,
+            MinPoolSize = minPoolSize,
+            ConnectionLifetime = connectionLifetime * 60, // Convert to seconds
+            Pooling = true,
+            CommandTimeout = 30,
+            Timeout = 15,
+            MaxAutoPrepare = 20,
+            AutoPrepareMinUsages = 2,
+            KeepAlive = 30
+        };
+        
+        var optimizedConnectionString = builder.ToString();
+
+        // Use DbContextPool for better performance with high concurrency
+        services.AddDbContextPool<PaymentGatewayDbContext>((serviceProvider, options) =>
+        {
+            options.UseNpgsql(optimizedConnectionString, npgsqlOptions =>
             {
-                // Configure PostgreSQL-specific options
+                // Configure PostgreSQL-specific options for concurrency
                 npgsqlOptions.EnableRetryOnFailure(
                     maxRetryCount: 3,
                     maxRetryDelay: TimeSpan.FromSeconds(30),
@@ -33,6 +55,9 @@ public static class DatabaseConfiguration
                 npgsqlOptions.CommandTimeout(30);
                 npgsqlOptions.MigrationsAssembly(typeof(PaymentGatewayDbContext).Assembly.FullName);
                 npgsqlOptions.MigrationsHistoryTable("__ef_migrations_history", "payment");
+                
+                // Enable query splitting for better performance
+                npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
             });
 
             // Add database metrics interceptor
@@ -50,12 +75,13 @@ public static class DatabaseConfiguration
                 options.LogTo(Console.WriteLine, LogLevel.Information);
             }
 
-            // Performance optimizations
+            // Performance optimizations for high concurrency
             options.EnableServiceProviderCaching();
             options.EnableSensitiveDataLogging(environment.IsDevelopment());
-        });
-
-        // Note: Using AddDbContext instead of AddDbContextPool to avoid service configuration conflicts
+            
+            // Configure tracking behavior for better performance
+            options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+        }, poolSize: maxPoolSize);
 
         // Register database health checks
         services.AddHealthChecks()
