@@ -1,0 +1,83 @@
+# Git
+.git
+.gitignore
+.gitattributes
+README.md
+LICENSE.txt
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.user
+*.rsuser
+*.suo
+*.sln.docstates
+
+# Build artifacts
+**/bin/
+**/obj/
+**/out/
+**/TestResults/
+**/.testmondata
+
+# NuGet
+*.nupkg
+**/packages/
+!**/packages/build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Runtime
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
+coverage/
+*.coverage
+*.coveragexml
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Specifications and documentation (not needed in container)
+specs/
+docs/
+*.md
+!README.md
+
+# Development tools
+scripts/
+tools/
+
+# Frontend assets (if not needed for backend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore

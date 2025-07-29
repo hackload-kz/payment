@@ -1,0 +1,881 @@
+# Payment Gateway Development Task List
+
+## Project Overview
+This document provides a comprehensive task list for developing a payment gateway system using C# and .NET 9 SDK. The system must handle concurrent payments, implement extensive logging and audit capabilities, use PostgreSQL as the database, and provide metrics for Prometheus monitoring.
+
+## Architecture Requirements
+- **Language**: C# with .NET 9 SDK
+- **Database**: PostgreSQL with Entity Framework Core migrations
+- **Concurrency**: Multi-threaded payment processing with proper locking mechanisms
+- **Containerization**: Docker support with Dockerfile
+- **Monitoring**: Prometheus metrics endpoint
+- **Logging**: Structured logging with audit trail
+- **Error Handling**: Comprehensive error codes as defined in `payment-errors.md`
+
+## Task Categories
+
+### 1. Project Setup and Infrastructure (Tasks 1-10)
+
+#### Task 1: Initialize .NET 9 Project Structure ✅ COMPLETED
+**Objective**: Create the foundational project structure with proper dependency management.
+**Commands for Claude**:
+```
+Create a new .NET 9 Web API project structure with the following components:
+- PaymentGateway.API (main web API project)
+- PaymentGateway.Core (business logic and domain models)
+- PaymentGateway.Infrastructure (data access and external services)
+- PaymentGateway.Tests (unit and integration tests)
+- Add global.json file specifying .NET 9.0 SDK
+- Configure solution file with all projects
+- Add initial NuGet packages: Entity Framework Core, Npgsql, Serilog, Prometheus.NET, FluentValidation
+```
+**References**: Project architecture requirements
+
+#### Task 2: Configure Docker Support ✅ COMPLETED
+**Objective**: Set up Docker containerization for the application.
+**Commands for Claude**:
+```
+Create comprehensive Docker configuration:
+- Dockerfile with multi-stage build for .NET 9 application
+- Use alpine-based runtime image for smaller footprint
+- Configure proper port exposure (8080 for API, 8081 for metrics)
+- Add docker-compose.yml with PostgreSQL service
+- Include health checks and proper environment variable handling
+- Add .dockerignore file to optimize build context
+```
+**References**: Docker build requirements
+
+#### Task 3: Database Setup with PostgreSQL and EF Core ✅ COMPLETED
+**Objective**: Configure PostgreSQL database access and Entity Framework Core.
+**Commands for Claude**:
+```
+Set up database infrastructure:
+- Configure PostgreSQL connection string management
+- Set up Entity Framework Core with Npgsql provider
+- Create DbContext with proper configuration for concurrent access
+- Add connection pooling configuration
+- Implement database health checks
+- Configure retry policies for database operations
+- Add database logging and monitoring
+```
+**References**: Concurrent payment handling requirements
+
+#### Task 4: Implement Database Migrations System ✅ COMPLETED
+**Objective**: Create EF Core migrations for database schema management.
+**Commands for Claude**:
+```
+Create database migration infrastructure:
+- Set up EF Core migrations with proper naming conventions
+- Create migration scripts for all database tables
+- Implement automated migration runner for application startup
+- Add rollback capabilities for failed migrations
+- Create seed data scripts for initial configuration
+- Add migration logging and validation
+```
+**References**: Database update requirements
+
+#### Task 5: Configure Structured Logging with Serilog ✅ COMPLETED
+**Objective**: Implement comprehensive logging system with audit capabilities.
+**Commands for Claude**:
+```
+Implement advanced logging system:
+- Configure Serilog with multiple sinks (Console, File, Database)
+- Set up structured logging with JSON formatting
+- Implement audit logging for all payment operations
+- Add correlation IDs for request tracking
+- Configure log levels and filtering
+- Add sensitive data masking for card information
+- Implement log retention policies
+- Add logging performance metrics
+```
+**References**: Extensive logging and audit system requirements
+
+#### Task 6: Set up Prometheus Metrics
+**Objective**: Configure Prometheus metrics endpoint for monitoring.
+**Commands for Claude**:
+```
+Implement comprehensive metrics collection:
+- Add Prometheus.NET middleware for metrics collection
+- Create custom metrics for payment processing:
+  * Payment success/failure rates
+  * Processing time histograms
+  * Concurrent payment counters
+  * Error rate by error code
+  * Database connection metrics
+- Configure /metrics endpoint on port 8081
+- Add health check metrics
+- Implement business metrics dashboards
+```
+**References**: Prometheus metrics endpoint requirement
+
+#### Task 7: Configure Concurrent Payment Processing
+**Objective**: Implement thread-safe payment processing with proper concurrency control.
+**Commands for Claude**:
+```
+Design concurrent payment architecture:
+- Implement thread-safe payment state management
+- Add distributed locking mechanisms for payment operations
+- Configure async/await patterns throughout the application
+- Implement payment queue management with background services
+- Add deadlock detection and prevention
+- Configure connection pooling for high concurrency
+- Implement rate limiting and throttling mechanisms
+- Add concurrency monitoring and metrics
+```
+**References**: Concurrent payment handling requirement, payment-lifecycle.md
+
+#### Task 8: Error Handling Framework
+**Objective**: Implement comprehensive error handling based on payment-errors.md specification.
+**Commands for Claude**:
+```
+Create robust error handling system:
+- Implement ErrorCode enumeration from payment-errors.md (codes 1001-9999)
+- Create error response DTOs matching specification format
+- Add global exception handling middleware
+- Implement error categorization (Critical, User Action, Configuration, etc.)
+- Add error localization support (Russian/English)
+- Implement retry logic for transient errors
+- Add error correlation and tracking
+- Create error reporting and analytics
+```
+**References**: payment-errors.md file with all error codes and messages
+
+#### Task 9: Security and Authentication Framework
+**Objective**: Implement SHA-256 token authentication system.
+**Commands for Claude**:
+```
+Implement security infrastructure:
+- Create SHA-256 token generation and validation service
+- Implement TeamSlug-based authentication (replacing TerminalKey)
+- Add request signature validation middleware
+- Implement secure password storage and management
+- Add rate limiting for authentication attempts
+- Configure HTTPS enforcement
+- Implement audit logging for security events
+- Add token expiration and refresh mechanisms
+```
+**References**: payment-authentication.md specification
+
+#### Task 10: Configuration Management
+**Objective**: Set up comprehensive configuration system.
+**Commands for Claude**:
+```
+Implement configuration management:
+- Set up appsettings.json hierarchy (Development, Staging, Production)
+- Configure environment-specific settings
+- Add configuration validation on startup
+- Implement configuration hot-reload capabilities
+- Add secure configuration for sensitive data (connection strings, secrets)
+- Configure logging levels per environment
+- Add feature flags system
+- Implement configuration change auditing
+```
+**References**: Multi-environment deployment requirements
+
+### 2. Core Domain Models and Data Layer (Tasks 11-20)
+
+#### Task 11: Payment Domain Models
+**Objective**: Create core payment domain entities based on specifications.
+**Commands for Claude**:
+```
+Design and implement payment domain models:
+- Payment entity with all lifecycle states (INIT, NEW, AUTHORIZED, CONFIRMED, etc.)
+- Transaction entity with comprehensive audit fields
+- Team entity (replacing Terminal concept) with authentication data
+- Customer entity with card binding capabilities
+- PaymentMethod entity supporting different payment types
+- Add proper entity relationships and foreign keys
+- Implement domain validation rules
+- Add entity audit timestamps and user tracking
+```
+**References**: payment-lifecycle.md, payment-init.md specifications
+
+#### Task 12: Database Schema Design
+**Objective**: Create comprehensive database schema with proper indexing and constraints.
+**Commands for Claude**:
+```
+Design optimized database schema:
+- Create tables for all domain entities with proper data types
+- Add indexes for high-performance queries (PaymentId, OrderId, TeamSlug)
+- Implement foreign key constraints and cascade rules
+- Add check constraints for data validation
+- Create audit tables for tracking all changes
+- Add database-level concurrency control (optimistic locking)
+- Implement partitioning for large payment tables
+- Add database performance monitoring views
+```
+**References**: Concurrent payment processing requirements
+
+#### Task 13: Repository Pattern Implementation
+**Objective**: Implement data access layer with repository pattern.
+**Commands for Claude**:
+```
+Create data access infrastructure:
+- Implement generic repository pattern with async operations
+- Create specific repositories for Payment, Team, Customer entities
+- Add unit of work pattern for transaction management
+- Implement query optimization and caching strategies
+- Add bulk operations for high-volume scenarios
+- Implement soft delete capabilities
+- Add repository-level audit logging
+- Create database connection resilience mechanisms
+```
+**References**: Database access patterns for concurrent operations
+
+#### Task 14: Payment State Machine
+**Objective**: Implement payment lifecycle state machine with proper transitions.
+**Commands for Claude**:
+```
+Design payment state management system:
+- Implement state machine for payment lifecycle transitions
+- Add validation for valid state transitions only
+- Create state change audit logging
+- Implement state-based business rule validation
+- Add concurrent state change protection
+- Create state transition event system
+- Implement state rollback capabilities for failures
+- Add state machine metrics and monitoring
+```
+**References**: payment-lifecycle.md state transitions
+
+#### Task 15: Data Transfer Objects (DTOs)
+**Objective**: Create DTOs for all API request/response models.
+**Commands for Claude**:
+```
+Design comprehensive DTO layer:
+- Create request DTOs for all API endpoints (Init, Confirm, Cancel, Check)
+- Implement response DTOs with proper error handling structure
+- Add validation attributes for all DTO properties
+- Implement DTO to domain model mapping (AutoMapper)
+- Add JSON serialization configuration
+- Create API versioning support in DTOs
+- Implement DTO validation pipeline
+- Add DTO documentation attributes for OpenAPI
+```
+**References**: payment-init.md, payment-confirm.md, payment-cancel.md, payment-check.md
+
+#### Task 16: Entity Framework Context Configuration
+**Objective**: Configure EF Core context with optimizations for concurrent access.
+**Commands for Claude**:
+```
+Optimize Entity Framework configuration:
+- Configure DbContext with proper lifetime management
+- Add entity configurations with fluent API
+- Implement connection pooling and retry policies
+- Configure lazy loading and change tracking options
+- Add database logging and performance monitoring
+- Implement optimistic concurrency control
+- Configure batch operations for bulk inserts/updates
+- Add EF Core performance interceptors
+```
+**References**: Concurrent payment processing requirements
+
+#### Task 17: Audit Trail System
+**Objective**: Implement comprehensive audit trail for all payment operations.
+**Commands for Claude**:
+```
+Create audit trail infrastructure:
+- Design audit log table structure with JSON payload support
+- Implement automatic audit logging for all entity changes
+- Add user context tracking for audit entries
+- Create audit log querying and reporting capabilities
+- Implement audit log retention and archival policies
+- Add audit log integrity verification
+- Create audit log analysis and alerting
+- Implement compliance reporting from audit logs
+```
+**References**: Extensive logging and audit system requirements
+
+#### Task 18: Database Migrations
+**Objective**: Create all required database migrations for the payment system.
+**Commands for Claude**:
+```
+Implement complete database migration system:
+- Create initial migration with all core tables
+- Add indexes and constraints migrations
+- Create audit table migrations
+- Implement seed data migrations for configuration
+- Add migration rollback scripts
+- Create migration validation and testing
+- Implement automated migration deployment
+- Add migration monitoring and alerting
+```
+**References**: Migration requirements for database updates
+
+#### Task 19: Database Performance Optimization
+**Objective**: Optimize database performance for high-volume concurrent operations.
+**Commands for Claude**:
+```
+Implement database performance optimizations:
+- Add proper indexing strategy for all query patterns
+- Implement query optimization and execution plan analysis
+- Add database connection pooling configuration
+- Implement read/write database splitting if needed
+- Add database monitoring and performance metrics
+- Create database maintenance procedures
+- Implement query result caching strategies
+- Add database load testing and benchmarking
+```
+**References**: Concurrent payment handling requirements
+
+#### Task 20: Data Validation Framework
+**Objective**: Implement comprehensive data validation using FluentValidation.
+**Commands for Claude**:
+```
+Create robust validation framework:
+- Implement FluentValidation validators for all DTOs
+- Add business rule validation for payment operations
+- Create cross-field validation rules
+- Implement async validation for database-dependent checks
+- Add validation error translation and localization
+- Create validation result aggregation and reporting
+- Implement validation performance optimization
+- Add validation rule testing and coverage
+```
+**References**: payment-errors.md validation error codes
+
+### 3. Business Logic and Services (Tasks 21-30)
+
+#### Task 21: Payment Initialization Service
+**Objective**: Implement payment initialization based on payment-init.md specification.
+**Commands for Claude**:
+```
+Create payment initialization service:
+- Implement Init API endpoint with full validation
+- Add TeamSlug authentication and authorization
+- Implement DICT parameter processing (replacing DATA)
+- Add payment amount validation and formatting
+- Create PaymentURL generation for hosted payment pages
+- Implement payment session management
+- Add duplicate order detection (OrderId uniqueness)
+- Create payment initialization audit logging
+- Add initialization performance metrics
+```
+**References**: payment-init.md specification, simplified requirements
+
+#### Task 22: Payment Authentication Service
+**Objective**: Implement SHA-256 token authentication system.
+**Commands for Claude**:
+```
+Create authentication service:
+- Implement SHA-256 token generation algorithm per specification
+- Add token validation middleware for all protected endpoints
+- Create TeamSlug and password management
+- Implement authentication caching for performance
+- Add authentication failure rate limiting
+- Create authentication audit logging
+- Implement token replay protection
+- Add authentication performance monitoring
+```
+**References**: payment-authentication.md specification with TeamSlug
+
+#### Task 23: Payment Processing Engine
+**Objective**: Create core payment processing logic with state management.
+**Commands for Claude**:
+```
+Implement payment processing engine:
+- Create payment lifecycle management service
+- Implement state transition validation and execution
+- Add concurrent payment processing with proper locking
+- Create payment retry logic for failed operations
+- Implement payment timeout and expiration handling
+- Add payment processing performance optimization
+- Create payment processing metrics and monitoring
+- Implement payment fraud detection hooks
+```
+**References**: payment-lifecycle.md simplified flow without 3DS
+
+#### Task 24: Payment Confirmation Service
+**Objective**: Implement payment confirmation for two-stage payments.
+**Commands for Claude**:
+```
+Create payment confirmation service:
+- Implement Confirm API endpoint per specification
+- Add validation for AUTHORIZED status requirement
+- Implement full amount confirmation (no partial amounts)
+- Add confirmation state transition handling
+- Create confirmation audit logging
+- Implement confirmation idempotency protection
+- Add confirmation performance metrics
+- Create confirmation error handling
+```
+**References**: payment-confirm.md specification
+
+#### Task 25: Payment Status Check Service
+**Objective**: Implement payment status checking functionality.
+**Commands for Claude**:
+```
+Create payment status service:
+- Implement Check API endpoint per specification
+- Add efficient payment status querying
+- Implement status caching for performance
+- Add status change notification system
+- Create status history tracking
+- Implement status-based business logic
+- Add status check rate limiting
+- Create status monitoring and alerting
+```
+**References**: payment-check.md specification
+
+#### Task 26: Payment Cancellation Service
+**Objective**: Implement payment cancellation with full refund support only.
+**Commands for Claude**:
+```
+Create payment cancellation service:
+- Implement Cancel API endpoint per specification
+- Add validation for cancellable payment states
+- Implement full refund processing (no partial refunds)
+- Add reversal vs refund logic based on payment status
+- Create cancellation state transition handling
+- Implement cancellation audit logging
+- Add cancellation idempotency protection
+- Create cancellation performance metrics
+```
+**References**: payment-cancel.md simplified specification
+
+#### Task 27: Card Payment Processing Service
+**Objective**: Implement card payment processing without 3DS complexity.
+**Commands for Claude**:
+```
+Create card payment service:
+- Implement card validation and processing
+- Add Luhn algorithm validation for card numbers
+- Create card expiry date validation
+- Implement CVV validation
+- Add card BIN detection and routing
+- Create card tokenization for security
+- Implement card processing error handling
+- Add card processing metrics and monitoring
+```
+**References**: Simplified card processing without 3DS requirements
+
+#### Task 28: Background Processing Service
+**Objective**: Implement background services for payment processing tasks.
+**Commands for Claude**:
+```
+Create background processing infrastructure:
+- Implement payment timeout monitoring service
+- Add payment status synchronization service
+- Create payment retry processing service
+- Implement audit log cleanup service
+- Add metrics aggregation service
+- Create database maintenance service
+- Implement notification processing service
+- Add background service monitoring and health checks
+```
+**References**: Concurrent payment processing requirements
+
+#### Task 29: Notification and Webhook Service
+**Objective**: Implement merchant notification system.
+**Commands for Claude**:
+```
+Create notification service:
+- Implement webhook delivery system for payment status changes
+- Add notification retry logic with exponential backoff
+- Create notification template management
+- Implement notification failure handling
+- Add notification delivery metrics
+- Create notification security (signing)
+- Implement notification rate limiting
+- Add notification audit logging
+```
+**References**: Merchant notification requirements
+
+#### Task 30: Business Rule Engine
+**Objective**: Implement configurable business rules for payment processing.
+**Commands for Claude**:
+```
+Create business rule engine:
+- Implement configurable payment limits and restrictions
+- Add currency and amount validation rules
+- Create team-specific business rules
+- Implement rule evaluation engine
+- Add rule change audit logging
+- Create rule performance optimization
+- Implement rule testing and validation
+- Add rule monitoring and alerting
+```
+**References**: Business logic requirements from specifications
+
+### 4. API Controllers and Endpoints (Tasks 31-35)
+
+#### Task 31: Payment Init API Controller
+**Objective**: Create payment initialization API endpoint.
+**Commands for Claude**:
+```
+Implement Init API controller:
+- Create POST /init endpoint with comprehensive validation
+- Add request/response models matching specification
+- Implement authentication middleware integration
+- Add comprehensive error handling with proper error codes
+- Create API documentation with OpenAPI/Swagger
+- Implement request/response logging
+- Add performance monitoring and metrics
+- Create integration tests for all scenarios
+```
+**References**: payment-init.md API specification
+
+#### Task 32: Payment Check API Controller
+**Objective**: Create payment status checking API endpoint.
+**Commands for Claude**:
+```
+Implement Check API controller:
+- Create GET/POST endpoints for payment status checking
+- Add efficient payment lookup by PaymentId and OrderId
+- Implement status response formatting per specification
+- Add caching for frequently checked payments
+- Create comprehensive error handling
+- Implement API rate limiting
+- Add status check metrics
+- Create integration tests
+```
+**References**: payment-check.md API specification
+
+#### Task 33: Payment Confirm API Controller
+**Objective**: Create payment confirmation API endpoint.
+**Commands for Claude**:
+```
+Implement Confirm API controller:
+- Create POST /confirm endpoint with validation
+- Add authorization status verification
+- Implement full confirmation processing
+- Add idempotency protection
+- Create comprehensive error handling
+- Implement confirmation audit logging
+- Add confirmation metrics
+- Create integration tests
+```
+**References**: payment-confirm.md API specification
+
+#### Task 34: Payment Cancel API Controller
+**Objective**: Create payment cancellation API endpoint.
+**Commands for Claude**:
+```
+Implement Cancel API controller:
+- Create POST /cancel endpoint with validation
+- Add payment status verification for cancellation
+- Implement full cancellation/refund processing
+- Add cancellation state management
+- Create comprehensive error handling
+- Implement cancellation audit logging
+- Add cancellation metrics
+- Create integration tests
+```
+**References**: payment-cancel.md simplified specification
+
+#### Task 35: API Middleware and Cross-Cutting Concerns
+**Objective**: Implement API middleware for cross-cutting concerns.
+**Commands for Claude**:
+```
+Create comprehensive API middleware:
+- Implement authentication middleware for SHA-256 tokens
+- Add request/response logging middleware
+- Create global exception handling middleware
+- Implement rate limiting middleware
+- Add CORS configuration for web clients
+- Create request validation middleware
+- Implement API versioning support
+- Add security headers middleware
+```
+**References**: API security and cross-cutting requirements
+
+### 5. HTML Payment Interface (Tasks 36-40)
+
+#### Task 36: HTML Payment Page Framework
+**Objective**: Create HTML-based payment interface for customers.
+**Commands for Claude**:
+```
+Create payment page infrastructure:
+- Design responsive HTML payment form template
+- Add client-side JavaScript for form validation
+- Implement card number formatting and validation
+- Create CSS styling for professional appearance
+- Add mobile-responsive design
+- Implement form security measures (no card data storage)
+- Create payment form localization (Russian/English)
+- Add accessibility compliance (WCAG guidelines)
+```
+**References**: HTML page requirement for customer payment processing
+
+#### Task 37: Payment Form Processing
+**Objective**: Implement server-side payment form processing.
+**Commands for Claude**:
+```
+Create payment form processing:
+- Implement payment form rendering with payment data
+- Add server-side form validation
+- Create secure card data handling
+- Implement form submission processing
+- Add form error handling and display
+- Create payment result page rendering
+- Implement form CSRF protection
+- Add form processing metrics
+```
+**References**: HTML payment interface requirements
+
+#### Task 38: Payment Form Security
+**Objective**: Implement security measures for payment form.
+**Commands for Claude**:
+```
+Secure payment form implementation:
+- Add HTTPS enforcement for payment pages
+- Implement Content Security Policy (CSP)
+- Create input sanitization and validation
+- Add anti-bot protection (CAPTCHA if needed)
+- Implement session security
+- Create secure form token validation
+- Add payment form audit logging
+- Implement form tampering detection
+```
+**References**: Security requirements for payment processing
+
+#### Task 39: Payment Form Integration
+**Objective**: Integrate payment form with payment processing engine.
+**Commands for Claude**:
+```
+Integrate payment form with backend:
+- Connect payment form to payment processing services
+- Implement real-time payment status updates
+- Add payment form to payment lifecycle integration
+- Create payment form error handling
+- Implement payment form success/failure flows
+- Add payment form performance optimization
+- Create payment form monitoring
+- Implement payment form testing framework
+```
+**References**: Integration with payment lifecycle
+
+#### Task 40: Payment Form Testing and Validation
+**Objective**: Create comprehensive testing for payment forms.
+**Commands for Claude**:
+```
+Implement payment form testing:
+- Create automated UI tests for payment forms
+- Add cross-browser compatibility testing
+- Implement payment form security testing
+- Create performance testing for payment forms
+- Add accessibility testing
+- Implement payment form user experience testing
+- Create payment form load testing
+- Add payment form monitoring and alerting
+```
+**References**: Testing requirements for payment interface
+
+### 6. Testing and Quality Assurance (Tasks 41-45)
+
+#### Task 41: Unit Testing Framework
+**Objective**: Implement comprehensive unit testing for all components.
+**Commands for Claude**:
+```
+Create unit testing infrastructure:
+- Set up xUnit testing framework with proper configuration
+- Create unit tests for all service classes (>80% coverage)
+- Implement mock objects for external dependencies
+- Add unit tests for payment state machine logic
+- Create unit tests for authentication and validation
+- Implement unit tests for error handling scenarios
+- Add unit tests for concurrent processing scenarios
+- Create test data builders and factories
+```
+**References**: Quality assurance requirements
+
+#### Task 42: Integration Testing
+**Objective**: Create integration tests for API endpoints and database operations.
+**Commands for Claude**:
+```
+Implement integration testing:
+- Create API endpoint integration tests
+- Add database integration tests with test containers
+- Implement payment flow integration tests
+- Create authentication integration tests
+- Add error handling integration tests
+- Implement performance integration tests
+- Create concurrent processing integration tests
+- Add integration test documentation
+```
+**References**: End-to-end testing requirements
+
+#### Task 43: Load and Performance Testing
+**Objective**: Implement performance testing for concurrent payment scenarios.
+**Commands for Claude**:
+```
+Create performance testing framework:
+- Implement load testing for payment processing
+- Add concurrent payment simulation tests
+- Create database performance testing
+- Implement API endpoint performance tests
+- Add memory and resource usage testing
+- Create scalability testing scenarios
+- Implement performance regression testing
+- Add performance monitoring and alerting
+```
+**References**: Concurrent payment handling requirements
+
+#### Task 44: Security Testing
+**Objective**: Implement security testing for payment processing.
+**Commands for Claude**:
+```
+Create security testing framework:
+- Implement authentication security tests
+- Add authorization testing for all endpoints
+- Create input validation security tests
+- Implement SQL injection and XSS protection tests
+- Add payment data security tests
+- Create rate limiting security tests
+- Implement audit trail security tests
+- Add penetration testing automation
+```
+**References**: Security requirements for payment processing
+
+#### Task 45: Test Automation and CI/CD
+**Objective**: Set up automated testing pipeline.
+**Commands for Claude**:
+```
+Implement test automation:
+- Create automated test execution pipeline
+- Add code coverage reporting and enforcement
+- Implement automated security scanning
+- Create performance regression detection
+- Add database migration testing
+- Implement Docker container testing
+- Create deployment testing automation
+- Add test result reporting and notifications
+```
+**References**: Automated testing requirements
+
+### 7. Monitoring and Operations (Tasks 46-50)
+
+#### Task 46: Application Health Monitoring
+**Objective**: Implement comprehensive health monitoring system.
+**Commands for Claude**:
+```
+Create health monitoring system:
+- Implement health check endpoints for all components
+- Add database connectivity health checks
+- Create payment processing health monitoring
+- Implement system resource monitoring
+- Add dependency health checking
+- Create health check aggregation and reporting
+- Implement health-based alerting
+- Add health monitoring dashboard
+```
+**References**: Production monitoring requirements
+
+#### Task 47: Metrics and Analytics
+**Objective**: Implement detailed metrics collection for business intelligence.
+**Commands for Claude**:
+```
+Create comprehensive metrics system:
+- Implement payment success/failure rate metrics
+- Add payment processing time metrics
+- Create concurrent payment metrics
+- Implement error rate metrics by error code
+- Add business metrics (transaction volume, amounts)
+- Create team-specific metrics
+- Implement real-time metrics dashboards
+- Add metrics-based alerting
+```
+**References**: Prometheus metrics endpoint requirement
+
+#### Task 48: Logging and Audit Analysis
+**Objective**: Implement log analysis and audit reporting system.
+**Commands for Claude**:
+```
+Create log analysis infrastructure:
+- Implement log aggregation and indexing
+- Add payment audit trail analysis
+- Create security event monitoring
+- Implement payment pattern analysis
+- Add performance log analysis
+- Create compliance reporting from logs
+- Implement log-based alerting
+- Add log retention and archival
+```
+**References**: Extensive logging and audit system requirements
+
+#### Task 49: Alerting and Notification System
+**Objective**: Create comprehensive alerting for operations team.
+**Commands for Claude**:
+```
+Implement operational alerting:
+- Create payment failure rate alerting
+- Add system error rate alerting
+- Implement performance degradation alerts
+- Create security incident alerting
+- Add database performance alerts
+- Implement business metric alerts
+- Create escalation procedures
+- Add alert fatigue prevention
+```
+**References**: Production monitoring requirements
+
+#### Task 50: Production Deployment and Operations
+**Objective**: Prepare system for production deployment.
+**Commands for Claude**:
+```
+Implement production deployment:
+- Create production deployment scripts
+- Add environment configuration management
+- Implement zero-downtime deployment
+- Create database migration deployment
+- Add production monitoring configuration
+- Implement backup and recovery procedures
+- Create disaster recovery procedures
+- Add production support documentation
+```
+**References**: Production deployment requirements
+
+## Implementation Order and Dependencies
+
+### Phase 1: Foundation (Tasks 1-10)
+- Complete project setup and infrastructure
+- Essential for all subsequent development
+
+### Phase 2: Data Layer (Tasks 11-20)
+- Implement core domain models and database access
+- Required before business logic implementation
+
+### Phase 3: Business Logic (Tasks 21-30)
+- Implement payment processing services
+- Core functionality of the payment gateway
+
+### Phase 4: API Layer (Tasks 31-35)
+- Create API endpoints and controllers
+- User interface for the payment system
+
+### Phase 5: Payment Interface (Tasks 36-40)
+- HTML payment pages for customers
+- Complete the payment user experience
+
+### Phase 6: Quality Assurance (Tasks 41-45)
+- Comprehensive testing across all layers
+- Ensure system reliability and performance
+
+### Phase 7: Operations (Tasks 46-50)
+- Production monitoring and deployment
+- Operational readiness
+
+## Key Implementation Notes
+
+1. **Error Handling**: All tasks must implement error handling using the specific error codes from `payment-errors.md`
+2. **Concurrency**: Every task involving payment processing must consider concurrent access patterns
+3. **Audit Trail**: All payment operations must be logged with comprehensive audit information
+4. **Performance**: All database operations should be optimized for high-volume concurrent access
+5. **Security**: Authentication and sensitive data handling must be implemented according to specifications
+6. **Testing**: Each task should include comprehensive testing requirements
+7. **Monitoring**: All components should expose metrics and health check endpoints
+8. **Documentation**: Each task should produce appropriate technical documentation
+
+## Success Criteria
+
+Each task is considered complete when:
+- All functional requirements are implemented
+- Comprehensive error handling is in place using specified error codes
+- Unit and integration tests are written and passing
+- Performance requirements are met for concurrent scenarios
+- Security requirements are satisfied
+- Monitoring and logging are properly configured
+- Code is documented and reviewed
+- Integration with dependent components is verified
+
+This task list provides a comprehensive roadmap for developing a production-ready payment gateway system that meets all specified requirements while maintaining high quality, security, and performance standards.

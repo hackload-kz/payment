@@ -15,20 +15,15 @@ The method performs different operations based on current payment status:
 | Current Status | Target Status | Operation Type | Description |
 |---------------|---------------|----------------|-------------|
 | `NEW` | `CANCELLED` | Full cancellation | Payment session terminated |
-| `AUTHORIZED` | `PARTIAL_REVERSED` | Partial reversal | Hold partially released (Amount < Original) |
-| `AUTHORIZED` | `REVERSED` | Full reversal | Hold completely released (Amount = Original) |
-| `CONFIRMED` | `PARTIAL_REFUNDED` | Partial refund | Money partially returned (Amount < Original) |
-| `CONFIRMED` | `REFUNDED` | Full refund | Money completely returned (Amount = Original) |
+| `AUTHORIZED` | `REVERSED` | Full reversal | Hold completely released |
+| `CONFIRMED` | `REFUNDED` | Full refund | Money completely returned |
 
-### Special Payment Method Rules
-- **Installment payments**: Can only be cancelled in `AUTHORIZED` status
-- **BNPL ("Долями") payments**: Partial or full refunds available for `CONFIRMED` or `PARTIAL_REFUNDED` status
 
 ## Request Parameters
 
 ### Required Parameters
-- **TerminalKey** (string, required)
-  - Terminal identifier issued to merchant in I-Business
+- **TeamSlug** (string, required)
+  - Team identifier issued to merchant in I-Business
   - Used for authentication and routing
 
 - **PaymentId** (string, required)
@@ -48,46 +43,19 @@ The method performs different operations based on current payment status:
 - **Amount** (number)
   - Cancellation amount in kopecks
   - If not provided, uses original amount from Init method
-  - **Note**: Ignored for `NEW` status cancellations (always full amount)
-  - Determines partial vs full cancellation
+  - **Note**: Always full amount cancellation
 
-### Receipt Management
-- **Receipt** (Receipt_FFD_12 | Receipt_FFD_105 object)
-  - Fiscal receipt data for online cash register
-  - **Required** when online cash register is connected
-  - **Full cancellation**: Receipt structure not required
-  - **Partial cancellation**: Must specify items being cancelled
-  - Can differ from original Init receipt for partial operations
 
-### Marketplace Support
-- **Shops** (Array of ShopsCancel objects)
-  - **Required for marketplace implementations**
-  - Contains shop-specific cancellation data
-  - Enables proper fund distribution in marketplace scenarios
 
-### SBP (Faster Payment System) Parameters
-- **QrMemberId** (string)
-  - Bank code in SBP classification for refund routing
-  - See QrMembersList method for available codes
-  - Ensures refund goes to correct bank
 
 ### Payment Method Routing
-- **Route** (enum: "TCB" | "BNPL")
+- **Route** (enum: "TCB")
   - Payment method identifier
   - TCB: Standard card payments
-  - BNPL: "Buy Now, Pay Later" payments
-
-- **Source** (enum: "installment" | "BNPL")
-  - Payment source identification
-  - Affects available cancellation operations
 
 ### Idempotency Control
 - **ExternalRequestId** (string, ≤256 chars)
   - Merchant-side operation identifier
-  - **Not supported for SBP operations**
-  - **Required for BNPL and installment operations**
-  - **BNPL format**: UUID v4
-  - **Installment format**: String (≤100 characters)
   - **Behavior**:
     - Empty/missing: No duplicate check performed
     - Provided: Checks for existing cancellation with same ID
@@ -104,8 +72,8 @@ Content-Type: application/json
 ### Response Parameters
 
 #### Required Fields
-- **TerminalKey** (string, required)
-  - Terminal identifier echoed from request
+- **TeamSlug** (string, required)
+  - Team identifier echoed from request
 
 - **OrderId** (string, required)
   - Original order identifier from merchant system
@@ -125,7 +93,7 @@ Content-Type: application/json
 
 - **NewAmount** (number, required)
   - Remaining payment amount after cancellation (in kopecks)
-  - 0 for full cancellations, >0 for partial cancellations
+  - Always 0 for full cancellations
 
 - **PaymentId** (number, required)
   - Payment identifier in I-Business system
@@ -151,7 +119,7 @@ Content-Type: application/json
 ### Successful Full Reversal
 ```json
 {
-  "TerminalKey": "1234567890",
+  "TeamSlug": "1234567890",
   "OrderId": "order-12345",
   "Success": true,
   "Status": "REVERSED",
@@ -163,24 +131,11 @@ Content-Type: application/json
 }
 ```
 
-### Successful Partial Refund
-```json
-{
-  "TerminalKey": "1234567890",
-  "OrderId": "order-12345",
-  "Success": true,
-  "Status": "PARTIAL_REFUNDED",
-  "OriginalAmount": 150000,
-  "NewAmount": 75000,
-  "PaymentId": 987654321,
-  "ErrorCode": "0"
-}
-```
 
 ### Cancellation Error
 ```json
 {
-  "TerminalKey": "1234567890",
+  "TeamSlug": "1234567890",
   "OrderId": "order-12345",
   "Success": false,
   "Status": "CONFIRMED",
@@ -196,8 +151,8 @@ Content-Type: application/json
 ## Technical Implementation Notes
 
 ### Financial Impact
-- **AUTHORIZED → REVERSED/PARTIAL_REVERSED**: Releases card hold, no money movement
-- **CONFIRMED → REFUNDED/PARTIAL_REFUNDED**: Actual money transfer back to customer
+- **AUTHORIZED → REVERSED**: Releases card hold, no money movement
+- **CONFIRMED → REFUNDED**: Actual money transfer back to customer
 
 ### State Machine Compliance
 - Method enforces proper state transitions per payment lifecycle flowchart
@@ -206,18 +161,15 @@ Content-Type: application/json
 
 ### Integration Considerations
 - Use ExternalRequestId for idempotency in production systems
-- Implement proper receipt handling for fiscal compliance
 - Monitor OriginalAmount vs NewAmount for reconciliation
-- Handle marketplace shop data for multi-vendor scenarios
 
 ### Error Handling
 - Validate payment status before attempting cancellation
-- Check available cancellation amount for partial operations
-- Ensure proper Route/Source combination for specialized payment methods
+- Ensure proper Route specification for standard payment methods
 
 ### Security Requirements
 - SHA-256 token validation mandatory
 - HTTPS required for all communications
-- Merchant can only cancel own terminal's payments
+- Merchant can only cancel own team's payments
 
-This method provides comprehensive cancellation capabilities while maintaining payment lifecycle integrity and supporting various payment scenarios including marketplace, installment, and BNPL operations.
+This method provides comprehensive cancellation capabilities while maintaining payment lifecycle integrity for standard card payment operations.

@@ -12,355 +12,328 @@ Comprehensive error code reference for I-Business payment API operations. Error 
 ## Success Code
 | Code | Message | Details | Description |
 |------|---------|---------|-------------|
-| 0 | None | - | Successful operation |
+| 2000 | Operation completed successfully | - | Successful operation |
 
-## System and Configuration Errors (1-99)
+## System and Configuration Errors
 
 ### Core System Errors
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 1 | Параметры не сопоставлены | - | Parameter mapping failed |
-| 2 | Отсутствуют обязательные параметры | - | Required parameters missing |
-| 3 | Внутренняя ошибка системы интернет-эквайринга | - | Internal acquiring system error |
-| 4 | Не получится изменить статус платежа | - | Invalid state transition attempted |
-| 5 | Обратитесь в поддержку, чтобы уточнить детали | - | Support contact required |
+| 1001 | Переданные параметры не соответствуют требуемому формату | - | Parameter mapping failed |
+| 1002 | Отсутствуют обязательные параметры в запросе | - | Required parameters missing |
+| 1003 | Критическая ошибка платежной системы | - | Internal acquiring system error |
+| 1004 | Статус операции не может быть изменен | - | Invalid state transition attempted |
+| 1005 | Требуется обращение в службу технической поддержки | - | Support contact required |
 
 ### Card and Customer Management Errors
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 6 | Не получилось привязать карту покупателя. Обратитесь в поддержку, чтобы уточнить детали | - | Card binding failed |
-| 7 | Неверный статус покупателя | - | Invalid customer status |
-| 8 | Неверный статус транзакции | - | Invalid transaction status |
+| 1006 | Не удалось привязать карту к профилю клиента | - | Card binding failed |
+| 1007 | Текущий статус клиента блокирует выполнение операции | - | Invalid customer status |
+| 1008 | Статус транзакции не позволяет выполнить запрашиваемое действие | - | Invalid transaction status |
 
 ### URL and Routing Errors  
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 9 | Переадресовываемый URL пуст | - | Redirect URL empty |
-| 10 | Метод Charge заблокирован для данного терминала | - | Charge method blocked |
-| 11 | Невозможно выполнить платеж | - | Payment execution impossible |
-| 12 | Неверный параметр RedirectDueDate | - | Invalid redirect expiration |
+| 1009 | Не предоставлен URL для перенаправления пользователя | - | Redirect URL empty |
+| 1010 | Операция списания заблокирована для данного терминала | - | Charge method blocked |
+| 1011 | Обработка платежа в данный момент невозможна | - | Payment execution impossible |
+| 1012 | Указан некорректный срок действия ссылки перенаправления | - | Invalid redirect expiration |
 
 ### Payment Method Availability
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 13 | Оплата с мобильного телефона недоступна | - | Mobile payment unavailable |
-| 13 | Оплата через WebMoney недоступна | - | WebMoney payment unavailable |
-| 14 | Платеж неверный | - | Invalid payment |
-| 15 | Не удалось осуществить платеж через EINV | - | EINV payment failed |
-| 16 | Счет был отклонен | - | Invoice rejected |
-| 17 | Неверные введенные данные | - | Invalid input data |
-| 18 | Не удалось осуществить платеж через MC | - | MasterCard payment failed |
-| 19 | Не удалось осуществить платеж через WebMoney | - | WebMoney payment failed |
-| 20 | Ошибка повторного идентификатора заказа | - | Duplicate order ID error |
-| 21 | Внутренняя ошибка вызова сервиса ACQAPI | - | ACQAPI service error |
+| 1013 | Мобильные платежи находятся на техническом обслуживании | - | Mobile payment unavailable |
+| 1014 | Оплата через WebMoney недоступна для данного терминала | - | WebMoney payment unavailable |
+| 1015 | Переданные данные платежа не прошли валидацию | - | Invalid payment |
+| 1016 | Ошибка при обработке платежа через EINV | - | EINV payment failed |
+| 1017 | Сформированный счет был отклонен системой | - | Invoice rejected |
+| 1018 | Предоставленные данные не соответствуют требованиям | - | Invalid input data |
+| 1019 | Не удалось обработать MasterCard транзакцию | - | MasterCard payment failed |
+| 1020 | Оплата через WebMoney завершилась ошибкой | - | WebMoney payment failed |
+| 1021 | Операция с указанным идентификатором заказа уже выполняется | - | Duplicate order ID error |
+| 1022 | Ошибка подключения к ACQAPI сервису | - | ACQAPI service error |
 
 ### System Maintenance and Service Errors
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 27 | Кассовая ссылка на текущий момент недоступна для повторной активации | - | Cash register link reactivation unavailable |
-| 50 | Ошибка отправки нотификации | - | Notification sending failed |
-| 51 | Ошибка отправки email | - | Email sending failed |
-| 52 | Ошибка отправки SMS | - | SMS sending failed |
-| 53 | Обратитесь к продавцу | - | Contact merchant |
-| 54 | Повторное прохождение 3DS авторизации не допустимо | - | Repeat 3DS not allowed |
-| 55 | Повторите попытку позже | Не найдено оплаченных назначений платежа | No paid payment assignments found |
+| 1023 | Кассовое оборудование не может быть повторно активировано | - | Cash register link reactivation unavailable |
+| 1024 | Ошибка при отправке уведомления | - | Notification sending failed |
+| 1025 | Не удалось отправить электронное письмо | - | Email sending failed |
+| 1026 | Ошибка при отправке SMS-сообщения | - | SMS sending failed |
+| 1027 | Требуется обращение к продавцу для решения проблемы | - | Contact merchant |
+| 1028 | Повторное прохождение 3DS проверки недопустимо | - | Repeat 3DS not allowed |
+| 1029 | Сервис временно недоступен, попробуйте позднее | Не обнаружено оплаченных назначений платежа | No paid payment assignments found |
 
 ### Document and Receipt Service Errors
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 60 | Запрещено получение документов по URL для текущего терминала | Запрещено получение документов по URL для текущего терминала | Document URL access forbidden |
-| 61 | Должен быть заполнен один из параметров: emailList или URL | Должен быть заполнен один из параметров: emailList или URL | Email or URL required |
-| 62 | Запрещено получение документов по URL для текущего systemId | Запрещено получение документов по URL для текущего systemId | System ID document access forbidden |
-| 63 | Не найдена операция | Не найдена операция | Operation not found |
-| 64 | Невалидные данные в запросе | Невалидные данные в запросе | Invalid request data |
-| 65 | Не удалось сформировать документ. Обратитесь в службу поддержки | Не удалось сформировать документ. Повторите операцию позднее | Document generation failed |
-| 66 | Не удалось сформировать документ. Повторите операцию позднее | Запрещено получение документов по URL для текущего терминала | Document generation retry required |
-| 67 | Не удалось сформировать документ. Повторите операцию позднее | Не удалось сформировать документ. Повторите операцию позднее | Document generation temporary failure |
-| 68 | Не удалось сформировать документ. Обратитесь в службу поддержки | Стороний сервис не доступен | External service unavailable |
+| 1030 | Доступ к документам по прямой ссылке ограничен | Доступ к документам по ссылке заблокирован | Document URL access forbidden |
+| 1031 | Требуется указать один из параметров: список email адресов или URL | Укажите один из параметров: список email или URL | Email or URL required |
+| 1032 | Ограниченные права доступа к документам для данного системного идентификатора | Доступ к документам ограничен для идентификатора системы | System ID document access forbidden |
+| 1033 | Операция с указанным идентификатором отсутствует в системе | Запрашиваемая операция не найдена | Operation not found |
+| 1034 | Параметры запроса содержат некорректные данные | Неправильные параметры в отправленном запросе | Invalid request data |
+| 1035 | Критическая ошибка при формировании документа | Невозможно сформировать документ. Повторите попытку | Document generation failed |
+| 1036 | Не удалось сгенерировать документ, повторите операцию | Доступ к документам ограничен для терминала | Document generation retry required |
+| 1037 | Система генерации документов временно недоступна | Документ временно недоступен для формирования | Document generation temporary failure |
+| 1038 | Служба формирования документов недоступна | Внешний сервис не отвечает | External service unavailable |
 
 ### Foreign Card Restrictions
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 76 | Операция по иностранной карте недоступна | Операция по иностранной карте недоступна. Воспользуйтесь картой российского банка | Foreign card operation unavailable |
-| 77 | Оплата иностранной картой недоступна | Оплата по иностранной карте недоступна. Воспользуйтесь картой российского банка | Foreign card payment unavailable |
-| 78 | Выплата на иностранную карту недоступна | Выплата на иностранную карту недоступна. Воспользуйтесь картой российского банка | Foreign card payout unavailable |
-| 79 | Возврат на иностранную карту недоступен | Возврат на иностранную карту недоступен. Обратитесь в поддержку | Foreign card refund unavailable |
+| 131 | Карты зарубежных банков не принимаются | Карты зарубежных банков не принимаются. Воспользуйтесь картой российского банка | Foreign card operation unavailable |
+| 222 | Оплата картами иностранных банков заблокирована | Оплата картами иностранных банков заблокирована. Используйте карту РФ | Foreign card payment unavailable |
+| 313 | Перевод на иностранную карту запрещен | Перевод на иностранную карту невозможен. Используйте карту РФ | Foreign card payout unavailable |
+| 404 | Возврат на зарубежную карту невозможен | Возврат на зарубежную карту недоступен. Консультация специалиста | Foreign card refund unavailable |
 
-### Service Integration Errors
-| Code | Message | Details | Context |
-|------|---------|---------|---------|
-| 96 | Ошибка Iris | - | Iris service error |
-| 97 | Ошибка Jasper | - | Jasper service error |
-| 98 | Ошибка SubExt | - | SubExt service error |
-| 99 | Попробуйте повторить попытку позже | Банк, выпустивший карту, отклонил операцию | Bank rejected operation |
-
-## Payment Processing Errors (100-199)
+## Payment Processing Errors
 
 ### General Payment Processing
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 100 | Попробуйте еще раз. Если ошибка повторится — обратитесь в поддержку | - | Multiple scenarios (see variations) |
-| 101 | Не пройдена идентификация 3DS | Ошибка прохождения 3-D Secure | 3DS authentication failed |
-| 102 | Обратитесь в поддержку, чтобы уточнить детали | - | Multiple scenarios (see variations) |
-| 103 | Недостаточно средств на счете | - | Insufficient account funds |
-| 104 | Ошибка выполения рекуррента | - | Recurring payment error |
-| 105 | Нужно настроить автоплатежи по Maestro — для этого обратитесь в поддержку | - | Maestro autopayment setup required |
+| 859 | Повторите операцию. При повторении ошибки свяжитесь с поддержкой | - | Multiple scenarios (see variations) |
+| 140 | Ошибка проверки 3DS аутентификации | Невозможно подтвердить подлинность карты | 3DS authentication failed |
+| 251 | Необходимо обратиться в службу поддержки | - | Multiple scenarios (see variations) |
+| 342 | На счете недостаточно денежных средств | - | Insufficient account funds |
+| 433 | Невозможно выполнить регулярный платеж | - | Recurring payment error |
+| 524 | Необходимо сконфигурировать автоматические Maestro платежи | - | Maestro autopayment setup required |
 
 ### Card and 3DS Errors
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 106 | Карта не поддерживает 3DS проверку. Попробуйте другую карту | - | Card doesn't support 3DS |
-| 107 | Неверно введен CardId. Проверьте, что такая карта была ранее привязана | - | Invalid CardId |
-| 108 | Оплата разрешена только по 3DS картам. Попробуйте другую карту | - | 3DS-only payment required |
-| 109 | Не найден dsTranId для сессии | - | 3DS transaction ID not found |
-| 110 | Не передан cres | - | 3DS challenge response missing |
-| 111 | Передан некорректный cres | - | Invalid 3DS challenge response |
+| 615 | Карта не поддерживает 3DS верификацию. Используйте другую карту | - | Card doesn't support 3DS |
+| 706 | Некорректный идентификатор карты. Проверьте, что карта была привязана | - | Invalid CardId |
+| 817 | Оплата доступна исключительно для 3DS карт. Воспользуйтесь другой картой | - | 3DS-only payment required |
+| 908 | Отсутствует идентификатор 3DS сессии | - | 3DS transaction ID not found |
+| 199 | Не получен ответ 3DS проверки | - | 3DS challenge response missing |
+| 280 | Некорректный ответ 3DS аутентификации | - | Invalid 3DS challenge response |
 
 ### Insufficient Funds and Limits
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 116 | Недостаточно средств на карте | - | Insufficient card funds |
-| 119 | Превышено допустимое количество попыток авторизации операции | - | Authorization attempt limit exceeded |
-| 120 | Попробуйте повторить попытку позже | - | Temporary processing issue |
-| 123 | Попробуйте повторить попытку позже | - | Temporary processing issue |
-| 125 | Попробуйте повторить попытку позже | - | Temporary processing issue |
-| 191 | Некорректный статус договора, обратитесь к вашему менеджеру | - | Invalid contract status |
+| 371 | На карте недостаточно денежных средств | - | Insufficient card funds |
+| 462 | Превышен лимит попыток подтверждения операции | - | Authorization attempt limit exceeded |
+| 553 | Операция временно недоступна, повторите через некоторое время | - | Temporary processing issue |
+| 644 | Повторите операцию позднее | - | Temporary processing issue |
+| 735 | Операция невозможна, повторите попытку | - | Temporary processing issue |
+| 826 | Некорректное состояние договора, обратитесь к менеджеру | - | Invalid contract status |
 
-## Validation Errors (200-399)
+## Validation Errors
 
 ### Required Field Validation
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 201 | Поле PaymentId не должно быть пустым | - | PaymentId required |
-| 201 | Поле paymentMethod не должно быть пустым | - | Payment method required |
-| 201 | Поле paymentObject не должно быть пустым | - | Payment object required |
-| 201 | Поле measurementUnit не должно быть пустым | - | Measurement unit required |
-| 202 | Терминал заблокирован | - | Terminal blocked |
-| 203 | Параметры запроса не должны быть пустыми | - | Request parameters required |
+| 917 | Обязательное поле PaymentId не заполнено | - | PaymentId required |
+| 117 | Обязательное поле paymentMethod не заполнено | - | Payment method required |
+| 208 | Обязательное поле paymentObject не заполнено | - | Payment object required |
+| 359 | Обязательное поле measurementUnit не заполнено | - | Measurement unit required |
+| 440 | Терминал заблокирован или неактивен | - | Terminal blocked |
+| 531 | Параметры запроса не могут быть пустыми | - | Request parameters required |
 
 ### Authentication Errors
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 204 | Неверный токен. Проверьте пару TerminalKey/SecretKey | - | Invalid token |
-| 205 | Неверный токен. Проверьте пару TerminalKey/SecretKey | Указанный терминал не найден | Terminal not found |
-| 206 | email не может быть пустым | - | Email required |
+| 622 | Ошибка аутентификации. Проверьте TerminalKey и SecretKey | - | Invalid token |
+| 713 | Недействительные учетные данные. Проверьте TerminalKey | Терминал с указанным ключом отсутствует | Terminal not found |
+| 804 | Поле email не может быть незаполненным | - | Email required |
 
 ### Data Size Validation
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 207 | Параметр DATA превышает максимально допустимый размер | - | DATA parameter too large |
-| 208 | Наименование ключа из параметра DATA превышает максимально допустимый размер | - | DATA key name too long |
-| 209 | Значение ключа из параметра DATA превышает максимально допустимый размер | - | DATA key value too long |
+| 895 | Параметр DATA превысил максимальный допустимый размер | - | DATA parameter too large |
+| 186 | Слишком длинное имя ключа в параметре DATA | - | DATA key name too long |
+| 277 | Слишком длинное значение ключа в параметре DATA | - | DATA key value too long |
 
-### Field Size Validation (210-243)
+### Field Size Validation
 | Code | Message Template | Context |
 |------|------------------|---------|
-| 210 | Размер поля TerminalKey должен быть от {min} до {max} | Terminal key size validation |
-| 211 | Неверный формат IP | IP format validation |
-| 212 | Размер поля OrderId должен быть от {min} до {max} | Order ID size validation |
-| 213 | Размер поля Description должен быть от {min} до {max} | Description size validation |
-| 214 | Поле Currency должно быть меньше или равно {value} | Currency validation |
-| 215 | Размер поля PayForm должен быть от {min} до {max} | Payment form size validation |
-| 216 | Размер поля CustomerKey должен быть от {min} до {max} | Customer key size validation |
+| 368 | Некорректная длина поля TerminalKey: допустимо от {min} до {max} символов | Terminal key size validation |
+| 459 | Некорректный формат IP-адреса | IP format validation |
+| 540 | Некорректная длина поля OrderId: допустимо от {min} до {max} символов | Order ID size validation |
+| 631 | Некорректная длина поля Description: допустимо от {min} до {max} символов | Description size validation |
+| 722 | Некорректное значение поля Currency: максимум {value} | Currency validation |
+| 813 | Некорректная длина поля PayForm: допустимо от {min} до {max} символов | Payment form size validation |
+| 904 | Некорректная длина поля CustomerKey: допустимо от {min} до {max} символов | Customer key size validation |
 
-### Numeric and Format Validation (217-262)
+### Numeric and Format Validation
 | Code | Message | Context |
 |------|---------|---------|
-| 217 | Поле PaymentId числовое значение должно укладываться в формат | Payment ID format |
-| 218 | Значение PAN не является числовым | Card PAN validation |
-| 219 | Неверный срок действия карты | Card expiry validation |
-| 220 | Размер поля CardHolder должен быть от {min} до {max} | Card holder validation |
-| 221 | Значение CVV не является числовым | CVV validation |
-| 224 | Неверный формат email | Email format validation |
-| 251 | Неверная сумма. Сумма должна быть больше или равна {value} копеек | Amount validation |
-| 252 | Срок действия карты истек | Card expiry validation |
-| 253 | Валюта {value} не разрешена для данного терминала | Currency restriction |
+| 195 | Некорректный формат поля PaymentId | Payment ID format |
+| 286 | Номер карты должен содержать только цифры | Card PAN validation |
+| 377 | Некорректно указан период действия карты | Card expiry validation |
+| 468 | Некорректная длина поля CardHolder: допустимо от {min} до {max} | Card holder validation |
+| 559 | Код CVV должен состоять только из цифр | CVV validation |
+| 640 | Некорректный формат адреса электронной почты | Email format validation |
+| 731 | Недопустимо малая сумма. Минимум {value} копеек | Amount validation |
+| 822 | Карта просрочена | Card expiry validation |
+| 913 | Валюта {value} не поддерживается данным терминалом | Currency restriction |
 
-## Receipt and Fiscal Errors (300-399)
+## Receipt and Fiscal Errors
 
 ### Receipt Validation
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 308 | Сумма всех позиций в чеке должна равняться сумме всех видов оплаты | - | Receipt total mismatch |
-| 309 | Поле Receipt не должно быть пустым | - | Receipt required |
-| 310 | Дробная часть параметра Quantity не должна быть больше {value} знаков | - | Quantity precision validation |
-| 311 | Ошибка регистрации чека в Receipt Service | - | Receipt service registration error |
-| 312 | Ошибка получения чека из Receipt Service | - | Receipt service retrieval error |
-| 313 | Ошибка создания организации в Receipt Service | - | Organization creation error |
-| 314 | Ошибка создания кассы в Receipt Service | - | Cash register creation error |
-| 315 | Касса не найдена | - | Cash register not found |
+| 114 | Общая стоимость товаров в чеке не соответствует сумме оплаты | - | Receipt total mismatch |
+| 205 | Обязательное поле Receipt не заполнено | - | Receipt required |
+| 356 | Количество значащих цифр после запятой в Quantity не должно превышать {value} | - | Quantity precision validation |
+| 447 | Ошибка оформления чека в фискальной системе | - | Receipt service registration error |
+| 538 | Ошибка получения чека из фискальной системы | - | Receipt service retrieval error |
+| 629 | Ошибка регистрации организации в фискальной системе | - | Organization creation error |
+| 720 | Ошибка настройки кассового оборудования | - | Cash register creation error |
+| 811 | Кассовое оборудование отсутствует | - | Cash register not found |
 
 ### Agent and Supplier Information
 | Code | Message | Context |
 |------|---------|---------|
-| 317 | Неверное значение поля agentSign | Agent sign validation |
-| 318 | Поле AgentSign не должно быть пустым | Agent sign required |
-| 319 | Поле SupplierInfo не должно быть пустым | Supplier info required |
-| 320 | Поле Inn в объекте SupplierInfo не должно быть пустым | Supplier INN required |
+| 902 | Некорректное значение поля agentSign | Agent sign validation |
+| 193 | Обязательное поле AgentSign не заполнено | Agent sign required |
+| 284 | Обязательное поле SupplierInfo не заполнено | Supplier info required |
+| 375 | Обязательное поле Inn в SupplierInfo не заполнено | Supplier INN required |
 
 ### Marketplace and Operations
 | Code | Message | Context |
 |------|---------|---------|
-| 332 | Поле Fee в объекте Shops должно быть больше или равно 0 | Shop fee validation |
-| 333 | Поле Amount в объекте Shops должно быть больше или равно 1 | Shop amount validation |
-| 334 | Суммы в чеке и в платеже не совпадают | Receipt/payment amount mismatch |
-| 335 | OrderId {value} не найден для TerminalKey {value} | Order not found |
+| 466 | Поле Fee в Shops должно иметь неотрицательное значение | Shop fee validation |
+| 557 | Поле Amount в Shops должно быть не меньше 1 | Shop amount validation |
+| 648 | Сумма чека не соответствует сумме платежа | Receipt/payment amount mismatch |
+| 739 | Заказ {value} не обнаружен для терминала {value} | Order not found |
 
-### Marked Goods Validation (383-386)
+### Marked Goods Validation
 | Code | Message | Context |
 |------|---------|---------|
-| 383 | Поле markProcessingMode должно быть заполнено для маркированных товаров | Mark processing mode required |
-| 383 | Поле markCode должно быть заполнено для маркированных товаров | Mark code required |
-| 383 | Поле markQuantity должно быть заполнено для маркированных товаров | Mark quantity required |
-| 385 | Поле markQuantity передается только для маркированных товаров | Mark quantity for marked goods only |
-| 386 | markQuantity заполняется только для дробного расчета за штучный маркированный товар | Mark quantity for fractional calculation |
+| 830 | Необходимо указать markProcessingMode для маркированной продукции | Mark processing mode required |
+| 921 | Необходимо указать markCode для маркированной продукции | Mark code required |
+| 112 | Необходимо указать markQuantity для маркированной продукции | Mark quantity required |
+| 203 | Поле markQuantity применимо исключительно для маркированных товаров | Mark quantity for marked goods only |
+| 354 | markQuantity используется только для расчета частичного количества | Mark quantity for fractional calculation |
 
 ## Service and Limit Errors (400-699)
 
 ### Internal Service Errors
 | Code | Message | Context |
 |------|---------|---------|
-| 401 | Внутренняя ошибка системы | Internal system error |
-| 402 | Повторите попытку позже | Retry later |
-| 403 | Превышен лимит на количество пополнений в месяц | Monthly topup limit exceeded |
-| 404 | Превышен лимит на сумму пополнения через бесконтактные сервисы | Contactless topup limit exceeded |
-| 405 | Превышен лимит на сумму пополнения по виртуальной карте | Virtual card topup limit exceeded |
-| 406 | Превышен лимит на сумму пополнения в месяц через мобильное приложение | Mobile app monthly limit exceeded |
+| 2001 | Критическая внутренняя ошибка системы обработки платежей | Internal system error |
+| 2002 | Сервис временно недоступен, повторите операцию через некоторое время | Retry later |
+| 2003 | Достигнут месячный лимит по количеству операций пополнения | Monthly topup limit exceeded |
+| 2004 | Превышен лимит суммы пополнения через бесконтактные платежные системы | Contactless topup limit exceeded |
+| 2005 | Превышен лимит суммы пополнения с использованием виртуальной карты | Virtual card topup limit exceeded |
+| 2006 | Достигнут месячный лимит суммы пополнения через мобильное приложение | Mobile app monthly limit exceeded |
 
-### Certificate Management (411-417)
+### Certificate Management
 | Code | Message | Context |
 |------|---------|---------|
-| 411 | Сертификат не найден | Certificate not found |
-| 412 | Истек срок действия сертификата | Certificate expired |
-| 413 | Сертификат заблокирован | Certificate blocked |
-| 414 | Сертификат уже сохранен для данного терминала | Certificate already saved |
-| 415 | Дата начала срока действия сертификата еще не наступила | Certificate not yet valid |
-| 417 | Ошибка обработки сертификата | Certificate processing error |
+| 2011 | Запрашиваемый сертификат отсутствует в системе | Certificate not found |
+| 2012 | Срок действия сертификата уже истек | Certificate expired |
+| 2013 | Сертификат был отозван или заблокирован | Certificate blocked |
+| 2014 | Сертификат ранее уже был сохранен для указанного терминала | Certificate already saved |
+| 2015 | Срок действия сертификата еще не наступил | Certificate not yet valid |
+| 2017 | Не удалось обработать сертификат | Certificate processing error |
 
-### Card Binding Errors (500-515)
+### Card Binding Errors
 | Code | Message | Context |
 |------|---------|---------|
-| 500 | Добавление карты к данному терминалу запрещено | Card binding forbidden |
-| 501 | Терминал не найден | Terminal not found |
-| 502 | Карта по requestKey не найдена | Card by request key not found |
-| 503 | CustomerKey не найден | Customer key not found |
-| 504 | Не удалось провести платеж при привязке карты | Payment during card binding failed |
-| 505 | Не удалось привязать карту. Внутренняя ошибка | Card binding internal error |
-| 506 | Карта добавлена в черный список | Card blacklisted |
-| 507 | Карта не поддерживает 3DS проверку. Попробуйте другую карту | Card doesn't support 3DS |
-| 508 | Неверный номер карты | Invalid card number |
-| 510 | Карта уже привязана к переданному CustomerKey | Card already bound |
-| 511 | Проверка 3DS не пройдена | 3DS verification failed |
-| 514 | Введена неверная сумма холдирования | Invalid hold amount |
+| 2020 | Привязка карты к указанному терминалу заблокирована системными настройками | Card binding forbidden |
+| 2021 | Терминал с указанным идентификатором отсутствует в системе | Terminal not found |
+| 2022 | Карта с указанным ключом запроса не обнаружена в системе | Card by request key not found |
+| 2023 | Идентификатор клиента не найден в базе данных | Customer key not found |
+| 2024 | Тестовый платеж при привязке карты завершился неудачей | Payment during card binding failed |
+| 2025 | Критическая ошибка при попытке привязать карту к профилю клиента | Card binding internal error |
+| 2026 | Карта заблокирована и внесена в список запрещенных к использованию | Card blacklisted |
+| 2027 | Данная карта не поддерживает технологию 3DS аутентификации | Card doesn't support 3DS |
+| 2028 | Указан некорректный номер банковской карты | Invalid card number |
+| 2030 | Карта уже привязана к указанному идентификатору клиента | Card already bound |
+| 2031 | 3DS верификация карты не была успешно завершена | 3DS verification failed |
+| 2034 | Сумма тестового холдирования указана некорректно | Invalid hold amount |
 
-### Card and Limit Restrictions (600-699)
+### Card and Limit Restrictions
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 600 | Карта добавлена в черный список | - | Card blacklisted |
-| 600 | Интернет-магазин отклонил операцию по данной карте | - | Merchant rejected card |
-| 601 | Разрешены операции только по Master Card | - | MasterCard only |
-| 603 | Превышено количество попыток оплаты с данной карты | - | Card attempt limit exceeded |
-| 619 | Отсутствуют обязательные данные отправителя | Не переданы персональные данные отправителя для операции emoney2card больше 15000 руб. | Sender data required for large transfers |
-| 620 | Проверьте сумму — она не может быть равна 0 | Сумма операции не может быть равна 0 | Amount cannot be zero |
-| 632 | Превышен лимит на сумму операции | Лимит на сумму пополнения emoney2card | Operation amount limit exceeded |
-| 642 | Проверьте номер карты | Карта не прошла проверку по алгоритму Луна | Card failed Luhn check |
-| 648 | Магазин заблокирован или еще не активирован | - | Shop blocked or not activated |
+| 2040 | Карта заблокирована банком-эмитентом и внесена в черный список | - | Card blacklisted |
+| 2041 | Мерчант отклонил проведение операции по указанной карте | - | Merchant rejected card |
+| 2042 | Данный терминал принимает только карты MasterCard | - | MasterCard only |
+| 2043 | Достигнут максимально допустимое количество попыток оплаты с данной карты | - | Card attempt limit exceeded |
+| 2044 | Не предоставлены обязательные персональные данные отправителя | Не переданы персональные данные отправителя для операции emoney2card больше 15000 руб. | Sender data required for large transfers |
+| 2045 | Сумма операции должна быть больше нуля | Сумма операции не может быть равна 0 | Amount cannot be zero |
+| 2046 | Сумма операции превышает допустимые лимиты | Лимит на сумму пополнения emoney2card | Operation amount limit exceeded |
+| 2047 | Номер карты содержит ошибки или не прошел проверку | Карта не прошла проверку по алгоритму Луна | Card failed Luhn check |
+| 2048 | Интернет-магазин неактивен или заблокирован администрацией | - | Shop blocked or not activated |
 
-## Bank Response Errors (1000-1999)
+## Bank Response Errors
 
 ### Bank Communication Errors
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 1001 | Свяжитесь с банком | Свяжитесь с банком, выпустившим карту, чтобы провести платеж | Contact issuing bank |
-| 1003 | Неверный магазин | Неверный номер магазина. Идентификатор магазина недействителен | Invalid merchant ID |
-| 1004 | Банк, который выпустил карту, считает платеж подозрительным | - | Suspicious payment |
-| 1005 | Платеж отклонен банком, выпустившим карту | Платеж отклонен банком, выпустившим карту | Bank rejected payment |
+| 3001 | Обратитесь в банк-эмитент для решения вопроса | Необходимо обратиться в банк, выпустивший карту, для авторизации платежа | Contact issuing bank |
+| 3002 | Некорректный идентификатор торговой точки | Предоставленный номер мерчанта не распознан банковской системой | Invalid merchant ID |
+| 3003 | Операция заблокирована системой безопасности банка-эмитента | - | Suspicious payment |
+| 3004 | Банк-эмитент отклонил проведение транзакции | Банк-эмитент отклонил авторизацию операции | Bank rejected payment |
 
 ### Card Validation Errors
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 1014 | Карта недействительна | Неправильные реквизиты — проверьте их или воспользуйтесь другой картой | Invalid card |
-| 1015 | Неверный номер карты | Неверный номер карты | Invalid card number |
-| 1033 | Истек срок действия карты | - | Card expired |
-| 1054 | Истек срок действия карты | Неправильные реквизиты — проверьте их или воспользуйтесь другой картой | Card expired |
-| 1080 | Плательщик ввел неверный срок действия карты | - | Incorrect expiry date entered |
-| 1082 | Неверный CVV | Неправильные реквизиты — проверьте их или воспользуйтесь другой картой | Invalid CVV |
+| 3005 | Предоставленные реквизиты карты не прошли валидацию | Проверьте правильность введенных данных карты или используйте другую карту | Invalid card |
+| 3006 | Номер банковской карты содержит ошибки | Проверьте правильность введенного номера карты | Invalid card number |
+| 3007 | Срок действия карты завершился | - | Card expired |
+| 3008 | Карта просрочена и не может быть использована | Проверьте дату окончания действия карты или воспользуйтесь актуальной картой | Card expired |
+| 3009 | Некорректно указана дата окончания действия карты | - | Incorrect expiry date entered |
+| 3010 | Код безопасности CVV/CVC не соответствует карте | Проверьте правильность ввода трехзначного кода с оборотной стороны карты | Invalid CVV |
 
 ### Insufficient Funds and Limits
 | Code | Message | Details | Context |
 |------|---------|---------|---------|
-| 1013 | Банк, который выпустил карту, отклонил платеж — сумма превышает лимит по карте | Сумма превышает лимит платежа вашего банка. Воспользуйтесь другой картой или обратитесь в банк | Amount exceeds card limit |
-| 1051 | Недостаточно средств на карте | Не получилось оплатить. На карте недостаточно средств | Insufficient card funds |
-| 1061 | Покупатель превысил лимит платежей по своей карте | - | Customer payment limit exceeded |
-| 1065 | Покупатель превысил лимит платежей по своей карте | - | Customer payment limit exceeded |
-| 1075 | Покупатель оплатил максимум раз по своей карте за день | - | Daily payment limit exceeded |
+| 3011 | Сумма операции превышает доступные лимиты по карте | Размер платежа превышает допустимые лимиты. Используйте другую карту или обратитесь в банк | Amount exceeds card limit |
+| 3012 | На банковском счету недостаточно средств для совершения операции | Для совершения платежа необходимо пополнить баланс карты | Insufficient card funds |
+| 3013 | Достигнут максимальный лимит по количеству операций по карте | - | Customer payment limit exceeded |
+| 3014 | Превышен допустимый лимит транзакций по карте | - | Customer payment limit exceeded |
+| 3015 | Исчерпан суточный лимит по количеству платежей | - | Daily payment limit exceeded |
 
 ### Card Security and Fraud
 | Code | Message | Context |
 |------|---------|---------|
-| 1041 | Карта утеряна | Card reported lost |
-| 1057 | Покупатель запретил такие операции для своей карты | Customer restricted operations |
-| 1058 | Покупатель запретил такие операции для своей карте | Customer restricted operations |
-| 1059 | Банк, который выпустил карту, считает платеж подозрительным | Suspicious payment |
-| 1063 | Банк, который выпустил карту, считает платеж подозрительным | Suspicious payment |
+| 3016 | Карта заблокирована по заявлению о ее утере | Card reported lost |
+| 3017 | Клиент установил ограничения на проведение подобных операций | Customer restricted operations |
+| 3018 | Операции данного типа заблокированы владельцем карты | Customer restricted operations |
+| 3019 | Операция заблокирована системой мониторинга мошенничества | Suspicious payment |
+| 3020 | Система безопасности отметила операцию как подозрительную | Suspicious payment |
 
 ### System and Processing Errors
 | Code | Message | Context |
 |------|---------|---------|
-| 1018 | Неизвестный статус платежа | Unknown payment status |
-| 1071 | Токен просрочен | Token expired |
-| 1085 | Операция успешна | Operation successful |
-| 1096 | Системная ошибка | System error |
-| 1099 | Способ оплаты отключен | Payment method disabled |
+| 3021 | Получен неопределенный статус от банковской системы | Unknown payment status |
+| 3022 | Авторизационный токен утратил свою актуальность | Token expired |
+| 3023 | Операция успешно завершена | Operation successful |
+| 3024 | Критическая ошибка в банковской системе | System error |
+| 3025 | Выбранный способ оплаты временно недоступен | Payment method disabled |
 
-### Merchant Limit Errors (1200-1299)
+### Merchant Limit Errors
 | Code | Message | Context |
 |------|---------|---------|
-| 1202 | Сумма платежа превышает лимит по разовой операции в этом магазине | Single operation limit exceeded |
-| 1203 | Сумма платежа превышает лимит по разовой операции или количеству операций в этом магазине | Operation limits exceeded |
-| 1204 | Достигнут лимит по суточному обороту | Daily turnover limit reached |
-| 1205 | Магазин не принимает карты этой страны | Country card restriction |
-| 1235 | Для карт «Мир» нужно настроить подтверждение платежей по СМС 3DS 2.0 | Mir card 3DS 2.0 required |
+| 3026 | Размер операции превышает максимально допустимую сумму для разового платежа | Single operation limit exceeded |
+| 3027 | Превышены лимиты по сумме или количеству операций для данного торгового поинта | Operation limits exceeded |
+| 3028 | Исчерпан допустимый суточный оборот по терминалу | Daily turnover limit reached |
+| 3029 | Прием карт выпущенных в данной стране запрещен для этого мерчанта | Country card restriction |
 
-## SBP (Faster Payment System) Errors (3000-5999)
 
-### SBP Configuration Errors
-| Code | Message | Details | Context |
-|------|---------|---------|---------|
-| 3001 | Оплата через QrPay недоступна | Ошибка возникает, если для терминала не активирован способ оплаты СБП | SBP not activated |
-| 3002 | Недостаточный баланс счёта для отмены | Ошибка возникает, если на расчетном счете магазина недостаточно средств для возврата | Insufficient merchant balance |
-| 3016 | Невозможно создать QR | Ошибка передается, если сумма операции по СБП не соответствует диапазону возможной суммы | QR creation failed - amount out of range |
-| 3019 | Не включен СБП в личном кабинете | - | SBP not enabled in cabinet |
-
-### SBP Transaction Limits
-| Code | Message | Details | Context |
-|------|---------|---------|---------|
-| 3029 | Слишком много неудачных попыток за час | По требованиям НСПК в час допустимо проводить не больше 1 попытки возврата по операции | Hourly refund attempt limit |
-| 3030 | Слишком много неудачных попыток за сутки | По требованиям НСПК в день допустимо проводить не больше 5 попыток возврата по операции | Daily refund attempt limit |
-| 3041 | Слишком много неудачных попыток за сутки | - | Daily attempt limit exceeded |
-| 3042 | Слишком много неудачных попыток за час | - | Hourly attempt limit exceeded |
-
-### SBP Customer Bank Errors
-| Code | Message | Context |
-|------|---------|---------|
-| 5060 | У покупателя недостаточно денежных средств для проведения операции | Insufficient customer funds |
-| 5061 | Покупатель превысил лимит по сумме операций по СБП | Customer SBP amount limit exceeded |
-| 5062 | Покупатель превысил лимит по количеству операций по СБП | Customer SBP count limit exceeded |
-| 5063 | Банк покупателя отклонил операцию как подозрительную | Customer bank fraud detection |
-| 5064 | Покупателю запрещено выполнение операций в данной категории магазинов | Merchant category restriction |
-| 5065 | Счет покупателя заблокирован | Customer account blocked |
-| 5066 | Счет покупателя закрыт | Customer account closed |
-| 5067 | Банк покупателя отклонил операцию по требованию законодательства | Regulatory compliance rejection |
-
-## BNPL and Installment Errors (8000-8999)
+## BNPL and Installment Errors (7000-7999)
 
 ### Buy Now Pay Later Errors
 | Code | Message | Context |
 |------|---------|---------|
-| 8001 | Операция запрещена для рассрочки | Installment operation forbidden |
-| 8002 | I-Bank Credit Broker недоступен. Повторите попытку позже | Credit broker unavailable |
-| 8003 | Операция запрещена для покупки долями | BNPL operation forbidden |
-| 8004 | BNPL недоступен. Повторите попытку позже | BNPL service unavailable |
+| 7149 | Рассрочная система временно недоступна | Installment operation forbidden |
+| 7332 | Сервис кредитного брокера не отвечает. Попробуйте позднее | Credit broker unavailable |
+| 7581 | Покупка частями заблокирована для данной операции | BNPL operation forbidden |
+| 7798 | Система отложенных платежей находится на обслуживании | BNPL service unavailable |
+| 7023 | Превышен кредитный лимит для рассрочного платежа | Installment credit limit exceeded |
+| 7456 | Клиент не прошел скоринговую проверку для BNPL | BNPL scoring check failed |
+| 7687 | Товар не подходит для покупки в рассрочку | Product not eligible for installments |
+| 7291 | Минимальная сумма для отложенного платежа не достигнута | BNPL minimum amount not met |
+| 7834 | Максимальное количество активных рассрочек превышено | Active installment limit exceeded |
+| 7512 | Неподтвержденный номер телефона для BNPL | Phone verification required for BNPL |
+| 7643 | Документы клиента требуют дополнительной проверки | Customer documents need additional verification |
+| 7178 | Возраст клиента не соответствует требованиям кредитования | Customer age doesn't meet credit requirements |
+| 7925 | Регион клиента не обслуживается системой рассрочек | Customer region not supported for installments |
+| 7367 | Банк-партнер отклонил заявку на рассрочку | Partner bank declined installment application |
+| 7754 | Превышено время ожидания ответа от кредитной системы | Timeout waiting for credit system response |
 
 ## System Errors (9000-9999)
 
@@ -369,6 +342,18 @@ Comprehensive error code reference for I-Business payment API operations. Error 
 |------|---------|---------|
 | 9001 | Попробуйте повторить попытку позже | Temporary system issue |
 | 9999 | Внутренняя ошибка системы | Internal system error |
+
+### Custom Payment Gateway Errors (9002-9009)
+| Code | Message | Details | Context |
+|------|---------|---------|---------|
+| 9002 | Терминал недоступен или деактивирован | Terminal access is denied or terminal is deactivated | Terminal access denied - merchant not found or inactive |
+| 9003 | Ошибка аутентификации токена | Token authentication failed - verify TerminalKey and signature generation | Token authentication failed - invalid SHA-256 signature |
+| 9004 | Платежная операция не найдена | Payment record not found in the system | Payment record not found - invalid PaymentId or access denied |
+| 9005 | Ошибка валидации запроса | Request validation failed - check required fields and formats | Request validation failed - FluentValidation errors |
+| 9006 | Операция с данным OrderId уже существует | Order with this OrderId already exists for this terminal | Duplicate order operation - OrderId must be unique per terminal |
+| 9007 | Внутренняя ошибка обработки запроса | Internal request processing error occurred | Internal processing error - system exception during operation |
+| 9008 | Недопустимый статус платежа для подтверждения | Payment must be in AUTHORIZED status to perform confirmation | Invalid payment status for operation - state transition not allowed |
+| 9009 | Сумма подтверждения превышает авторизованную сумму | Requested amount exceeds authorized amount for confirmation | Operation amount limit exceeded - partial confirmation amount too large |
 
 ## Receipt-Specific Validation Errors
 
@@ -609,3 +594,5 @@ if (userActionErrors.includes(response.ErrorCode)) {
 - Offer alternative payment methods when possible
 
 This comprehensive error code specification provides the foundation for robust error handling across the entire I-Business payment lifecycle, ensuring proper system monitoring, user experience optimization, and regulatory compliance.
+
+=====

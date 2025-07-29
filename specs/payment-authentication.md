@@ -14,11 +14,11 @@ The Token generation mechanism provides request authentication and integrity ver
 ### Information from I-Business Merchant Cabinet
 Merchants must obtain the following credentials from their I-Business merchant portal:
 
-1. **TerminalKey** (string, ≤20 characters)
-   - Unique terminal identifier
-   - Issued during terminal setup in I-Business
+1. **TeamSlug** (string, ≤20 characters)
+   - Unique team identifier
+   - Issued during team setup in I-Business
    - Used in all API requests
-   - **Location**: Terminal settings section
+   - **Location**: Team settings section
 
 2. **Password** (string)
    - Secret key for token generation
@@ -43,27 +43,27 @@ Merchants must obtain the following credentials from their I-Business merchant p
 #### 1. Parameter Collection
 Collect **only root-level parameters** from the request body:
 - Include: All scalar values at the root level
-- Exclude: Nested objects (Receipt, DATA, Shops, etc.)
+- Exclude: Nested objects (Receipt, DICT, etc.)
 - Exclude: Arrays and complex structures
 
 **Example for Init method:**
 ```json
 // Original request
 {
-  "TerminalKey": "MerchantTerminalKey",
+  "TeamSlug": "MerchantTeamSlug",
   "Amount": 19200,
   "OrderId": "21090", 
-  "Description": "Подарочная карта на 1000 рублей",
-  "DATA": { ... },      // EXCLUDED - nested object
+  "Description": "Подарочная карта на 1000 тенге",
+  "DICT": { ... },      // EXCLUDED - nested object
   "Receipt": { ... }    // EXCLUDED - nested object
 }
 
 // Parameters for token generation
 [
-  {"TerminalKey": "MerchantTerminalKey"},
+  {"TeamSlug": "MerchantTeamSlug"},
   {"Amount": "19200"},
   {"OrderId": "21090"},
-  {"Description": "Подарочная карта на 1000 рублей"}
+  {"Description": "Подарочная карта на 1000 тенге"}
 ]
 ```
 
@@ -71,10 +71,10 @@ Collect **only root-level parameters** from the request body:
 Add the merchant password as a key-value pair:
 ```json
 [
-  {"TerminalKey": "MerchantTerminalKey"},
+  {"TeamSlug": "MerchantTeamSlug"},
   {"Amount": "19200"},
   {"OrderId": "21090"},
-  {"Description": "Подарочная карта на 1000 рублей"},
+  {"Description": "Подарочная карта на 1000 тенге"},
   {"Password": "usaf8fw8fsw21g"}  // From merchant cabinet
 ]
 ```
@@ -84,23 +84,23 @@ Sort the array alphabetically by key names:
 ```json
 [
   {"Amount": "19200"},
-  {"Description": "Подарочная карта на 1000 рублей"},
+  {"Description": "Подарочная карта на 1000 тенге"},
   {"OrderId": "21090"},
   {"Password": "usaf8fw8fsw21g"},
-  {"TerminalKey": "MerchantTerminalKey"}
+  {"TeamSlug": "MerchantTeamSlug"}
 ]
 ```
 
 #### 4. Value Concatenation
 Concatenate **only the values** into a single string:
 ```
-"19200Подарочная карта на 1000 рублей21090usaf8fw8fsw21gMerchantTerminalKey"
+"19200Подарочная карта на 1000 тенге21090usaf8fw8fsw21gMerchantTeamSlug"
 ```
 
 #### 5. SHA-256 Hashing
 Apply SHA-256 hash function with UTF-8 encoding:
 ```
-Input:  "19200Подарочная карта на 1000 рублей21090usaf8fw8fsw21gMerchantTerminalKey"
+Input:  "19200Подарочная карта на 1000 тенге21090usaf8fw8fsw21gMerchantTeamSlug"
 Output: "0024a00af7c350a3a67ca168ce06502aa72772456662e38696d48b56ee9c97d9"
 ```
 
@@ -108,12 +108,12 @@ Output: "0024a00af7c350a3a67ca168ce06502aa72772456662e38696d48b56ee9c97d9"
 Add the generated hash as the Token parameter in the request:
 ```json
 {
-  "TerminalKey": "MerchantTerminalKey",
+  "TeamSlug": "MerchantTeamSlug",
   "Amount": 19200,
   "OrderId": "21090",
-  "Description": "Подарочная карта на 1000 рублей",
+  "Description": "Подарочная карта на 1000 тенге",
   "Token": "0024a00af7c350a3a67ca168ce06502aa72772456662e38696d48b56ee9c97d9",
-  "DATA": { ... },
+  "DICT": { ... },
   "Receipt": { ... }
 }
 ```

@@ -32,27 +32,17 @@ Content-Type: application/json
 ## Optional Parameters
 
 ### Payment Configuration
-- **PayType** (enum: "O"|"T")
+- **PayType** (enum: "O")
   - O: Single-stage payment (immediate capture)
-  - T: Two-stage payment (authorization + capture)
   - Defaults to terminal configuration if not specified
 
 - **Description** (string, ≤140 chars)
   - Order description displayed on payment form
-  - Required for SBP binding and simultaneous payment
-  - Shown in customer's mobile banking app for SBP
 
 ### Customer Management
 - **CustomerKey** (string, ≤36 chars)
   - Customer identifier in merchant system
-  - Required if Recurrent = "Y"
   - Enables card saving functionality for one-click payments
-  - Optional for SBP recurring payments
-
-- **Recurrent** (string, ≤1 char)
-  - "Y": Registers payment as recurring parent
-  - Generates RebillId in AUTHORIZED notification for future Charge operations
-  - Required for SBP binding and simultaneous payment
 
 ### Localization
 - **Language** (string, ≤2 chars)
@@ -83,7 +73,7 @@ Content-Type: application/json
 
 ## Complex Parameters
 
-### DATA Object
+### DICT Object
 JSON object for additional operation parameters and settings (max 20 key-value pairs):
 
 **Key-Value Constraints:**
@@ -97,24 +87,6 @@ JSON object for additional operation parameters and settings (max 20 key-value p
   - "none": Empty payment form
   - CardId: Specific saved card
   - Default: Last saved card
-- **QR**: Set to "true" for SBP binding and simultaneous payment
-
-**iPay Device Parameters:**
-```json
-{
-  "iPayWeb": "true",
-  "Device": "Desktop|Mobile",
-  "DeviceOs": "iOS|Android|macOS|Windows|Linux",
-  "DeviceWebView": "true|false",
-  "DeviceBrowser": "Chrome|Firefox|Safari|..."
-}
-```
-
-**Notification Control:**
-- **notificationEnableSource**: Comma-separated list of payment sources for notifications (e.g., "iPay,sbpqr")
-
-**Operation Initiator:**
-- **OperationInitiatorType**: Must align with Recurrent and RebillId values per specification table
 
 ### Receipt Object
 JSON object containing fiscal receipt data:
@@ -122,10 +94,6 @@ JSON object containing fiscal receipt data:
 - **Receipt_FFD_12**: For FFD 1.2 format
 - Required when online cash register is connected
 
-### Shops Array
-JSON array with marketplace data:
-- Required for marketplace implementations
-- Contains shop-specific transaction details
 
 ### Descriptor
 - **Descriptor** (string): Dynamic merchant descriptor for payment display
@@ -140,7 +108,6 @@ JSON array with marketplace data:
 ### Security Requirements
 - Token validation using merchant secret key
 - HTTPS required for all communications
-- PCI DSS compliance for card data handling
 
 ### Error Handling
 - Returns structured error responses with specific error codes
@@ -148,10 +115,7 @@ JSON array with marketplace data:
 
 ### Integration Considerations
 - Supports both embedded and redirect payment flows
-- Compatible with 3DS v1 and v2 authentication
-- Enables SBP (Faster Payment System) integration
-- Supports recurring payment setup
-- Facilitates marketplace transaction processing
+- Enables card payment processing
 
 This function serves as the foundation for all payment operations, establishing the session context and configuration that governs the entire payment lifecycle flow.
 
@@ -200,7 +164,6 @@ Content-Type: application/json
 #### Optional Fields
 - **PaymentURL** (string, URI format, ≤100 chars)
   - Direct link to payment form
-  - **Only returned for merchants without PCI DSS certification**
   - Used for redirect-based payment flows
   - Enables customer redirection to hosted payment page
 
@@ -247,7 +210,7 @@ Content-Type: application/json
 
 ### Integration Notes
 - PaymentId must be stored for tracking payment status changes
-- PaymentURL should be used immediately for non-PCI DSS merchants
+- PaymentURL should be used for redirect-based payment flows
 - ErrorCode "0" always indicates successful operation
 - Status field corresponds to payment lifecycle states in the flowchart
 
