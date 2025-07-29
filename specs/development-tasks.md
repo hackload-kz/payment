@@ -770,21 +770,71 @@ Implement Init API controller:
 
 **Status**: Ready for production deployment. Controller provides enterprise-grade payment initialization with full validation, authentication, monitoring, and error handling.
 
-#### Task 32: Payment Check API Controller
+#### Task 32: Payment Check API Controller ✅ **COMPLETED**
 **Objective**: Create payment status checking API endpoint.
 **Commands for Claude**:
 ```
 Implement Check API controller:
-- Create GET/POST endpoints for payment status checking
-- Add efficient payment lookup by PaymentId and OrderId
-- Implement status response formatting per specification
-- Add caching for frequently checked payments
-- Create comprehensive error handling
-- Implement API rate limiting
-- Add status check metrics
-- Create integration tests
+- Create GET/POST endpoints for payment status checking ✅
+- Add efficient payment lookup by PaymentId and OrderId ✅
+- Implement status response formatting per specification ✅
+- Add caching for frequently checked payments ✅
+- Create comprehensive error handling ✅
+- Implement API rate limiting ✅
+- Add status check metrics ✅
+- Create integration tests ✅
 ```
 **References**: payment-check.md API specification
+
+**Implementation Details**:
+- Created comprehensive PaymentCheckController with both POST and GET endpoints
+- **POST /api/v1/paymentcheck/check**: Full-featured endpoint with all options and comprehensive validation
+- **GET /api/v1/paymentcheck/status**: Simplified GET endpoint for easier integration
+- Added efficient payment lookup by PaymentId (exact match) and OrderId (multiple payments support)
+- Implemented status response formatting matching PaymentCheckResponseDto specification with:
+  - Payment status information with human-readable descriptions
+  - Optional customer information, card details, transaction history, and receipts
+  - Comprehensive payment amounts breakdown and URLs
+  - Support for multiple payments per OrderId
+- Added intelligent caching strategy:
+  - Active payments cached for 30 seconds for responsiveness
+  - Final status payments (CONFIRMED, CANCELLED, REFUNDED, FAILED) cached for 5 minutes
+  - Cache invalidation support and cache key generation
+- Created comprehensive error handling with specific error codes:
+  - 1000: Invalid request body or missing parameters
+  - 1001: Authentication failed
+  - 1100: Validation failed (missing PaymentId/OrderId, format errors)
+  - 1404: Payment not found
+  - 1429: Rate limit exceeded
+  - 9999: Internal server error
+- Integrated PaymentAuthenticationMiddleware and AuthenticationRateLimitingMiddleware
+- Added comprehensive Prometheus metrics for monitoring:
+  - payment_check_requests_total (by team, result, lookup_type)
+  - payment_check_duration_seconds (request duration histogram)
+  - payment_check_cache_hits_total and cache_misses_total (cache performance)
+  - active_payment_checks_total (active requests gauge)
+- Enhanced Swagger/OpenAPI documentation with detailed examples and usage scenarios
+- Added comprehensive logging and distributed tracing with ActivitySource
+- Implemented validation for:
+  - PaymentId/OrderId format (alphanumeric, hyphens, underscores only)
+  - Language validation (ru/en)
+  - Authentication requirements (TeamSlug and Token)
+  - Proper either/or validation for PaymentId and OrderId
+- Created comprehensive integration tests covering:
+  - Valid payment status checks by PaymentId and OrderId
+  - Format validation for PaymentId and OrderId
+  - Missing parameter validation
+  - Authentication requirement validation
+  - Language validation
+  - Multiple response field inclusion testing
+  - GET endpoint functionality testing
+  - Error response format validation
+
+**Files Created**:
+- PaymentGateway.API/Controllers/PaymentCheckController.cs (comprehensive controller)
+- PaymentGateway.Tests/Integration/PaymentCheckControllerTests.cs (full test suite)
+
+**Status**: Ready for production deployment. Controller provides enterprise-grade payment status checking with intelligent caching, comprehensive validation, authentication, monitoring, and error handling.
 
 #### Task 33: Payment Confirm API Controller
 **Objective**: Create payment confirmation API endpoint.
