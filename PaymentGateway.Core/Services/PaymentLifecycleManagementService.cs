@@ -91,9 +91,8 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
                 throw new InvalidOperationException("Payment initialization is already in progress");
             }
 
-            // Validate initial state
-            // TODO: CanTransition signature mismatch - using default validation
-            if (false) // Placeholder: assume transition is valid
+            // Validate initial state transition from INIT to NEW
+            if (!await _paymentStateMachine.CanTransitionAsync(payment, PaymentStatus.NEW, cancellationToken))
             {
                 _logger.LogError("Invalid initial state transition for payment: {OrderId}", payment.OrderId);
                 PaymentLifecycleOperations.WithLabels("initialize", "invalid_state").Inc();

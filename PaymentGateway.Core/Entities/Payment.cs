@@ -46,6 +46,8 @@ public class Payment : BaseEntity, IAuditableEntity
     // Payment lifecycle timestamps
     public DateTime? InitializedAt { get; set; }
     public DateTime? FormShowedAt { get; set; }
+    public DateTime? OneChooseVisionAt { get; set; }
+    public DateTime? FinishAuthorizeAt { get; set; }
     public DateTime? AuthorizingStartedAt { get; set; }
     public DateTime? AuthorizedAt { get; set; }
     public DateTime? ConfirmingStartedAt { get; set; }

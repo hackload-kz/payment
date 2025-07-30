@@ -57,31 +57,31 @@ public class PaymentStateMachine : IPaymentStateMachine
         [PaymentStatus.INIT] = new HashSet<PaymentStatus> { PaymentStatus.NEW, PaymentStatus.EXPIRED },
         [PaymentStatus.NEW] = new HashSet<PaymentStatus> 
         { 
-            PaymentStatus.FORM_SHOWED, PaymentStatus.AUTHORIZING, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED 
+            PaymentStatus.FORM_SHOWED, PaymentStatus.ONECHOOSEVISION, PaymentStatus.AUTHORIZING, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED, PaymentStatus.DEADLINE_EXPIRED 
         },
         [PaymentStatus.FORM_SHOWED] = new HashSet<PaymentStatus> 
         { 
-            PaymentStatus.AUTHORIZING, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED 
+            PaymentStatus.ONECHOOSEVISION, PaymentStatus.AUTHORIZING, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED, PaymentStatus.DEADLINE_EXPIRED 
         },
         [PaymentStatus.ONECHOOSEVISION] = new HashSet<PaymentStatus> 
         { 
-            PaymentStatus.FINISHAUTHORIZE, PaymentStatus.AUTH_FAIL, PaymentStatus.CANCELLED 
+            PaymentStatus.FINISHAUTHORIZE, PaymentStatus.AUTH_FAIL, PaymentStatus.CANCELLED, PaymentStatus.DEADLINE_EXPIRED 
         },
         [PaymentStatus.FINISHAUTHORIZE] = new HashSet<PaymentStatus> 
         { 
-            PaymentStatus.AUTHORIZING, PaymentStatus.AUTH_FAIL, PaymentStatus.CANCELLED 
+            PaymentStatus.AUTHORIZING, PaymentStatus.AUTH_FAIL, PaymentStatus.CANCELLED, PaymentStatus.DEADLINE_EXPIRED 
         },
         [PaymentStatus.AUTHORIZING] = new HashSet<PaymentStatus> 
         { 
-            PaymentStatus.AUTHORIZED, PaymentStatus.AUTH_FAIL, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED 
+            PaymentStatus.AUTHORIZED, PaymentStatus.AUTH_FAIL, PaymentStatus.REJECTED, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED, PaymentStatus.DEADLINE_EXPIRED 
         },
         [PaymentStatus.AUTHORIZED] = new HashSet<PaymentStatus> 
         { 
-            PaymentStatus.CONFIRMING, PaymentStatus.REVERSING, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED 
+            PaymentStatus.CONFIRMING, PaymentStatus.REVERSING, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED, PaymentStatus.DEADLINE_EXPIRED 
         },
         [PaymentStatus.AUTH_FAIL] = new HashSet<PaymentStatus> 
         { 
-            PaymentStatus.AUTHORIZING, PaymentStatus.REJECTED, PaymentStatus.CANCELLED 
+            PaymentStatus.AUTHORIZING, PaymentStatus.REJECTED, PaymentStatus.CANCELLED, PaymentStatus.DEADLINE_EXPIRED 
         },
         [PaymentStatus.CONFIRM] = new HashSet<PaymentStatus> 
         { 
@@ -140,11 +140,26 @@ public class PaymentStateMachine : IPaymentStateMachine
         [PaymentStatus.AUTHORIZING] = (payment) => payment.ValidateForAuthorization(),
         [PaymentStatus.CONFIRMING] = (payment) => payment.ValidateForConfirmation(),
         [PaymentStatus.REFUNDING] = (payment) => payment.ValidateForRefund(0), // Amount validation done separately
+        [PaymentStatus.REJECTED] = (payment) => 
+        {
+            var errors = new List<string>();
+            // REJECTED can only be reached if no attempts remain
+            if (payment.AuthorizationAttempts < payment.MaxAllowedAttempts)
+                errors.Add($"Payment still has {payment.MaxAllowedAttempts - payment.AuthorizationAttempts} attempts remaining");
+            return (errors.Count == 0, errors);
+        },
         [PaymentStatus.EXPIRED] = (payment) => 
         {
             var errors = new List<string>();
             if (!payment.HasExpired())
                 errors.Add("Payment has not expired yet");
+            return (errors.Count == 0, errors);
+        },
+        [PaymentStatus.DEADLINE_EXPIRED] = (payment) => 
+        {
+            var errors = new List<string>();
+            if (!payment.HasExpired())
+                errors.Add("Payment deadline has not expired yet");
             return (errors.Count == 0, errors);
         }
     };
@@ -438,6 +453,12 @@ public class PaymentStateMachine : IPaymentStateMachine
                 break;
             case PaymentStatus.FORM_SHOWED:
                 payment.FormShowedAt = timestamp;
+                break;
+            case PaymentStatus.ONECHOOSEVISION:
+                payment.OneChooseVisionAt = timestamp;
+                break;
+            case PaymentStatus.FINISHAUTHORIZE:
+                payment.FinishAuthorizeAt = timestamp;
                 break;
             case PaymentStatus.AUTHORIZING:
                 payment.AuthorizingStartedAt = timestamp;
