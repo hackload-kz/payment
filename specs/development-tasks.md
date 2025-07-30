@@ -1637,3 +1637,946 @@ Each task is considered complete when:
 - Integration with dependent components is verified
 
 This task list provides a comprehensive roadmap for developing a production-ready payment gateway system that meets all specified requirements while maintaining high quality, security, and performance standards.
+
+---
+
+## 8. Code Quality and Architecture Improvements (Tasks 51-65)
+
+### Analysis Summary
+
+Based on comprehensive codebase analysis, the following critical issues have been identified that require immediate attention to align with payment-lifecycle.md specifications and improve overall system reliability:
+
+#### Data Model Inconsistencies
+- **Primary Issue**: Multiple TODO comments indicate serious data model inconsistencies between Guid and int/long types
+- **Impact**: Payment processing failures, data integrity issues, and system crashes
+- **Scope**: Affects 15+ service classes and all payment operations
+
+#### Payment Lifecycle Compliance 
+- **Issue**: Current implementation doesn't fully comply with payment-lifecycle.md state transitions
+- **Missing States**: ONECHOOSEVISION, FINISHAUTHORIZE, proper REVERSING/REVERSED flow
+- **Impact**: Incomplete payment processing workflow
+
+#### Service Integration Issues
+- **Issue**: Services have integration gaps and missing dependencies
+- **Impact**: Runtime failures and incomplete functionality
+
+---
+
+### Task 51: Data Model Consistency and Type Safety Fixes ⚠️ **CRITICAL**
+**Objective**: Fix all data model inconsistencies between Guid/int/long types across the system.
+
+**Issue Description**:
+Multiple services contain TODO comments indicating critical data model inconsistencies:
+- Payment.Id (Guid) vs PaymentId (long/int) mismatches
+- Team.Id (Guid) vs TeamId (int) conversion issues  
+- Customer.Id (Guid) vs CustomerId (int) type conflicts
+- Data conversion using unsafe GetHashCode() methods
+
+**Solution Requirements**:
+1. **Standardize Primary Key Types**:
+   - Decision: Use Guid for all entity primary keys OR convert all to long/int consistently
+   - Update all entity models, DTOs, and service interfaces
+   - Implement safe type conversion utilities (no GetHashCode() usage)
+
+2. **Update Database Schema**:
+   - Create migration scripts for primary key type changes
+   - Update all foreign key relationships
+   - Ensure referential integrity is maintained
+
+3. **Service Layer Updates**:
+   - Fix all PaymentCancellationService TODO items (PaymentCancellationService.cs:184,201,216,355,524)
+   - Fix PaymentConfirmationService type mismatches (PaymentConfirmationService.cs:149,165,177,276,436)
+   - Update PaymentProcessingMetricsService data model usage (PaymentProcessingMetricsService.cs:244,308)
+   - Fix PaymentStateTransitionValidationService inconsistencies (PaymentStateTransitionValidationService.cs:191,233,382)
+   - Update all other affected services with TODO comments
+
+4. **Repository Pattern Updates**:
+   - Update all repository method signatures for consistent typing
+   - Fix query methods to use correct key types
+   - Update LINQ expressions and database queries
+
+**Related Changes**:
+- Update AutoMapper configurations in PaymentMappingProfile.cs
+- Fix DTO mapping for all payment operations
+- Update API controller parameter types
+- Fix form processing and integration services
+- Update all test classes and test data builders
+
+**Testing and Validation Criteria**:
+- [ ] All compilation errors resolved
+- [ ] Unit tests pass with correct type usage
+- [ ] Integration tests validate end-to-end payment flows
+- [ ] Database migrations execute successfully
+- [ ] Performance tests show no degradation
+- [ ] Load testing validates concurrent payment processing
+
+**Claude Code Context**:
+```
+Focus on files with TODO comments mentioning data model inconsistencies:
+- PaymentGateway.Core/Services/PaymentCancellationService.cs (lines 184,201,216,355,524)
+- PaymentGateway.Core/Services/PaymentConfirmationService.cs (lines 149,165,177,276,436)  
+- PaymentGateway.Core/Services/PaymentProcessingMetricsService.cs (lines 244,308)
+- PaymentGateway.Core/Services/PaymentStateTransitionValidationService.cs (lines 191,233,259,267,382,385)
+- And 15+ other service files with similar issues
+
+Start with core entity models, then update services layer by layer to ensure consistency.
+```
+
+---
+
+### Task 52: Payment Lifecycle State Machine Compliance ⚠️ **HIGH PRIORITY**
+**Objective**: Implement complete payment lifecycle state machine per payment-lifecycle.md specification.
+
+**Issue Description**:
+Current payment state machine is missing critical states and transitions required by payment-lifecycle.md:
+- Missing ONECHOOSEVISION state (first verification step)
+- Missing FINISHAUTHORIZE state (final authorization step)  
+- Incomplete REVERSING → REVERSED flow implementation
+- Missing proper retry logic with attempt counting
+- Incomplete deadline management and expiration handling
+
+**Solution Requirements**:
+1. **Complete State Machine Implementation**:
+   - Add missing states: ONECHOOSEVISION, FINISHAUTHORIZE
+   - Implement proper REVERSING → REVERSED transition flow
+   - Add DEADLINE_EXPIRED state handling with timeout management
+   - Implement attempt counting for AUTHORIZING → REJECTED flow
+
+2. **State Transition Validation**:
+   - Update PaymentStateMachine.cs with complete transition matrix
+   - Add business rule validation for new states
+   - Implement state-specific timeout and retry policies
+   - Add validation for "Are there attempts remaining?" logic
+
+3. **Integration Updates**:
+   - Update PaymentLifecycleManagementService for new states
+   - Fix PaymentLifecycleManagementService.cs:95 TODO (CanTransition signature)
+   - Implement proper state transition event handling
+   - Add metrics and monitoring for new states
+
+4. **Form Integration**:
+   - Update FORM_SHOWED state handling
+   - Implement proper hosted HTML page integration
+   - Add form timeout and expiration management
+
+**Related Changes**:
+- Update payment controllers to handle new states
+- Modify database schema for additional state values
+- Update notification services for new state transitions
+- Fix audit logging for complete state history
+- Update API documentation with new states
+
+**Testing and Validation Criteria**:
+- [ ] All payment-lifecycle.md states are implemented
+- [ ] State transition matrix matches specification exactly
+- [ ] Retry logic works with attempt counting
+- [ ] Timeout handling triggers DEADLINE_EXPIRED correctly
+- [ ] REVERSING → REVERSED flow processes correctly
+- [ ] Integration tests cover all state paths
+- [ ] Performance tests validate state transition speed
+
+**Claude Code Context**:
+```
+Review payment-lifecycle.md specification carefully and compare with:
+- PaymentGateway.Core/Services/PaymentStateMachine.cs
+- PaymentGateway.Core/Services/PaymentLifecycleManagementService.cs (fix line 95 TODO)
+- PaymentGateway.Core/Entities/Payment.cs (PaymentStatus enum)
+- PaymentGateway.Core/Services/PaymentStateTransitionValidationService.cs
+
+Ensure complete compliance with payment lifecycle flowchart states and transitions.
+```
+
+---
+
+### Task 53: Service Integration and Dependency Resolution 🔧 **HIGH PRIORITY**
+**Objective**: Fix service integration gaps and missing dependencies throughout the system.
+
+**Issue Description**:
+Multiple services have incomplete integrations and missing dependencies:
+- PaymentFormIntegrationService.cs:160 - Missing team information lookup
+- PaymentFormIntegrationService.cs:249 - Team lookup failures due to data model issues
+- PaymentFormIntegrationService.cs:412 - Hardcoded merchant email placeholder
+- PaymentTimeoutExpirationService.cs:310 - Missing team lookup implementation
+- NotificationWebhookService.cs:539 - Missing webhook signature implementation
+
+**Solution Requirements**:
+1. **Team Management Service**:
+   - Implement proper team lookup by integer teamId (fix PaymentTimeoutExpirationService.cs:310)
+   - Add team information retrieval for form integration (fix PaymentFormIntegrationService.cs:160)
+   - Implement team-based merchant email lookup (fix PaymentFormIntegrationService.cs:412)
+   - Add team validation and authorization checks
+
+2. **Webhook Security Implementation**:
+   - Complete webhook signature implementation (fix NotificationWebhookService.cs:539)  
+   - Add team-specific webhook secret management
+   - Implement secure signature generation and validation
+   - Add webhook authentication and authorization
+
+3. **Service Orchestration**:
+   - Fix service dependency injection configuration
+   - Resolve circular dependencies between services
+   - Add proper service lifetime management
+   - Implement service health checks and monitoring
+
+4. **Integration Testing Framework**:
+   - Create comprehensive integration tests for service interactions
+   - Add end-to-end payment flow testing
+   - Implement service mocking for isolated testing
+   - Add performance testing for service integrations
+
+**Related Changes**:
+- Update dependency injection configuration in Program.cs
+- Add missing service registrations and configurations
+- Fix service constructor dependencies
+- Update API controllers to use proper service integrations
+- Add comprehensive error handling for service failures
+
+**Testing and Validation Criteria**:
+- [ ] All service TODO items resolved with proper implementations
+- [ ] Team lookup works correctly across all services  
+- [ ] Webhook signatures generate and validate correctly
+- [ ] Service dependency injection works without circular references
+- [ ] Integration tests pass for all service interactions
+- [ ] Performance tests show acceptable service response times
+- [ ] Error handling works correctly for service failures
+
+**Claude Code Context**:
+```
+Focus on files with service integration TODO comments:
+- PaymentGateway.Core/Services/PaymentFormIntegrationService.cs (lines 160,249,412)
+- PaymentGateway.Core/Services/PaymentTimeoutExpirationService.cs (line 310)  
+- PaymentGateway.Core/Services/NotificationWebhookService.cs (line 539)
+
+Review service dependencies and create proper integration patterns.
+```
+
+---
+
+### Task 54: Enhanced Business Rule Engine Implementation 🔧 **MEDIUM PRIORITY**
+**Objective**: Complete business rule engine implementation with proper context validation.
+
+**Issue Description**:
+Business rule engine has placeholder implementations and missing context classes:
+- PaymentFormLifecycleIntegrationService.cs:466 - Business rule context classes don't exist
+- Missing comprehensive rule validation for payment operations
+- Incomplete rule context management and evaluation
+- Missing team-specific and customer-specific rule processing
+
+**Solution Requirements**:
+1. **Rule Context Implementation**:
+   - Create missing business rule context classes (fix PaymentFormLifecycleIntegrationService.cs:466)
+   - Implement PaymentRuleContext, TransactionRuleContext, CustomerRuleContext
+   - Add team-specific rule context with proper validation
+   - Implement rule context inheritance and composition
+
+2. **Enhanced Rule Engine**:
+   - Expand BusinessRuleEngineService with comprehensive rule types
+   - Add dynamic rule loading and hot-reload capabilities  
+   - Implement rule prioritization and conflict resolution
+   - Add rule performance monitoring and optimization
+
+3. **Payment Integration**:
+   - Integrate rule engine with all payment lifecycle states
+   - Add rule validation at each state transition
+   - Implement rule-based payment rejection and approval
+   - Add comprehensive rule violation logging and reporting
+
+4. **Rule Management Interface**:
+   - Create API endpoints for rule management
+   - Add rule testing and validation capabilities
+   - Implement rule versioning and rollback
+   - Add rule performance analytics and reporting
+
+**Related Changes**:
+- Update payment services to use enhanced rule engine
+- Add rule-based payment routing and processing
+- Implement rule caching and performance optimization
+- Update documentation for rule configuration and management
+
+**Testing and Validation Criteria**:
+- [ ] All business rule context classes implemented and functional
+- [ ] Rule engine integrates properly with payment lifecycle
+- [ ] Rule validation works at all payment state transitions
+- [ ] Performance tests show acceptable rule evaluation times
+- [ ] Rule management API works correctly
+- [ ] Comprehensive rule testing framework implemented
+
+**Claude Code Context**:
+```
+Fix PaymentFormLifecycleIntegrationService.cs line 466 TODO and create proper business rule context classes.
+Review PaymentGateway.Core/Services/BusinessRuleEngineService.cs for enhancement opportunities.
+```
+
+---
+
+### Task 55: Database Performance and Query Optimization 🔧 **MEDIUM PRIORITY**
+**Objective**: Optimize database queries and resolve performance bottlenecks.
+
+**Issue Description**:
+Several services have performance-related TODO comments and missing query implementations:
+- PaymentProcessingOptimizationService.cs:425 - GetRecentPaymentsAsync method doesn't exist
+- PaymentStateTransitionValidationService.cs:267 - GetActivePaymentCountAsync doesn't support team filtering
+- Multiple services using inefficient query patterns
+
+**Solution Requirements**:
+1. **Missing Query Implementations**:
+   - Implement GetRecentPaymentsAsync method (fix PaymentProcessingOptimizationService.cs:425)
+   - Add team filtering to GetActivePaymentCountAsync (fix PaymentStateTransitionValidationService.cs:267)
+   - Implement missing query methods in repository pattern
+   - Add efficient payment statistics and analytics queries
+
+2. **Query Optimization**:
+   - Review and optimize all database queries for performance
+   - Add proper indexing strategies for frequent query patterns
+   - Implement query result caching where appropriate
+   - Add database query monitoring and profiling
+
+3. **Repository Enhancements**:
+   - Add missing repository methods for efficient data access
+   - Implement bulk operations for high-volume scenarios
+   - Add query optimization hints and configurations
+   - Implement proper pagination for large result sets
+
+4. **Performance Monitoring**:
+   - Add comprehensive database performance metrics
+   - Implement slow query detection and alerting
+   - Add database connection pool monitoring
+   - Create performance dashboards and reporting
+
+**Related Changes**:
+- Update Entity Framework configurations for optimal performance
+- Add database connection string optimizations
+- Implement database maintenance and cleanup procedures
+- Update migration scripts for optimal schema design
+
+**Testing and Validation Criteria**:
+- [ ] All missing query methods implemented and tested
+- [ ] Database performance meets requirements under load
+- [ ] Query optimization shows measurable improvements  
+- [ ] Performance monitoring provides actionable insights
+- [ ] Load testing validates database scalability
+- [ ] Comprehensive performance documentation created
+
+**Claude Code Context**:
+```
+Focus on database-related TODO items:
+- PaymentGateway.Core/Services/PaymentProcessingOptimizationService.cs (line 425)
+- PaymentGateway.Core/Services/PaymentStateTransitionValidationService.cs (line 267)
+Review all repository implementations for optimization opportunities.
+```
+
+---
+
+### Task 56: Card Processing and Tokenization Enhancement 🔧 **MEDIUM PRIORITY**
+**Objective**: Complete card processing implementation with proper tokenization and security.
+
+**Issue Description**:
+Card processing services have incomplete implementations and parsing issues:
+- PaymentFormIntegrationService.cs:348,370 - Improper expiry date parsing and missing error codes
+- Incomplete card tokenization lifecycle management
+- Missing card validation enhancements for international cards
+- Incomplete fraud detection integration
+
+**Solution Requirements**:
+1. **Card Data Processing**:
+   - Fix expiry date parsing (PaymentFormIntegrationService.cs:348)
+   - Implement proper error code handling (PaymentFormIntegrationService.cs:370)
+   - Add comprehensive card validation for international formats
+   - Implement secure card data sanitization and masking
+
+2. **Enhanced Tokenization**:
+   - Complete card tokenization lifecycle management
+   - Add token expiration and refresh mechanisms
+   - Implement multi-use vs single-use token support
+   - Add token security auditing and monitoring
+
+3. **International Card Support**:
+   - Extend card type detection for global card brands
+   - Add international CVV validation rules
+   - Implement currency-specific card validation
+   - Add locale-specific card formatting and validation
+
+4. **Security Enhancements**:
+   - Implement PCI DSS compliance checks
+   - Add card data encryption at rest and in transit
+   - Implement secure card data logging (masked)
+   - Add comprehensive card fraud detection hooks
+
+**Related Changes**:
+- Update card processing algorithms and validation rules
+- Enhance card tokenization security and lifecycle management
+- Add international card support and validation
+- Integrate with fraud detection and risk assessment services
+
+**Testing and Validation Criteria**:
+- [ ] Card expiry date parsing works correctly for all formats
+- [ ] Error code handling provides proper feedback
+- [ ] International card validation works across all supported types
+- [ ] Tokenization security meets PCI DSS requirements
+- [ ] Fraud detection integration functions correctly
+- [ ] Performance tests validate card processing speed
+
+**Claude Code Context**:
+```
+Fix TODO items in PaymentFormIntegrationService.cs lines 348 and 370.
+Review PaymentGateway.Core/Services/CardPaymentProcessingService.cs for enhancement opportunities.
+```
+
+---
+
+### Task 57: Audit Trail and Compliance Enhancement 🔧 **MEDIUM PRIORITY**
+**Objective**: Complete audit trail implementation and ensure regulatory compliance.
+
+**Issue Description**:
+Audit system has missing correlation and transition tracking:
+- PaymentFormLifecycleIntegrationService.cs:536 - Missing TransitionId in audit trail
+- Incomplete audit correlation across service boundaries
+- Missing compliance reporting for regulatory requirements
+- Incomplete audit data retention and archival policies
+
+**Solution Requirements**:
+1. **Complete Audit Implementation**:
+   - Fix missing TransitionId in audit logs (PaymentFormLifecycleIntegrationService.cs:536)
+   - Implement proper audit correlation across all services
+   - Add comprehensive audit data capture for all payment operations
+   - Implement audit trail integrity verification and tamper detection
+
+2. **Compliance Framework**:
+   - Implement PCI DSS compliance audit reporting
+   - Add GDPR compliance tracking and reporting
+   - Implement SOX compliance audit trail requirements
+   - Add regulatory reporting and data export capabilities
+
+3. **Audit Analytics**:
+   - Implement audit trail analysis and pattern detection
+   - Add suspicious activity detection and alerting
+   - Create audit trail visualization and reporting
+   - Implement audit trail performance optimization
+
+4. **Data Retention and Archival**:
+   - Complete audit data retention policy implementation
+   - Add automated audit data archival and cleanup
+   - Implement audit data backup and recovery procedures
+   - Add audit data encryption and access controls
+
+**Related Changes**:
+- Update all services to provide comprehensive audit information
+- Implement audit trail correlation and tracking mechanisms
+- Add compliance reporting and audit trail export capabilities
+- Update database design for optimal audit trail storage and retrieval
+
+**Testing and Validation Criteria**:
+- [ ] Complete audit trail captured for all payment operations
+- [ ] Audit correlation works across all service boundaries
+- [ ] Compliance reporting meets regulatory requirements
+- [ ] Audit trail integrity verification functions correctly
+- [ ] Performance tests validate audit system scalability
+- [ ] Audit trail analysis provides actionable insights
+
+**Claude Code Context**:
+```
+Fix PaymentFormLifecycleIntegrationService.cs line 536 TODO for missing TransitionId.
+Review audit trail implementation across all services for completeness and compliance.
+```
+
+---
+
+### Task 58: Payment Status Reset and Recovery Implementation 🔧 **MEDIUM PRIORITY**
+**Objective**: Implement payment status reset and recovery mechanisms.
+
+**Issue Description**:
+Payment recovery mechanisms are incomplete:
+- PaymentFormLifecycleIntegrationService.cs:638 - No direct method to reset payment to NEW status
+- Missing payment recovery workflows for failed states
+- Incomplete payment retry and reprocessing capabilities
+- Missing payment state rollback mechanisms
+
+**Solution Requirements**:
+1. **Payment Reset Implementation**:
+   - Implement proper payment status reset to NEW (fix PaymentFormLifecycleIntegrationService.cs:638)
+   - Add payment state rollback capabilities for recoverable failures
+   - Implement payment retry workflows with proper state management
+   - Add payment recovery orchestration and coordination
+
+2. **Recovery Workflows**:
+   - Create comprehensive payment recovery workflows
+   - Implement automatic recovery for transient failures
+   - Add manual recovery procedures for complex scenarios
+   - Implement recovery success/failure tracking and reporting
+
+3. **State Management**:
+   - Add proper payment state versioning and history
+   - Implement state rollback with audit trail preservation
+   - Add state consistency validation and correction
+   - Implement distributed state management for concurrent scenarios
+
+4. **Recovery Monitoring**:
+   - Add recovery operation monitoring and alerting
+   - Implement recovery success rate tracking and analysis
+   - Add recovery performance metrics and optimization
+   - Create recovery operation dashboards and reporting
+
+**Related Changes**:
+- Update payment lifecycle management for recovery scenarios
+- Add recovery workflow orchestration and state management
+- Implement recovery operation audit logging and monitoring
+- Update API endpoints to support payment recovery operations
+
+**Testing and Validation Criteria**:
+- [ ] Payment status reset works correctly with proper audit trail
+- [ ] Recovery workflows handle all failure scenarios appropriately
+- [ ] State rollback maintains data integrity and consistency
+- [ ] Recovery monitoring provides actionable operational insights
+- [ ] Performance tests validate recovery operation efficiency
+- [ ] Integration tests cover all recovery scenarios
+
+**Claude Code Context**:
+```
+Fix PaymentFormLifecycleIntegrationService.cs line 638 TODO for payment status reset.
+Implement comprehensive payment recovery and state management capabilities.
+```
+
+---
+
+### Task 59: Service Error Handling and Resilience Enhancement 🔧 **MEDIUM PRIORITY**
+**Objective**: Enhance service error handling and implement comprehensive resilience patterns.
+
+**Issue Description**:
+Services have incomplete error handling and missing resilience patterns:
+- PaymentRetryService.cs:231,235 - Missing error code properties and incomplete result handling
+- Insufficient circuit breaker and retry logic across services
+- Missing timeout and deadline management for service operations
+- Incomplete error correlation and cascading failure prevention
+
+**Solution Requirements**:
+1. **Error Handling Completion**:
+   - Fix missing error code properties (PaymentRetryService.cs:231,235)
+   - Implement comprehensive error result handling across all services
+   - Add proper error categorization and severity classification
+   - Implement error correlation and tracking across service boundaries
+
+2. **Resilience Patterns**:
+   - Implement circuit breaker patterns for external service calls
+   - Add comprehensive retry logic with exponential backoff and jitter
+   - Implement timeout and deadline management for all operations
+   - Add bulkhead patterns for resource isolation and protection
+
+3. **Fault Tolerance**:
+   - Implement graceful degradation for non-critical service failures
+   - Add fallback mechanisms for essential payment operations
+   - Implement health checks and dependency monitoring
+   - Add automatic service recovery and self-healing capabilities
+
+4. **Error Monitoring**:
+   - Add comprehensive error tracking and alerting
+   - Implement error pattern analysis and predictive failure detection
+   - Create error dashboards and operational visibility
+   - Add error rate limiting and cascading failure prevention
+
+**Related Changes**:
+- Update all service error handling for consistency and completeness
+- Implement comprehensive resilience patterns across the service layer
+- Add error monitoring and alerting infrastructure
+- Update service integration patterns for fault tolerance
+
+**Testing and Validation Criteria**:
+- [ ] All error handling TODO items resolved with proper implementations
+- [ ] Resilience patterns function correctly under failure scenarios
+- [ ] Circuit breakers and retry logic work as designed
+- [ ] Error monitoring provides actionable operational insights
+- [ ] Fault tolerance testing validates system resilience
+- [ ] Performance tests validate error handling efficiency
+
+**Claude Code Context**:
+```
+Focus on error handling TODO items:
+- PaymentGateway.Core/Services/PaymentRetryService.cs (lines 231,235)
+Review all services for error handling completeness and resilience patterns.
+```
+
+---
+
+### Task 60: Compilation Error Resolution and Code Quality Fixes 🔧 **HIGH PRIORITY**
+**Objective**: Resolve all compilation warnings and improve overall code quality.
+
+**Issue Description**:
+Build output shows numerous compilation warnings that need resolution:
+- 252 compiler warnings indicating potential runtime issues
+- Obsolete API usage warnings (Entity Framework check constraints)
+- Nullability warnings indicating potential null reference exceptions
+- Async method warnings for improved performance
+- Method hiding warnings for proper inheritance
+
+**Solution Requirements**:
+1. **Entity Framework Warnings**:
+   - Fix obsolete HasCheckConstraint usage (lines in multiple Configuration.cs files)
+   - Update to use modern ToTable(t => t.HasCheckConstraint()) syntax
+   - Ensure compatibility with latest Entity Framework version
+   - Validate all database constraints work correctly
+
+2. **Nullability Warnings**:
+   - Fix nullability mismatches in PaymentMappingProfile.cs:277
+   - Resolve Dictionary nullability issues in AuditAnalysisService.cs:198,199
+   - Add proper null checks and validation throughout codebase
+   - Implement nullable reference type support consistently
+
+3. **Async Method Optimization**:
+   - Fix async methods that lack await operators (multiple service files)
+   - Either add proper async operations or convert to synchronous methods
+   - Optimize async/await patterns for performance
+   - Ensure proper async method naming conventions
+
+4. **Method Hiding Resolution**:
+   - Fix method hiding warnings in BackgroundProcessingService.cs:263,276
+   - Add proper override or new keywords as appropriate
+   - Ensure proper inheritance patterns throughout codebase
+   - Validate polymorphic behavior works correctly
+
+**Related Changes**:
+- Update all Entity Framework configurations for latest version compatibility
+- Implement comprehensive nullable reference type support
+- Optimize async/await patterns across all services
+- Fix inheritance and polymorphism issues
+
+**Testing and Validation Criteria**:
+- [ ] Zero compilation warnings in release build
+- [ ] All Entity Framework constraints function correctly
+- [ ] Null reference exceptions eliminated through proper null handling
+- [ ] Async operations perform optimally
+- [ ] Inheritance patterns work correctly
+- [ ] Code quality metrics show improvement
+
+**Claude Code Context**:
+```
+Review build output and systematically fix all compilation warnings:
+1. Entity Framework obsolete API usage
+2. Nullability warnings
+3. Async method optimization opportunities
+4. Method hiding issues
+Start with critical errors and work through warnings systematically.
+```
+
+---
+
+### Task 61: Payment Form Integration Testing and Validation 🧪 **MEDIUM PRIORITY**
+**Objective**: Complete payment form integration testing framework and validation.
+
+**Issue Description**:
+Payment form integration has incomplete testing and validation:
+- PaymentFormControllerTests.cs mentions potential CSRF protection failures
+- Missing comprehensive form validation testing
+- Incomplete integration between form processing and payment lifecycle
+- Missing accessibility and security testing for payment forms
+
+**Solution Requirements**:
+1. **CSRF Protection Testing**:
+   - Complete CSRF protection testing framework
+   - Add positive and negative CSRF validation test cases
+   - Implement CSRF token lifecycle testing
+   - Add cross-browser CSRF protection validation
+
+2. **Form Integration Testing**:
+   - Create comprehensive form submission testing across all browsers
+   - Add payment form accessibility compliance testing (WCAG 2.1)
+   - Implement form security penetration testing
+   - Add form performance and load testing capabilities
+
+3. **Payment Lifecycle Integration**:
+   - Test complete form-to-payment-processing integration
+   - Add state transition validation from form submission
+   - Test error handling and recovery workflows
+   - Validate audit trail completeness for form operations
+
+4. **Cross-Platform Validation**:
+   - Add mobile device form testing and validation
+   - Implement cross-browser compatibility testing
+   - Add form localization and internationalization testing
+   - Test form behavior under various network conditions
+
+**Related Changes**:
+- Enhance payment form controller integration testing
+- Add comprehensive form validation and security testing
+- Implement form accessibility and usability testing
+- Update form processing for optimal integration with payment lifecycle
+
+**Testing and Validation Criteria**:
+- [ ] CSRF protection functions correctly in all scenarios
+- [ ] Form integration testing covers all payment workflows
+- [ ] Accessibility compliance validated across all form components
+- [ ] Security testing identifies and addresses all vulnerabilities
+- [ ] Performance testing validates form responsiveness
+- [ ] Cross-platform testing ensures consistent behavior
+
+**Claude Code Context**:
+```
+Review PaymentFormControllerTests.cs and enhance form integration testing.
+Focus on CSRF protection, accessibility, security, and payment lifecycle integration.
+```
+
+---
+
+### Task 62: Monitoring and Alerting System Completion 📊 **MEDIUM PRIORITY**
+**Objective**: Complete monitoring and alerting system implementation for production readiness.
+
+**Issue Description**:
+Monitoring system has incomplete implementations and missing production features:
+- HealthCheckMetricsService.cs:60 - HealthCheckMetricsBackgroundService needs implementation in API project
+- PrometheusServiceExtensions.cs:32,44 - Missing health check configuration
+- Incomplete alerting rules and thresholds for production scenarios
+
+**Solution Requirements**:
+1. **Health Check Implementation**:
+   - Implement HealthCheckMetricsBackgroundService in API project (fix HealthCheckMetricsService.cs:60)
+   - Complete health check configuration (fix PrometheusServiceExtensions.cs:32,44)
+   - Add comprehensive health checks for all system components
+   - Implement health check aggregation and reporting
+
+2. **Production Monitoring**:
+   - Add comprehensive business metrics for payment processing
+   - Implement SLA monitoring and alerting thresholds
+   - Add system resource monitoring and capacity planning
+   - Create operational dashboards for production monitoring
+
+3. **Alerting Framework**:
+   - Implement alerting rules for critical system failures
+   - Add escalation procedures and notification routing
+   - Create alert fatigue prevention and intelligent grouping
+   - Add alert acknowledgment and resolution tracking
+
+4. **Performance Analytics**:
+   - Implement payment processing performance analytics
+   - Add system capacity and scalability monitoring
+   - Create performance trend analysis and forecasting
+   - Add automated performance regression detection
+
+**Related Changes**:
+- Complete monitoring service implementations in API project
+- Add comprehensive alerting configuration and rules
+- Implement monitoring dashboards and visualization
+- Update operational procedures for monitoring and alerting
+
+**Testing and Validation Criteria**:
+- [ ] Health check system functions correctly across all components
+- [ ] Monitoring provides comprehensive visibility into system operation
+- [ ] Alerting triggers correctly for all defined scenarios
+- [ ] Performance analytics provide actionable insights
+- [ ] Monitoring system performs efficiently under load
+- [ ] Operational procedures validated through monitoring system
+
+**Claude Code Context**:
+```
+Focus on completing monitoring implementations:
+- PaymentGateway.Infrastructure/Services/HealthCheckMetricsService.cs (line 60)
+- PaymentGateway.Infrastructure/Extensions/PrometheusServiceExtensions.cs (lines 32,44)
+Implement comprehensive health checks and monitoring in API project.
+```
+
+---
+
+### Task 63: Cache Management and Performance Optimization 🚀 **MEDIUM PRIORITY**
+**Objective**: Implement comprehensive caching strategy and performance optimization.
+
+**Issue Description**:
+Caching implementations have limitations and missing optimization opportunities:
+- TokenReplayProtectionService.cs:213 - IMemoryCache automatic expiration cleanup needs enhancement
+- Missing distributed caching for multi-instance scenarios
+- Incomplete cache invalidation and coherency strategies
+- Missing cache performance monitoring and optimization
+
+**Solution Requirements**:
+1. **Enhanced Cache Management**:
+   - Optimize IMemoryCache expiration cleanup (TokenReplayProtectionService.cs:213)
+   - Implement distributed caching for multi-instance deployment
+   - Add cache coherency and invalidation strategies
+   - Implement cache partitioning and isolation for different data types
+
+2. **Performance Optimization**:
+   - Add intelligent cache warming and pre-loading
+   - Implement cache hit/miss ratio optimization
+   - Add cache size management and memory pressure handling
+   - Create cache performance monitoring and analytics
+
+3. **Distributed Caching**:
+   - Implement Redis or similar distributed cache integration
+   - Add cache replication and failover capabilities
+   - Implement cache security and access control
+   - Add cache backup and disaster recovery procedures
+
+4. **Cache Strategy Framework**:
+   - Create comprehensive caching policies and guidelines
+   - Implement cache TTL management and optimization
+   - Add cache invalidation event system
+   - Create cache monitoring dashboards and alerting
+
+**Related Changes**:
+- Update all services to use optimized caching strategies
+- Implement distributed caching configuration and management
+- Add cache performance monitoring and optimization tools
+- Update deployment procedures for caching infrastructure
+
+**Testing and Validation Criteria**:
+- [ ] Cache management performs optimally under all conditions
+- [ ] Distributed caching maintains consistency across instances
+- [ ] Cache invalidation strategies maintain data consistency
+- [ ] Performance optimization shows measurable improvements
+- [ ] Cache monitoring provides actionable operational insights
+- [ ] Load testing validates caching system scalability
+
+**Claude Code Context**:
+```
+Focus on TokenReplayProtectionService.cs line 213 and cache optimization opportunities.
+Review all caching implementations for performance and consistency improvements.
+```
+
+---
+
+### Task 64: Security Enhancement and Vulnerability Assessment 🔐 **HIGH PRIORITY**
+**Objective**: Complete security implementation and perform comprehensive vulnerability assessment.
+
+**Issue Description**:
+Security implementations have incomplete features and potential vulnerabilities:
+- Missing team-specific security configurations
+- Incomplete webhook signature validation implementations
+- Missing comprehensive security audit logging
+- Potential security vulnerabilities in payment form processing
+
+**Solution Requirements**:
+1. **Authentication and Authorization**:
+   - Complete team-specific authentication and authorization
+   - Implement role-based access control for payment operations
+   - Add multi-factor authentication for sensitive operations
+   - Implement session management and security controls
+
+2. **Data Protection**:
+   - Complete payment data encryption at rest and in transit
+   - Implement comprehensive data masking and sanitization
+   - Add data retention and secure deletion capabilities
+   - Ensure PCI DSS compliance for all payment data handling
+
+3. **API Security**:
+   - Complete webhook signature validation and security
+   - Implement comprehensive input validation and sanitization
+   - Add rate limiting and DDoS protection mechanisms
+   - Implement API security monitoring and threat detection
+
+4. **Security Monitoring**:
+   - Add comprehensive security event logging and monitoring
+   - Implement security incident detection and response
+   - Create security dashboards and alerting
+   - Add security audit trail and compliance reporting
+
+**Related Changes**:
+- Update all security implementations for completeness and robustness
+- Implement comprehensive security monitoring and alerting
+- Add security testing and vulnerability assessment procedures
+- Update security documentation and operational procedures
+
+**Testing and Validation Criteria**:
+- [ ] All security implementations function correctly and robustly
+- [ ] Vulnerability assessment shows no critical security issues
+- [ ] Security monitoring provides comprehensive threat visibility
+- [ ] PCI DSS compliance validated through security audit
+- [ ] Penetration testing validates security implementations
+- [ ] Security incident response procedures tested and validated
+
+**Claude Code Context**:
+```
+Review all security-related implementations for completeness and vulnerabilities.
+Focus on authentication, authorization, data protection, and security monitoring.
+```
+
+---
+
+### Task 65: Production Deployment Preparation and Documentation 📚 **HIGH PRIORITY**
+**Objective**: Complete production deployment preparation and comprehensive documentation.
+
+**Issue Description**:
+System needs comprehensive production preparation and documentation:
+- Missing production deployment procedures and automation
+- Incomplete operational documentation and runbooks
+- Missing disaster recovery and business continuity procedures
+- Incomplete performance benchmarking and capacity planning
+
+**Solution Requirements**:
+1. **Deployment Automation**:
+   - Create comprehensive deployment automation scripts
+   - Implement blue-green deployment procedures
+   - Add deployment rollback and recovery capabilities
+   - Create environment-specific configuration management
+
+2. **Operational Documentation**:
+   - Create comprehensive operational runbooks and procedures
+   - Add troubleshooting guides and known issue documentation
+   - Implement monitoring and alerting documentation
+   - Create performance tuning and optimization guides
+
+3. **Disaster Recovery**:
+   - Implement comprehensive backup and recovery procedures
+   - Add disaster recovery testing and validation
+   - Create business continuity procedures and documentation
+   - Implement data replication and failover capabilities
+
+4. **Performance and Capacity**:
+   - Complete performance benchmarking and optimization
+   - Add capacity planning and scaling procedures
+   - Implement load testing and performance validation
+   - Create performance monitoring and optimization documentation
+
+**Related Changes**:
+- Create comprehensive deployment and operational procedures
+- Implement backup, recovery, and disaster recovery capabilities
+- Add performance testing and capacity planning tools
+- Update all documentation for production readiness
+
+**Testing and Validation Criteria**:
+- [ ] Deployment automation functions correctly in all environments
+- [ ] Operational procedures tested and validated
+- [ ] Disaster recovery procedures tested successfully
+- [ ] Performance benchmarking meets all requirements
+- [ ] Capacity planning provides accurate scaling guidance
+- [ ] All documentation complete and accurate
+
+**Claude Code Context**:
+```
+Focus on production readiness across all system components.
+Create comprehensive deployment, operational, and disaster recovery procedures.
+```
+
+---
+
+## Implementation Priority and Dependencies
+
+### Critical Path (Complete First)
+1. **Task 51** - Data Model Consistency (CRITICAL - blocks other tasks)
+2. **Task 52** - Payment Lifecycle Compliance (HIGH - core functionality)  
+3. **Task 60** - Compilation Error Resolution (HIGH - development efficiency)
+
+### High Priority (Complete Next)
+4. **Task 53** - Service Integration Resolution
+5. **Task 64** - Security Enhancement 
+6. **Task 65** - Production Deployment Preparation
+
+### Medium Priority (Complete After Core Issues)
+7. **Task 54** - Business Rule Engine Enhancement
+8. **Task 55** - Database Performance Optimization
+9. **Task 56** - Card Processing Enhancement
+10. **Task 57** - Audit Trail Enhancement
+11. **Task 58** - Payment Recovery Implementation
+12. **Task 59** - Service Resilience Enhancement
+13. **Task 61** - Form Integration Testing
+14. **Task 62** - Monitoring System Completion
+15. **Task 63** - Cache Management Optimization
+
+---
+
+## Critical Implementation Notes for Claude Code
+
+1. **Start with Task 51** - Data model consistency is blocking many other features
+2. **Focus on TODO comments** - They represent concrete, actionable issues
+3. **Test incrementally** - Fix compilation errors before moving to next task
+4. **Validate against specs** - Ensure payment-lifecycle.md compliance throughout
+5. **Maintain audit trail** - All changes must preserve comprehensive audit logging
+6. **Consider performance** - All solutions must handle concurrent payment processing
+7. **Security first** - All implementations must maintain security and PCI DSS compliance
+
+Each task provides specific file references, line numbers, and technical context to enable efficient implementation and validation.
