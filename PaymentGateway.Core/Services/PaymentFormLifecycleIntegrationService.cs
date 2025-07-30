@@ -31,6 +31,7 @@ public class PaymentFormLifecycleIntegrationService
     private readonly PaymentFormStatusUpdateService _statusUpdateService;
     private readonly BusinessRuleEngineService _businessRuleEngine;
     private readonly ComprehensiveAuditService _auditService;
+    private readonly AuditCorrelationService _auditCorrelationService;
 
     // Lifecycle integration configuration
     private readonly bool _enableFormLifecycleIntegration;
@@ -55,7 +56,8 @@ public class PaymentFormLifecycleIntegrationService
         PaymentStateTransitionValidationService stateValidationService,
         PaymentFormStatusUpdateService statusUpdateService,
         BusinessRuleEngineService businessRuleEngine,
-        ComprehensiveAuditService auditService)
+        ComprehensiveAuditService auditService,
+        AuditCorrelationService auditCorrelationService)
     {
         _logger = logger;
         _configuration = configuration;
@@ -65,6 +67,7 @@ public class PaymentFormLifecycleIntegrationService
         _statusUpdateService = statusUpdateService;
         _businessRuleEngine = businessRuleEngine;
         _auditService = auditService;
+        _auditCorrelationService = auditCorrelationService;
 
         // Load configuration
         _enableFormLifecycleIntegration = _configuration.GetValue<bool>("PaymentForm:EnableLifecycleIntegration", true);
@@ -198,11 +201,23 @@ public class PaymentFormLifecycleIntegrationService
     {
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var rollbackOperations = new List<RollbackOperation>();
+        string? correlationId = null;
         
         try
         {
             _logger.LogInformation("Processing form submission in lifecycle for PaymentId: {PaymentId}",
                 request.PaymentId);
+
+            // Create audit correlation context for the entire operation
+            correlationId = await _auditCorrelationService.CreateCorrelationContextAsync(
+                "PAYMENT_FORM_SUBMISSION", 
+                request.PaymentId,
+                new Dictionary<string, object>
+                {
+                    ["FormSessionId"] = request.FormSessionId,
+                    ["ClientIp"] = request.ClientIp ?? "",
+                    ["UserAgent"] = request.UserAgent ?? ""
+                });
 
             // Get current payment
             var payment = await _paymentRepository.GetByPaymentIdAsync(request.PaymentId);
@@ -231,9 +246,14 @@ public class PaymentFormLifecycleIntegrationService
             };
 
             // Step 1: Validate business rules
+            await _auditCorrelationService.AddAuditEventAsync(correlationId, "BUSINESS_RULE_VALIDATION_STARTED", 
+                "PaymentFormLifecycleIntegrationService", "Starting business rule validation for payment form submission");
+            
             var businessRuleResult = await ValidateBusinessRulesForSubmission(payment, request);
             if (!businessRuleResult.Success)
             {
+                await _auditCorrelationService.AddAuditEventAsync(correlationId, "BUSINESS_RULE_VALIDATION_FAILED", 
+                    "PaymentFormLifecycleIntegrationService", $"Business rule validation failed: {businessRuleResult.ErrorMessage}");
                 lifecycleContext.Operations.Add(new FormLifecycleOperation
                 {
                     OperationType = FormLifecycleOperationType.BusinessRuleValidation,
@@ -250,6 +270,9 @@ public class PaymentFormLifecycleIntegrationService
                 };
             }
 
+            await _auditCorrelationService.AddAuditEventAsync(correlationId, "BUSINESS_RULE_VALIDATION_SUCCESS", 
+                "PaymentFormLifecycleIntegrationService", "Business rule validation completed successfully");
+            
             lifecycleContext.Operations.Add(new FormLifecycleOperation
             {
                 OperationType = FormLifecycleOperationType.BusinessRuleValidation,
@@ -261,9 +284,14 @@ public class PaymentFormLifecycleIntegrationService
             // Step 2: Process payment authorization
             if (_enableAutomaticStateTransitions)
             {
+                await _auditCorrelationService.AddAuditEventAsync(correlationId, "PAYMENT_AUTHORIZATION_STARTED", 
+                    "PaymentFormLifecycleIntegrationService", "Starting payment authorization process");
+                
                 var authorizationResult = await ProcessPaymentAuthorizationAsync(payment, request, rollbackOperations);
                 if (!authorizationResult.Success)
                 {
+                    await _auditCorrelationService.AddAuditEventAsync(correlationId, "PAYMENT_AUTHORIZATION_FAILED", 
+                        "PaymentFormLifecycleIntegrationService", $"Payment authorization failed: {authorizationResult.ErrorMessage}");
                     if (_enableRollbackOnFailure)
                     {
                         await ExecuteRollbackOperationsAsync(rollbackOperations);
@@ -285,6 +313,10 @@ public class PaymentFormLifecycleIntegrationService
                     };
                 }
 
+                await _auditCorrelationService.AddAuditEventAsync(correlationId, "PAYMENT_AUTHORIZATION_SUCCESS", 
+                    "PaymentFormLifecycleIntegrationService", "Payment authorization completed successfully", 
+                    authorizationResult.AdditionalData);
+                
                 lifecycleContext.CurrentStatus = Enums.PaymentStatus.AUTHORIZED;
                 lifecycleContext.Operations.Add(new FormLifecycleOperation
                 {
@@ -318,6 +350,10 @@ public class PaymentFormLifecycleIntegrationService
                 }
             });
 
+            // Complete the audit correlation
+            await _auditCorrelationService.CompleteCorrelationAsync(correlationId, true, 
+                $"Payment form submission completed successfully in {stopwatch.ElapsedMilliseconds}ms");
+
             _lifecycleIntegrationCounter.Add(1, new KeyValuePair<string, object?>("result", "success"),
                 new KeyValuePair<string, object?>("operation", "submission"));
 
@@ -335,6 +371,20 @@ public class PaymentFormLifecycleIntegrationService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing form submission for PaymentId: {PaymentId}", request.PaymentId);
+            
+            // Complete correlation with failure
+            if (correlationId != null)
+            {
+                try
+                {
+                    await _auditCorrelationService.CompleteCorrelationAsync(correlationId, false, 
+                        $"Payment form submission failed: {ex.Message}");
+                }
+                catch (Exception correlationEx)
+                {
+                    _logger.LogWarning(correlationEx, "Failed to complete audit correlation for failed form submission");
+                }
+            }
             
             if (_enableRollbackOnFailure)
             {
@@ -591,15 +641,14 @@ public class PaymentFormLifecycleIntegrationService
                 }
             });
 
-            // Transition payment to AUTHORIZED status
-            var authorizedPayment = await _lifecycleService.AuthorizePaymentAsync(payment.Id);
-            var transitionResult = new { Success = authorizedPayment != null, ErrorMessage = authorizedPayment == null ? "Failed to authorize payment" : "" };
-            if (!transitionResult.Success)
+            // Transition payment to AUTHORIZED status with proper audit trail
+            var transitionResult = await _lifecycleService.AuthorizePaymentWithTransitionAsync(payment.Id);
+            if (!transitionResult.IsSuccess)
             {
                 return new OperationResult
                 {
                     Success = false,
-                    ErrorMessage = transitionResult.ErrorMessage
+                    ErrorMessage = string.Join(", ", transitionResult.Errors)
                 };
             }
 
@@ -608,8 +657,10 @@ public class PaymentFormLifecycleIntegrationService
                 Success = true,
                 AdditionalData = new Dictionary<string, object>
                 {
-                    ["TransitionId"] = Guid.NewGuid().ToString(), // TODO: No TransitionId available from simplified result
-                    ["AuthorizedAt"] = DateTime.UtcNow
+                    ["TransitionId"] = transitionResult.TransitionId,
+                    ["AuthorizedAt"] = transitionResult.TransitionedAt ?? DateTime.UtcNow,
+                    ["FromStatus"] = transitionResult.FromStatus.ToString(),
+                    ["ToStatus"] = transitionResult.ToStatus.ToString()
                 }
             };
         }

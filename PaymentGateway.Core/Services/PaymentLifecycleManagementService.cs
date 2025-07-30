@@ -15,11 +15,27 @@ namespace PaymentGateway.Core.Services;
 /// Comprehensive payment lifecycle management service that orchestrates
 /// the entire payment processing flow with state management and concurrency control
 /// </summary>
+/// <summary>
+/// Result of payment lifecycle operation with audit trail information
+/// </summary>
+public class PaymentLifecycleResult
+{
+    public bool IsSuccess { get; set; }
+    public Payment? Payment { get; set; }
+    public string TransitionId { get; set; } = string.Empty;
+    public DateTime? TransitionedAt { get; set; }
+    public PaymentStatus FromStatus { get; set; }
+    public PaymentStatus ToStatus { get; set; }
+    public List<string> Errors { get; set; } = new();
+    public Dictionary<string, object> Context { get; set; } = new();
+}
+
 public interface IPaymentLifecycleManagementService
 {
     Task<Payment> InitializePaymentAsync(Payment payment, CancellationToken cancellationToken = default);
     Task<Payment> ProcessPaymentAsync(Guid paymentId, CancellationToken cancellationToken = default);
     Task<Payment> AuthorizePaymentAsync(Guid paymentId, CancellationToken cancellationToken = default);
+    Task<PaymentLifecycleResult> AuthorizePaymentWithTransitionAsync(Guid paymentId, CancellationToken cancellationToken = default);
     Task<Payment> ConfirmPaymentAsync(Guid paymentId, CancellationToken cancellationToken = default);
     Task<Payment> CancelPaymentAsync(Guid paymentId, string reason, CancellationToken cancellationToken = default);
     Task<Payment> RefundPaymentAsync(Guid paymentId, decimal amount, string reason, CancellationToken cancellationToken = default);
@@ -200,6 +216,19 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
 
     public async Task<Payment> AuthorizePaymentAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
+        var result = await AuthorizePaymentWithTransitionAsync(paymentId, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            throw new InvalidOperationException($"Failed to authorize payment: {string.Join(", ", result.Errors)}");
+        }
+        return result.Payment!;
+    }
+
+    /// <summary>
+    /// Authorize payment and return transition details for audit trail
+    /// </summary>
+    public async Task<PaymentLifecycleResult> AuthorizePaymentWithTransitionAsync(Guid paymentId, CancellationToken cancellationToken = default)
+    {
         using var activity = PaymentLifecycleOperationDuration.WithLabels("authorize").NewTimer();
         var lockKey = $"payment:authorize:{paymentId}";
 
@@ -210,7 +239,11 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
             {
                 _logger.LogWarning("Failed to acquire lock for payment authorization: {PaymentId}", paymentId);
                 PaymentLifecycleOperations.WithLabels("authorize", "lock_failed").Inc();
-                throw new InvalidOperationException("Payment authorization is already in progress");
+                return new PaymentLifecycleResult
+                {
+                    IsSuccess = false,
+                    Errors = new List<string> { "Payment authorization is already in progress" }
+                };
             }
 
             var payment = await _paymentRepository.GetByIdAsync(paymentId, cancellationToken);
@@ -218,39 +251,64 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
             {
                 _logger.LogError("Payment not found: {PaymentId}", paymentId);
                 PaymentLifecycleOperations.WithLabels("authorize", "not_found").Inc();
-                throw new InvalidOperationException("Payment not found");
+                return new PaymentLifecycleResult
+                {
+                    IsSuccess = false,
+                    Errors = new List<string> { "Payment not found" }
+                };
             }
 
-            // Validate state transition
-            if (!await _paymentStateMachine.CanTransitionAsync(payment, PaymentStatus.AUTHORIZED, cancellationToken))
+            // Use proper state machine transition
+            var transitionResult = await _paymentStateMachine.TransitionAsync(
+                payment, 
+                PaymentStatus.AUTHORIZED, 
+                null, // userId - could be passed as parameter
+                null, // context - could include additional audit information
+                cancellationToken);
+
+            if (!transitionResult.IsSuccess)
             {
-                _logger.LogError("Invalid state transition for payment authorization: {PaymentId}, Current: {Status}", 
-                    paymentId, payment.Status);
+                _logger.LogError("Invalid state transition for payment authorization: {PaymentId}, Current: {Status}, Errors: {Errors}", 
+                    paymentId, payment.Status, string.Join(", ", transitionResult.Errors));
                 PaymentLifecycleOperations.WithLabels("authorize", "invalid_state").Inc();
-                throw new InvalidOperationException($"Cannot authorize payment in {payment.Status} state");
+                return new PaymentLifecycleResult
+                {
+                    IsSuccess = false,
+                    Errors = transitionResult.Errors,
+                    TransitionId = transitionResult.TransitionId,
+                    FromStatus = transitionResult.FromStatus,
+                    ToStatus = transitionResult.ToStatus
+                };
             }
 
-            var previousStatus = payment.Status;
-            payment.Status = PaymentStatus.AUTHORIZED;
-            payment.UpdatedAt = DateTime.UtcNow;
+            // Payment status is updated by the state machine, get the updated payment
+            var updatedPayment = await _paymentRepository.GetByIdAsync(paymentId, cancellationToken);
 
-            await _paymentRepository.UpdateAsync(payment, cancellationToken);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-            // Publish state transition event
-            await _eventService.PublishStateTransitionAsync(paymentId, previousStatus, PaymentStatus.AUTHORIZED, cancellationToken);
-
-            _logger.LogInformation("Payment authorized successfully: {PaymentId}", paymentId);
+            _logger.LogInformation("Payment authorized successfully: {PaymentId}, TransitionId: {TransitionId}", 
+                paymentId, transitionResult.TransitionId);
             PaymentLifecycleOperations.WithLabels("authorize", "success").Inc();
-            PaymentStateTransitions.WithLabels(previousStatus.ToString(), "AUTHORIZED", "success").Inc();
-            
-            return payment;
+            PaymentStateTransitions.WithLabels(transitionResult.FromStatus.ToString(), "AUTHORIZED", "success").Inc();
+
+            return new PaymentLifecycleResult
+            {
+                IsSuccess = true,
+                Payment = updatedPayment,
+                TransitionId = transitionResult.TransitionId,
+                TransitionedAt = transitionResult.TransitionedAt,
+                FromStatus = transitionResult.FromStatus,
+                ToStatus = transitionResult.ToStatus,
+                Context = transitionResult.Context
+            };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to authorize payment: {PaymentId}", paymentId);
             PaymentLifecycleOperations.WithLabels("authorize", "error").Inc();
-            throw;
+            return new PaymentLifecycleResult
+            {
+                IsSuccess = false,
+                Errors = new List<string> { ex.Message }
+            };
         }
     }
 
