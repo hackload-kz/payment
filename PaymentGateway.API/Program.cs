@@ -3,6 +3,7 @@ using PaymentGateway.API.Configuration;
 using PaymentGateway.API.Middleware;
 using PaymentGateway.Infrastructure.Data;
 using PaymentGateway.Infrastructure.Extensions;
+using PaymentGateway.Core.Extensions;
 using Prometheus;
 using Serilog;
 
@@ -29,6 +30,9 @@ try
 
     // Add database configuration with metrics
     builder.Services.AddDatabase(builder.Configuration, builder.Environment);
+
+    // Add core payment services
+    builder.Services.AddPaymentServices(builder.Configuration);
 
     // Add health checks
     builder.Services.AddHealthChecks();
