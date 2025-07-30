@@ -2,6 +2,7 @@
 // Copyright (c) 2025 HackLoad Payment Gateway
 
 using Microsoft.Extensions.Primitives;
+using Microsoft.Extensions.Options;
 
 namespace PaymentGateway.API.Middleware;
 

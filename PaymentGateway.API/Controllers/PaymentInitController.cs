@@ -214,10 +214,29 @@ public class PaymentInitController : ControllerBase
                 ClientIp = GetClientIpAddress(),
                 UserAgent = Request.Headers.UserAgent.ToString(),
                 RequestPath = Request.Path,
-                Timestamp = DateTime.UtcNow
+                Timestamp = DateTime.UtcNow,
+                Amount = request.Amount,
+                OrderId = request.OrderId,
+                Currency = request.Currency,
+                Description = request.Description
             };
             
-            var authResult = await _authenticationService.AuthenticateAsync(authContext, cancellationToken);
+            var authParameters = new Dictionary<string, object>
+            {
+                { "TeamSlug", authContext.TeamSlug },
+                { "Token", authContext.Token },
+                { "RequestId", authContext.RequestId },
+                { "Amount", authContext.Amount },
+                { "OrderId", authContext.OrderId },
+                { "Currency", authContext.Currency },
+                { "Description", authContext.Description ?? "" },
+                { "ClientIp", authContext.ClientIp },
+                { "UserAgent", authContext.UserAgent },
+                { "RequestPath", authContext.RequestPath },
+                { "Timestamp", authContext.Timestamp }
+            };
+            
+            var authResult = await _authenticationService.AuthenticateAsync(authParameters, cancellationToken);
             if (!authResult.IsAuthenticated)
             {
                 PaymentInitRequests.WithLabels(teamId.ToString(), "auth_failed", request.Currency).Inc();
@@ -229,29 +248,40 @@ public class PaymentInitController : ControllerBase
             }
 
             // 4. Business rule evaluation
-            var businessRuleContext = new PaymentRuleContext
+            var businessRuleContext = new PaymentGateway.Core.Services.PaymentRuleContext
             {
+                PaymentId = 0, // Will be set after payment creation
                 TeamId = teamId,
+                TeamSlug = teamSlug,
                 Amount = request.Amount,
                 Currency = request.Currency,
-                PaymentMethod = "CARD", // Default to card payment
                 OrderId = request.OrderId,
-                ClientIp = GetClientIpAddress(),
-                UserAgent = Request.Headers.UserAgent.ToString(),
-                CustomerKey = request.CustomerKey,
-                Email = request.Email,
-                Phone = request.Phone,
-                Metadata = request.Data?.ToDictionary(k => k.Key, k => (object)k.Value) ?? new Dictionary<string, object>()
+                PaymentMethod = "CARD", // Default to card payment
+                CustomerEmail = request.Email ?? "",
+                CustomerCountry = "RU", // Default country
+                PaymentDate = DateTime.UtcNow,
+                PaymentMetadata = request.Data?.ToDictionary(k => k.Key, k => (object)k.Value) ?? new Dictionary<string, object>(),
+                CustomerData = new Dictionary<string, object>
+                {
+                    ["email"] = request.Email ?? "",
+                    ["phone"] = request.Phone ?? "",
+                    ["customer_key"] = request.CustomerKey ?? "",
+                    ["client_ip"] = GetClientIpAddress(),
+                    ["user_agent"] = Request.Headers.UserAgent.ToString()
+                },
+                TransactionHistory = new Dictionary<string, object>()
             };
             
             var ruleEvaluationResult = await _businessRuleEngineService.EvaluatePaymentRulesAsync(businessRuleContext, cancellationToken);
-            if (!ruleEvaluationResult.IsValid)
+            if (!ruleEvaluationResult.IsAllowed)
             {
                 PaymentInitRequests.WithLabels(teamId.ToString(), "rule_violation", request.Currency).Inc();
-                var ruleErrors = string.Join("; ", ruleEvaluationResult.Errors);
+                var ruleErrors = ruleEvaluationResult.Violations.Any() ? 
+                    string.Join("; ", ruleEvaluationResult.Violations.Select(v => $"{v.Field}: {v.Message}")) :
+                    ruleEvaluationResult.Message;
                 
-                _logger.LogWarning("Payment initialization rule violation. RequestId: {RequestId}, Rules: {ViolatedRules}", 
-                    requestId, string.Join("; ", ruleEvaluationResult.ViolatedRules.Select(r => r.RuleName)));
+                _logger.LogWarning("Payment initialization rule violation. RequestId: {RequestId}, Rule: {RuleName}, Message: {Message}", 
+                    requestId, ruleEvaluationResult.RuleName, ruleEvaluationResult.Message);
                 
                 traceActivity?.SetTag("payment.rule_violations", ruleErrors);
                 return UnprocessableEntity(CreateErrorResponse("1422", "Business rule violation", ruleErrors));
@@ -518,7 +548,6 @@ public class PaymentInitController : ControllerBase
     {
         return new PaymentInitResponseDto
         {
-            TeamSlug = string.Empty,
             Amount = 0,
             OrderId = string.Empty,
             Success = false,
@@ -527,7 +556,10 @@ public class PaymentInitController : ControllerBase
             ErrorCode = errorCode,
             PaymentURL = null,
             Message = message,
-            Details = details
+            Details = new PaymentDetailsDto
+            {
+                Description = details
+            }
         };
     }
 
@@ -681,22 +713,13 @@ public class AuthenticationContext
     public string UserAgent { get; set; } = string.Empty;
     public string RequestPath { get; set; } = string.Empty;
     public DateTime Timestamp { get; set; }
+    public decimal Amount { get; set; }
+    public string OrderId { get; set; } = string.Empty;
+    public string Currency { get; set; } = string.Empty;
+    public string? Description { get; set; }
 }
 
-public class PaymentRuleContext
-{
-    public int TeamId { get; set; }
-    public decimal Amount { get; set; }
-    public string Currency { get; set; } = string.Empty;
-    public string PaymentMethod { get; set; } = string.Empty;
-    public string OrderId { get; set; } = string.Empty;
-    public string ClientIp { get; set; } = string.Empty;
-    public string UserAgent { get; set; } = string.Empty;
-    public string? CustomerKey { get; set; }
-    public string? Email { get; set; }
-    public string? Phone { get; set; }
-    public Dictionary<string, object> Metadata { get; set; } = new();
-}
+// PaymentRuleContext is now imported from PaymentGateway.Core.Services
 
 // Supporting classes for API controller
 public class AuthenticationResult

@@ -31,10 +31,13 @@ public interface IPaymentRetryService
 public class PaymentRetryPolicy
 {
     public int MaxRetries { get; set; } = 3;
+    public int MaxAttempts { get; set; } = 3; // Alias for MaxRetries
     public TimeSpan InitialDelay { get; set; } = TimeSpan.FromSeconds(1);
+    public TimeSpan BaseDelay { get; set; } = TimeSpan.FromSeconds(1); // Alias for InitialDelay
     public double BackoffMultiplier { get; set; } = 2.0;
     public TimeSpan MaxDelay { get; set; } = TimeSpan.FromMinutes(30);
     public bool UseJitter { get; set; } = true;
+    public List<PaymentErrorCode> RetryableErrors { get; set; } = new();
     public HashSet<string> RetryableErrorCodes { get; set; } = new()
     {
         "NETWORK_ERROR",
@@ -63,7 +66,7 @@ public class RetryResult
     public TimeSpan TotalRetryDuration { get; set; }
     public PaymentStatus? FinalStatus { get; set; }
     public List<string> Errors { get; set; } = new();
-    public List<RetryAttemptResult> AttemptResults { get; set; } = new();
+    public List<PaymentRetryAttemptResult> AttemptResults { get; set; } = new();
     public DateTime? NextRetryAt { get; set; }
 
     public static RetryResult Success(long paymentId, int attempts, TimeSpan duration, PaymentStatus status) =>
@@ -115,6 +118,8 @@ public class RetryAnalytics
     public Dictionary<string, double> RetrySuccessRateByErrorCode { get; set; } = new();
 }
 
+// Note: Using PaymentRetryPolicy and PaymentRetryAttemptResult directly in code instead of aliases
+
 public class PaymentRetryService : IPaymentRetryService
 {
     private readonly IServiceProvider _serviceProvider;
@@ -137,17 +142,21 @@ public class PaymentRetryService : IPaymentRetryService
         .CreateGauge("scheduled_payment_retries_total", "Total scheduled payment retries");
 
     // Default retry policies
-    private static readonly RetryPolicy DefaultPolicy = new();
-    private static readonly RetryPolicy AggressivePolicy = new()
+    private static readonly PaymentRetryPolicy DefaultPolicy = new();
+    private static readonly PaymentRetryPolicy AggressivePolicy = new()
     {
+        MaxAttempts = 5,
         MaxRetries = 5,
+        BaseDelay = TimeSpan.FromMilliseconds(500),
         InitialDelay = TimeSpan.FromMilliseconds(500),
         BackoffMultiplier = 1.5,
         MaxDelay = TimeSpan.FromMinutes(10)
     };
-    private static readonly RetryPolicy ConservativePolicy = new()
+    private static readonly PaymentRetryPolicy ConservativePolicy = new()
     {
+        MaxAttempts = 2,
         MaxRetries = 2,
+        BaseDelay = TimeSpan.FromSeconds(5),
         InitialDelay = TimeSpan.FromSeconds(5),
         BackoffMultiplier = 3.0,
         MaxDelay = TimeSpan.FromHours(1)
@@ -183,7 +192,11 @@ public class PaymentRetryService : IPaymentRetryService
             }
 
             // Get payment and validate retry eligibility
-            var payment = await _paymentRepository.GetByIdAsync(paymentId, cancellationToken);
+            // TODO: Fix data model inconsistency - method expects long but repository uses Guid
+            var guidBytes = new byte[16];
+            BitConverter.GetBytes(paymentId).CopyTo(guidBytes, 0);
+            var paymentGuid = new Guid(guidBytes);
+            var payment = await _paymentRepository.GetByIdAsync(paymentGuid, cancellationToken);
             if (payment == null)
             {
                 return RetryResult.Failure(paymentId, 0, TimeSpan.Zero, "Payment not found");
@@ -200,7 +213,7 @@ public class PaymentRetryService : IPaymentRetryService
             {
                 PaymentId = paymentId,
                 AttemptsUsed = 0,
-                AttemptResults = new List<RetryAttemptResult>()
+                AttemptResults = new List<PaymentRetryAttemptResult>()
             };
 
             // Perform retry attempts
@@ -213,11 +226,13 @@ public class PaymentRetryService : IPaymentRetryService
                 }
 
                 var attemptStartTime = DateTime.UtcNow;
-                var attemptResult = new RetryAttemptResult
+                var attemptResult = new PaymentRetryAttemptResult
                 {
+                    // TODO: PaymentRetryAttemptResult doesn't have OperationId property
                     AttemptNumber = currentRetryCount + attempt,
                     AttemptedAt = attemptStartTime,
-                    StatusBefore = payment.Status
+                    StatusBefore = payment.Status,
+                    ErrorCode = PaymentErrorCode.Success.ToString() // TODO: PaymentRetryAttemptResult.ErrorCode is string, not enum
                 };
 
                 try
@@ -233,7 +248,11 @@ public class PaymentRetryService : IPaymentRetryService
                     using var scope = _serviceProvider.CreateScope();
                     var processingEngine = scope.ServiceProvider.GetRequiredService<IConcurrentPaymentProcessingEngineService>();
                     
-                    var processingResult = await processingEngine.ProcessPaymentAsync(paymentId, new ProcessingOptions
+                    // TODO: Fix data model inconsistency - convert long paymentId to Guid
+                    var guidBytes2 = new byte[16];
+                    BitConverter.GetBytes(paymentId).CopyTo(guidBytes2, 0);
+                    var paymentGuid2 = new Guid(guidBytes2);
+                    var processingResult = await processingEngine.ProcessPaymentAsync(paymentGuid2, new ProcessingOptions
                     {
                         MaxRetries = 1, // Don't double-retry
                         Timeout = TimeSpan.FromMinutes(5),
@@ -423,7 +442,11 @@ public class PaymentRetryService : IPaymentRetryService
     {
         try
         {
-            var payment = await _paymentRepository.GetByIdAsync(paymentId, cancellationToken);
+            // TODO: Fix data model inconsistency - method expects long but repository uses Guid
+        var guidBytes = new byte[16];
+        BitConverter.GetBytes(paymentId).CopyTo(guidBytes, 0);
+        var paymentGuid = new Guid(guidBytes);
+        var payment = await _paymentRepository.GetByIdAsync(paymentGuid, cancellationToken);
             if (payment == null) return false;
 
             // Don't retry payments in final states
@@ -457,7 +480,11 @@ public class PaymentRetryService : IPaymentRetryService
     {
         try
         {
-            var payment = await _paymentRepository.GetByIdAsync(paymentId, cancellationToken);
+            // TODO: Fix data model inconsistency - method expects long but repository uses Guid
+        var guidBytes = new byte[16];
+        BitConverter.GetBytes(paymentId).CopyTo(guidBytes, 0);
+        var paymentGuid = new Guid(guidBytes);
+        var payment = await _paymentRepository.GetByIdAsync(paymentGuid, cancellationToken);
             if (payment == null) return DefaultPolicy;
 
             // Select policy based on payment characteristics

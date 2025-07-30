@@ -199,7 +199,7 @@ public class PaymentFormProcessingResult
     /// <summary>
     /// Create a successful result
     /// </summary>
-    public static PaymentFormProcessingResult Success(string paymentId, string? transactionId = null)
+    public static PaymentFormProcessingResult CreateSuccess(string paymentId, string? transactionId = null)
     {
         return new PaymentFormProcessingResult
         {

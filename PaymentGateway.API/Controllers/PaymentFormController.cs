@@ -7,6 +7,7 @@ using Microsoft.Extensions.Caching.Memory;
 using PaymentGateway.Core.DTOs.Common;
 using PaymentGateway.Core.DTOs.PaymentInit;
 using PaymentGateway.Core.Interfaces;
+using PaymentGateway.Core.Repositories;
 using PaymentGateway.Core.Enums;
 using PaymentGateway.Core.Services;
 using System.Diagnostics;
@@ -44,14 +45,15 @@ public class PaymentFormController : ControllerBase
     private readonly IConfiguration _configuration;
 
     // Metrics
+    private static readonly System.Diagnostics.Metrics.Meter _meter = new("PaymentGateway.API.PaymentForm");
     private static readonly System.Diagnostics.Metrics.Counter<long> _formRenderCounter = 
-        System.Diagnostics.Metrics.Meter.CreateCounter<long>("payment_form_renders_total");
+        _meter.CreateCounter<long>("payment_form_renders_total");
     private static readonly System.Diagnostics.Metrics.Counter<long> _formSubmissionCounter = 
-        System.Diagnostics.Metrics.Meter.CreateCounter<long>("payment_form_submissions_total");
+        _meter.CreateCounter<long>("payment_form_submissions_total");
     private static readonly System.Diagnostics.Metrics.Histogram<double> _formProcessingDuration = 
-        System.Diagnostics.Metrics.Meter.CreateHistogram<double>("payment_form_processing_duration_seconds");
+        _meter.CreateHistogram<double>("payment_form_processing_duration_seconds");
     private static readonly System.Diagnostics.Metrics.Counter<long> _csrfValidationCounter = 
-        System.Diagnostics.Metrics.Meter.CreateCounter<long>("payment_form_csrf_validations_total");
+        _meter.CreateCounter<long>("payment_form_csrf_validations_total");
 
     public PaymentFormController(
         ILogger<PaymentFormController> logger,
@@ -108,18 +110,18 @@ public class PaymentFormController : ControllerBase
             }
 
             // Check payment status - only allow form rendering for NEW payments
-            if (payment.Status != PaymentStatus.NEW)
+            if (payment.Status != PaymentGateway.Core.Enums.PaymentStatus.NEW)
             {
                 _logger.LogWarning("Payment form cannot be rendered for payment in status: {Status}, PaymentId: {PaymentId}",
                     payment.Status, paymentId);
                 return BadRequest(new { error = $"Payment is in {payment.Status} status and cannot be processed" });
             }
 
-            // Get team information
-            var team = await _teamRepository.GetByIdAsync(payment.TeamId);
+            // Get team information - use navigation property or find by TeamSlug
+            var team = payment.Team ?? await _teamRepository.GetByTeamSlugAsync(payment.TeamSlug);
             if (team == null)
             {
-                _logger.LogError("Team not found for payment: {PaymentId}, TeamId: {TeamId}", paymentId, payment.TeamId);
+                _logger.LogError("Team not found for payment: {PaymentId}, TeamSlug: {TeamSlug}", paymentId, payment.TeamSlug);
                 return BadRequest(new { error = "Payment configuration error" });
             }
 
@@ -140,7 +142,7 @@ public class PaymentFormController : ControllerBase
                 FailUrl = payment.FailUrl,
                 Language = ValidateLanguage(lang),
                 CsrfToken = csrfToken,
-                PaymentTimeout = payment.PaymentExpiresAt,
+                PaymentTimeout = payment.ExpiresAt,
                 Receipt = payment.Receipt != null ? JsonSerializer.Deserialize<Dictionary<string, object>>(payment.Receipt) : null
             };
 
@@ -227,7 +229,7 @@ public class PaymentFormController : ControllerBase
                 return NotFound(new { error = "Payment not found" });
             }
 
-            if (payment.Status != PaymentStatus.NEW)
+            if (payment.Status != PaymentGateway.Core.Enums.PaymentStatus.NEW)
             {
                 _logger.LogWarning("Payment form submitted for payment in invalid status: {Status}, PaymentId: {PaymentId}",
                     payment.Status, submission.PaymentId);
@@ -252,9 +254,9 @@ public class PaymentFormController : ControllerBase
             }
 
             // Update payment status to AUTHORIZED
-            payment.Status = PaymentStatus.AUTHORIZED;
+            payment.Status = PaymentGateway.Core.Enums.PaymentStatus.AUTHORIZED;
             payment.UpdatedAt = DateTime.UtcNow;
-            payment.CardInfo = cardProcessingResult.CardInfo;
+            payment.CardMask = cardProcessingResult.CardInfo;
             
             await _paymentRepository.UpdateAsync(payment);
 
@@ -411,15 +413,22 @@ public class PaymentFormController : ControllerBase
             };
 
             // Process card through secure service
-            var processingResult = await _cardProcessingService.ProcessCardPaymentAsync(
-                payment.PaymentId,
-                cardData.CardNumber,
-                cardData.ExpiryDate,
-                cardData.Cvv,
-                cardData.CardholderName,
-                payment.Amount,
-                payment.Currency
-            );
+            var expiryParts = cardData.ExpiryDate.Split('/');
+            var cardRequest = new CardPaymentRequest
+            {
+                PaymentId = long.Parse(payment.PaymentId.Replace("pay_", "")),
+                CardNumber = cardData.CardNumber,
+                ExpiryMonth = expiryParts[0],
+                ExpiryYear = expiryParts[1],
+                CVV = cardData.Cvv,
+                CardholderName = cardData.CardholderName,
+                Amount = payment.Amount,
+                Currency = payment.Currency,
+                TeamId = payment.TeamId,
+                OrderId = payment.OrderId
+            };
+            
+            var processingResult = await _cardProcessingService.ProcessCardPaymentAsync(cardRequest);
 
             return new CardProcessingResult
             {
@@ -452,115 +461,52 @@ public class PaymentFormController : ControllerBase
                 return NotFound("Payment not found");
             }
 
-            var resultHtml = $"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment {(success ? "Successful" : "Failed")} - HackLoad Payment Gateway</title>
-    <link rel="stylesheet" href="/css/payment-form.css">
-    <style>
-        .result-container {{
-            max-width: 600px;
-            margin: 2rem auto;
-            padding: 2rem;
-            text-align: center;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }}
-        .result-icon {{
-            font-size: 4rem;
-            margin-bottom: 1rem;
-        }}
-        .result-success {{ color: #10b981; }}
-        .result-error {{ color: #ef4444; }}
-        .result-message {{
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-            color: #374151;
-        }}
-        .payment-details {{
-            background: #f9fafb;
-            padding: 1rem;
-            border-radius: 6px;
-            margin-bottom: 2rem;
-            text-align: left;
-        }}
-        .detail-row {{
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.5rem;
-        }}
-        .action-buttons {{
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-        }}
-        .btn {{
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 500;
-            cursor: pointer;
-        }}
-        .btn-primary {{
-            background: #2563eb;
-            color: white;
-        }}
-        .btn-secondary {{
-            background: #6b7280;
-            color: white;
-        }}
-    </style>
-</head>
-<body>
-    <div class="result-container">
-        <div class="result-icon {(success ? "result-success" : "result-error")}">
-            {(success ? "✓" : "✗")}
-        </div>
-        <h1>Payment {(success ? "Successful" : "Failed")}</h1>
-        <div class="result-message">
-            {System.Net.WebUtility.HtmlEncode(message ?? (success ? "Your payment has been processed successfully." : "Your payment could not be processed."))}
-        </div>
-        
-        <div class="payment-details">
-            <div class="detail-row">
-                <span>Payment ID:</span>
-                <span>{payment.PaymentId}</span>
-            </div>
-            {(payment.OrderId != null ? $"""
-            <div class="detail-row">
-                <span>Order ID:</span>
-                <span>{payment.OrderId}</span>
-            </div>
-            """ : "")}
-            <div class="detail-row">
-                <span>Amount:</span>
-                <span>{payment.Amount:F2} {payment.Currency}</span>
-            </div>
-            <div class="detail-row">
-                <span>Status:</span>
-                <span>{payment.Status}</span>
-            </div>
-            <div class="detail-row">
-                <span>Date:</span>
-                <span>{DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC</span>
-            </div>
-        </div>
+            // Read the HTML template
+            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Views", "Payment", "PaymentResult.html");
+            if (!System.IO.File.Exists(templatePath))
+            {
+                throw new FileNotFoundException($"Payment result template not found: {templatePath}");
+            }
 
-        <div class="action-buttons">
-            {(success && !string.IsNullOrEmpty(payment.SuccessUrl) ? 
-                $"""<a href="{payment.SuccessUrl}" class="btn btn-primary">Continue</a>""" : "")}
-            {(!success && !string.IsNullOrEmpty(payment.FailUrl) ? 
-                $"""<a href="{payment.FailUrl}" class="btn btn-secondary">Return to Merchant</a>""" : "")}
-        </div>
-    </div>
-</body>
-</html>
-""";
+            var template = await System.IO.File.ReadAllTextAsync(templatePath);
+
+            // Prepare template data
+            var status = success ? "Successful" : "Failed";
+            var iconClass = success ? "result-success" : "result-error";
+            var icon = success ? "✓" : "✗";
+            var defaultMessage = success ? "Your payment has been processed successfully." : "Your payment could not be processed.";
+            var encodedMessage = System.Net.WebUtility.HtmlEncode(message ?? defaultMessage);
+            
+            var orderIdSection = !string.IsNullOrEmpty(payment.OrderId) 
+                ? $@"<div class=""detail-row"">
+                    <span>Order ID:</span>
+                    <span>{System.Net.WebUtility.HtmlEncode(payment.OrderId)}</span>
+                </div>"
+                : "";
+
+            var actionButtons = "";
+            if (success && !string.IsNullOrEmpty(payment.SuccessUrl))
+            {
+                actionButtons += $@"<a href=""{System.Net.WebUtility.HtmlEncode(payment.SuccessUrl)}"" class=""btn btn-primary"">Continue</a>";
+            }
+            if (!success && !string.IsNullOrEmpty(payment.FailUrl))
+            {
+                actionButtons += $@"<a href=""{System.Net.WebUtility.HtmlEncode(payment.FailUrl)}"" class=""btn btn-secondary"">Return to Merchant</a>";
+            }
+
+            // Replace placeholders with actual data
+            var resultHtml = template
+                .Replace("{{Status}}", System.Net.WebUtility.HtmlEncode(status))
+                .Replace("{{IconClass}}", iconClass)
+                .Replace("{{Icon}}", icon)
+                .Replace("{{Message}}", encodedMessage)
+                .Replace("{{PaymentId}}", System.Net.WebUtility.HtmlEncode(payment.PaymentId))
+                .Replace("{{OrderIdSection}}", orderIdSection)
+                .Replace("{{Amount}}", payment.Amount.ToString("F2"))
+                .Replace("{{Currency}}", System.Net.WebUtility.HtmlEncode(payment.Currency))
+                .Replace("{{PaymentStatus}}", System.Net.WebUtility.HtmlEncode(payment.Status.ToString()))
+                .Replace("{{Date}}", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm") + " UTC")
+                .Replace("{{ActionButtons}}", actionButtons);
 
             return Content(resultHtml, "text/html; charset=utf-8");
         }

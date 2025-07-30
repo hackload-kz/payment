@@ -14,6 +14,9 @@ public class Team : BaseEntity, IAuditableEntity
     [StringLength(200)]
     public string TeamName { get; set; } = string.Empty;
     
+    // Alias for compatibility with controllers
+    public string Name => TeamName;
+    
     [Required]
     [StringLength(500)]
     public string PasswordHash { get; set; } = string.Empty;

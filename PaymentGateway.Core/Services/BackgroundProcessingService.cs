@@ -893,7 +893,7 @@ public class PaymentStatusSynchronizationService : IPaymentStatusSynchronization
                 return new SynchronizationResult
                 {
                     IsSuccess = false,
-                    PaymentId = paymentId,
+                    PaymentId = paymentId.GetHashCode(),
                     Errors = new List<string> { "Payment not found" },
                     ProcessingDuration = DateTime.UtcNow - startTime
                 };
@@ -908,7 +908,7 @@ public class PaymentStatusSynchronizationService : IPaymentStatusSynchronization
             return new SynchronizationResult
             {
                 IsSuccess = true,
-                PaymentId = paymentId,
+                PaymentId = paymentId.GetHashCode(),
                 PreviousStatus = previousStatus,
                 CurrentStatus = currentStatus,
                 StatusChanged = previousStatus != currentStatus,
@@ -922,7 +922,7 @@ public class PaymentStatusSynchronizationService : IPaymentStatusSynchronization
             return new SynchronizationResult
             {
                 IsSuccess = false,
-                PaymentId = paymentId,
+                PaymentId = paymentId.GetHashCode(),
                 Errors = new List<string> { ex.Message },
                 ProcessingDuration = DateTime.UtcNow - startTime
             };

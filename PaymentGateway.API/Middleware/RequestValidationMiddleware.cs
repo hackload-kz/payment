@@ -2,6 +2,7 @@
 // Copyright (c) 2025 HackLoad Payment Gateway
 
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.Extensions.Options;
 using Prometheus;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
@@ -45,7 +46,7 @@ public class RequestValidationMiddleware
         new Regex(@"javascript\s*:", RegexOptions.IgnoreCase),
         new Regex(@"on\w+\s*=", RegexOptions.IgnoreCase),
         new Regex(@"(union|select|insert|update|delete|drop|create|alter)\s+", RegexOptions.IgnoreCase),
-        new Regex(@"('|\"|;|--|\||&|\$)", RegexOptions.IgnoreCase),
+        new Regex(@"('|""|;|--|[|]|&|[$])", RegexOptions.IgnoreCase),
         new Regex(@"<\s*iframe[^>]*>", RegexOptions.IgnoreCase),
         new Regex(@"<\s*object[^>]*>", RegexOptions.IgnoreCase),
         new Regex(@"<\s*embed[^>]*>", RegexOptions.IgnoreCase)

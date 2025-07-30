@@ -478,8 +478,8 @@ public class NotificationWebhookService : BackgroundService, INotificationWebhoo
             else
             {
                 var result = await DeliverNotificationAsync(task, cancellationToken);
-                success = result.Success;
-                errorMessage = result.ErrorMessage;
+                success = result.IsSuccess;
+                errorMessage = result.Errors.FirstOrDefault() ?? string.Empty;
             }
 
             attempt.Duration = DateTime.UtcNow - startTime;
@@ -600,8 +600,9 @@ public class NotificationWebhookService : BackgroundService, INotificationWebhoo
         
         return new NotificationDeliveryResult
         {
-            Success = success,
-            ErrorMessage = success ? string.Empty : "Simulated delivery failure"
+            IsSuccess = success,
+            Status = success ? "DELIVERED" : "FAILED",
+            Errors = success ? new List<string>() : new List<string> { "Simulated delivery failure" }
         };
     }
 
@@ -778,7 +779,7 @@ public class NotificationWebhookService : BackgroundService, INotificationWebhoo
 
     public async Task<NotificationTemplate> CreateNotificationTemplateAsync(NotificationTemplate template, CancellationToken cancellationToken = default)
     {
-        template.Id = Guid.NewGuid().ToString();
+        template.Id = Guid.NewGuid();
         template.CreatedAt = DateTime.UtcNow;
         template.UpdatedAt = DateTime.UtcNow;
         
@@ -870,7 +871,7 @@ public class NotificationWebhookService : BackgroundService, INotificationWebhoo
         {
             new NotificationTemplate
             {
-                Id = "payment_success_default",
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111111"), // Fixed Guid for default template
                 TeamId = 0, // Global template
                 Type = NotificationType.PAYMENT_SUCCESS,
                 Name = "Payment Success Default",
@@ -882,7 +883,7 @@ public class NotificationWebhookService : BackgroundService, INotificationWebhoo
             },
             new NotificationTemplate
             {
-                Id = "payment_failure_default",
+                Id = Guid.Parse("22222222-2222-2222-2222-222222222222"), // Fixed Guid for default template
                 TeamId = 0,
                 Type = NotificationType.PAYMENT_FAILURE,
                 Name = "Payment Failure Default",

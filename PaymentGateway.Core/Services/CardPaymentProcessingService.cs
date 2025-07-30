@@ -79,6 +79,11 @@ public class CardProcessingResult
     public List<string> ProcessingErrors { get; set; } = new();
     public TimeSpan ProcessingDuration { get; set; }
     public Dictionary<string, object> ProcessingMetadata { get; set; } = new();
+    
+    // Additional properties needed by controllers
+    public string? ErrorMessage => ProcessingErrors.FirstOrDefault();
+    public string? ErrorCode { get; set; }
+    public string? MaskedCardNumber { get; set; }
 }
 
 public class BinDetectionResult

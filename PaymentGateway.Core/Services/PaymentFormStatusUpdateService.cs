@@ -43,14 +43,15 @@ public class PaymentFormStatusUpdateService
     private readonly object _queueLock = new object();
 
     // Metrics
+    private static readonly System.Diagnostics.Metrics.Meter _meter = new("PaymentFormStatusUpdate");
     private static readonly System.Diagnostics.Metrics.Counter<long> _statusUpdateDeliveryCounter = 
-        System.Diagnostics.Metrics.Meter.CreateCounter<long>("payment_form_status_updates_delivered_total");
+        _meter.CreateCounter<long>("payment_form_status_updates_delivered_total");
     private static readonly System.Diagnostics.Metrics.Gauge<int> _activeStatusConnections = 
-        System.Diagnostics.Metrics.Meter.CreateGauge<int>("active_payment_status_connections_total");
+        _meter.CreateGauge<int>("active_payment_status_connections_total");
     private static readonly System.Diagnostics.Metrics.Histogram<double> _statusUpdateLatency = 
-        System.Diagnostics.Metrics.Meter.CreateHistogram<double>("payment_status_update_latency_seconds");
+        _meter.CreateHistogram<double>("payment_status_update_latency_seconds");
     private static readonly System.Diagnostics.Metrics.Counter<long> _statusUpdateErrors = 
-        System.Diagnostics.Metrics.Meter.CreateCounter<long>("payment_status_update_errors_total");
+        _meter.CreateCounter<long>("payment_status_update_errors_total");
 
     public PaymentFormStatusUpdateService(
         ILogger<PaymentFormStatusUpdateService> logger,

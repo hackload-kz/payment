@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
 using PaymentGateway.Core.Entities;
+using PaymentGateway.Core.Enums;
 using System.Collections.Concurrent;
 
 namespace PaymentGateway.Infrastructure.Interceptors;

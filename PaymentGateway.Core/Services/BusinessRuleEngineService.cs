@@ -278,7 +278,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
                 if (!ruleResult.IsAllowed)
                 {
                     result.IsAllowed = false;
-                    result.RuleId = rule.Id;
+                    result.RuleId = rule.Id.ToString();
                     result.RuleName = rule.Name;
                     result.Message = ruleResult.Message;
                     result.Details = ruleResult.Details;
@@ -342,7 +342,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
                 if (!ruleResult.IsAllowed)
                 {
                     result = ruleResult;
-                    result.RuleId = rule.Id;
+                    result.RuleId = rule.Id.ToString();
                     result.RuleName = rule.Name;
                     result.Priority = rule.Priority;
                     
@@ -398,7 +398,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
                 if (!ruleResult.IsAllowed)
                 {
                     result = ruleResult;
-                    result.RuleId = rule.Id;
+                    result.RuleId = rule.Id.ToString();
                     result.RuleName = rule.Name;
                     result.Priority = rule.Priority;
                     
@@ -448,7 +448,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
                 if (!ruleResult.IsAllowed)
                 {
                     result = ruleResult;
-                    result.RuleId = rule.Id;
+                    result.RuleId = rule.Id.ToString();
                     result.RuleName = rule.Name;
                     result.Priority = rule.Priority;
                     
@@ -484,7 +484,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
     {
         try
         {
-            rule.Id = Guid.NewGuid().ToString();
+            rule.Id = Guid.NewGuid();
             rule.CreatedAt = DateTime.UtcNow;
             rule.UpdatedAt = DateTime.UtcNow;
 
@@ -623,7 +623,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
         {
             var result = new RuleTestResult
             {
-                RuleId = rule.Id,
+                RuleId = rule.Id.ToString(),
                 TestPassed = true
             };
 
@@ -657,7 +657,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
             
             return new RuleTestResult
             {
-                RuleId = rule.Id,
+                RuleId = rule.Id.ToString(),
                 TestPassed = false,
                 TestErrors = new List<string> { ex.Message },
                 TestDuration = DateTime.UtcNow - startTime
@@ -691,7 +691,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
             // Group by rule type
             foreach (var rule in _rules.Values)
             {
-                var ruleData = relevantData.FirstOrDefault(p => p.RuleId == rule.Id);
+                var ruleData = relevantData.FirstOrDefault(p => p.RuleId == rule.Id.ToString());
                 if (ruleData != null)
                 {
                     stats.EvaluationsByType.TryAdd(rule.Type, 0);
@@ -988,7 +988,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
         {
             var auditLog = new RuleChangeAuditLog
             {
-                Id = Guid.NewGuid().ToString(),
+                Id = Guid.NewGuid(),
                 RuleId = ruleId,
                 TeamId = teamId,
                 Action = action,
@@ -1059,7 +1059,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
         {
             new BusinessRule
             {
-                Id = "default_daily_limit",
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
                 TeamId = 0, // Global rule
                 Name = "Default Daily Limit",
                 Description = "Default daily payment limit for all teams",
@@ -1073,7 +1073,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
             },
             new BusinessRule
             {
-                Id = "default_transaction_limit",
+                Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
                 TeamId = 0,
                 Name = "Default Transaction Limit",
                 Description = "Default single transaction limit",
@@ -1087,7 +1087,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
             },
             new BusinessRule
             {
-                Id = "minimum_amount",
+                Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
                 TeamId = 0,
                 Name = "Minimum Amount",
                 Description = "Minimum payment amount validation",
@@ -1147,7 +1147,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
         {
             IsAllowed = context.Amount <= 1000000, // Basic amount limit
             RuleType = RuleType.AMOUNT_VALIDATION,
-            FailureReason = context.Amount > 1000000 ? "Amount exceeds limit" : null
+            Message = context.Amount > 1000000 ? "Amount exceeds limit" : ""
         };
     }
 
@@ -1159,7 +1159,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
         {
             IsAllowed = allowedCurrencies.Contains(context.Currency ?? "RUB"),
             RuleType = RuleType.CURRENCY_VALIDATION,
-            FailureReason = !allowedCurrencies.Contains(context.Currency ?? "RUB") ? "Currency not allowed" : null
+            Message = !allowedCurrencies.Contains(context.Currency ?? "RUB") ? "Currency not allowed" : ""
         };
     }
 
@@ -1169,8 +1169,8 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
         return new RuleEvaluationResult
         {
             IsAllowed = context.TeamId > 0, // Basic team validation
-            RuleType = RuleType.TEAM_VALIDATION,
-            FailureReason = context.TeamId <= 0 ? "Invalid team" : null
+            RuleType = RuleType.TEAM_RESTRICTION,
+            Message = context.TeamId <= 0 ? "Invalid team" : ""
         };
     }
 

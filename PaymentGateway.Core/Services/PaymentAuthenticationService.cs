@@ -15,6 +15,7 @@ namespace PaymentGateway.Core.Services;
 public interface IPaymentAuthenticationService
 {
     Task<PaymentAuthenticationResult> AuthenticateRequestAsync(Dictionary<string, object> requestParameters, CancellationToken cancellationToken = default);
+    Task<PaymentAuthenticationResult> AuthenticateAsync(Dictionary<string, object> requestParameters, CancellationToken cancellationToken = default);
     Task<string> GenerateTokenAsync(string teamSlug, Dictionary<string, object> requestParameters, CancellationToken cancellationToken = default);
     Task<bool> ValidateTokenAsync(string teamSlug, string providedToken, Dictionary<string, object> requestParameters, CancellationToken cancellationToken = default);
     Task<Team?> GetTeamBySlugAsync(string teamSlug, CancellationToken cancellationToken = default);
@@ -45,6 +46,11 @@ public class PaymentAuthenticationService : IPaymentAuthenticationService
         _logger = logger;
         _auditService = auditService;
         _metricsService = metricsService;
+    }
+
+    public async Task<PaymentAuthenticationResult> AuthenticateAsync(Dictionary<string, object> requestParameters, CancellationToken cancellationToken = default)
+    {
+        return await AuthenticateRequestAsync(requestParameters, cancellationToken);
     }
 
     public async Task<PaymentAuthenticationResult> AuthenticateRequestAsync(Dictionary<string, object> requestParameters, CancellationToken cancellationToken = default)
@@ -336,6 +342,7 @@ public class PaymentAuthenticationResult
     public Team? Team { get; set; }
     public string? ErrorCode { get; set; }
     public string? ErrorMessage { get; set; }
+    public string? FailureReason => ErrorMessage; // Alias for controller compatibility
     public TimeSpan AuthenticationTime { get; set; }
 }
 

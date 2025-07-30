@@ -241,7 +241,11 @@ public class PaymentProcessingMetricsService : IPaymentProcessingMetricsService
                 {
                     using var scope = _serviceProvider.CreateScope();
                     var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
-                    var payment = await paymentRepository.GetByIdAsync(paymentId);
+                    // TODO: Fix data model inconsistency - convert long paymentId to Guid
+                    var guidBytes = new byte[16];
+                    BitConverter.GetBytes(paymentId).CopyTo(guidBytes, 0);
+                    var paymentGuid = new Guid(guidBytes);
+                    var payment = await paymentRepository.GetByIdAsync(paymentGuid);
                     
                     if (payment != null)
                     {
@@ -301,7 +305,11 @@ public class PaymentProcessingMetricsService : IPaymentProcessingMetricsService
                 {
                     using var scope = _serviceProvider.CreateScope();
                     var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
-                    var payment = await paymentRepository.GetByIdAsync(paymentId);
+                    // TODO: Fix data model inconsistency - convert long paymentId to Guid
+                    var guidBytes = new byte[16];
+                    BitConverter.GetBytes(paymentId).CopyTo(guidBytes, 0);
+                    var paymentGuid = new Guid(guidBytes);
+                    var payment = await paymentRepository.GetByIdAsync(paymentGuid);
                     
                     if (payment != null)
                     {

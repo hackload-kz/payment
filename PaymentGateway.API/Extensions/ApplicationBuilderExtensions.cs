@@ -11,6 +11,14 @@ public static class ApplicationBuilderExtensions
         return app.UseMiddleware<CorrelationIdMiddleware>();
     }
 
+    public static IApplicationBuilder UseGlobalExceptionHandling(this IApplicationBuilder app)
+    {
+        return app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
+    }
+
+
+
+
     public static IApplicationBuilder UseRequestLogging(this IApplicationBuilder app)
     {
         return app.UseSerilogRequestLogging(options =>

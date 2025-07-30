@@ -146,7 +146,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             {
                 var errorResult = new ConfirmationResult
                 {
-                    PaymentId = paymentId,
+                    PaymentId = paymentId.GetHashCode(), // TODO: Fix data model - convert Guid to long
                     IsSuccess = false,
                     Errors = new List<string> { "Failed to acquire confirmation lock" },
                     ProcessingDuration = DateTime.UtcNow - startTime
@@ -162,7 +162,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             {
                 var errorResult = new ConfirmationResult
                 {
-                    PaymentId = paymentId,
+                    PaymentId = paymentId.GetHashCode(), // TODO: Fix data model - convert Guid to long
                     IsSuccess = false,
                     Errors = new List<string> { "Payment not found" },
                     ProcessingDuration = DateTime.UtcNow - startTime
@@ -174,7 +174,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
 
             var result = new ConfirmationResult
             {
-                PaymentId = paymentId,
+                PaymentId = paymentId.GetHashCode(), // TODO: Fix data model - convert Guid to long
                 PreviousStatus = payment.Status,
                 ConfirmationId = confirmationId,
                 Validations = new List<string>(),
@@ -273,7 +273,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             
             var errorResult = new ConfirmationResult
             {
-                PaymentId = paymentId,
+                PaymentId = paymentId.GetHashCode(), // TODO: Fix data model - convert Guid to long
                 IsSuccess = false,
                 Errors = new List<string> { "Confirmation service error" },
                 ProcessingDuration = DateTime.UtcNow - startTime,
@@ -433,7 +433,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
 
             var auditLog = new ConfirmationAuditLog
             {
-                PaymentId = paymentId,
+                PaymentId = paymentId.GetHashCode(), // TODO: Fix data model - convert Guid to long
                 TeamId = payment.TeamId,
                 Action = result.IsSuccess ? "CONFIRMATION_SUCCESS" : "CONFIRMATION_FAILED",
                 StatusBefore = result.PreviousStatus,

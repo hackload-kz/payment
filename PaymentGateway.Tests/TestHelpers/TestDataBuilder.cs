@@ -38,7 +38,7 @@ public class TestDataBuilder
     /// </summary>
     public Payment CreatePayment(
         PaymentStatus? status = null,
-        Guid? teamId = null,
+        int? teamId = null,
         decimal? amount = null,
         string? currency = null,
         string? paymentId = null,
@@ -49,7 +49,7 @@ public class TestDataBuilder
             Id = Guid.NewGuid(),
             PaymentId = paymentId ?? $"PAY_{Guid.NewGuid():N}",
             OrderId = orderId ?? $"ORDER_{DateTime.UtcNow:yyyyMMdd}_{_fixture.Create<int>()}",
-            TeamId = teamId ?? Guid.NewGuid(),
+            TeamId = teamId ?? _fixture.Create<int>(),
             Amount = amount ?? _fixture.CreateDecimalBetween(10m, 100000m),
             Currency = currency ?? "RUB",
             Status = status ?? PaymentStatus.NEW,
@@ -59,6 +59,9 @@ public class TestDataBuilder
             SuccessUrl = _fixture.CreateValidUrl(),
             FailUrl = _fixture.CreateValidUrl(),
             NotificationUrl = _fixture.CreateValidUrl(),
+            ErrorCode = null, // New property - typically null for successful payments
+            ErrorMessage = null, // New property - typically null for successful payments  
+            Receipt = null, // New property - typically null until payment is completed
             CreatedAt = DateTime.UtcNow.AddMinutes(-_fixture.Create<int>() % 60),
             UpdatedAt = DateTime.UtcNow,
             ExpiresAt = DateTime.UtcNow.AddHours(24),

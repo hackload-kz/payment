@@ -267,7 +267,19 @@ public class PaymentCancelController : ControllerBase
                 Timestamp = DateTime.UtcNow
             };
 
-            var authResult = await _authenticationService.AuthenticateAsync(authContext, cancellationToken);
+            var authParameters = new Dictionary<string, object>
+            {
+                { "TeamSlug", authContext.TeamSlug },
+                { "Token", authContext.Token },
+                { "RequestId", authContext.RequestId },
+                { "PaymentId", authContext.PaymentId },
+                { "Amount", authContext.Amount },
+                { "ClientIp", authContext.ClientIp },
+                { "UserAgent", authContext.UserAgent },
+                { "Timestamp", authContext.Timestamp }
+            };
+            
+            var authResult = await _authenticationService.AuthenticateAsync(authParameters, cancellationToken);
             if (!authResult.IsAuthenticated)
             {
                 PaymentCancelRequests.WithLabels(teamId.ToString(), "auth_failed", "authentication").Inc();
@@ -315,8 +327,8 @@ public class PaymentCancelController : ControllerBase
                 Metadata = request.Data?.ToDictionary(kv => kv.Key, kv => (object)kv.Value) ?? new Dictionary<string, object>()
             };
 
-            // Parse PaymentId to long (assuming it follows a specific format)
-            if (!long.TryParse(request.PaymentId.Replace("pay_", ""), out var paymentId))
+            // Parse PaymentId to Guid
+            if (!Guid.TryParse(request.PaymentId.Replace("pay_", ""), out var paymentId))
             {
                 PaymentCancelRequests.WithLabels(teamId.ToString(), "invalid_payment_id", "validation").Inc();
                 return BadRequest(CreateErrorResponse("3100", "Validation failed", "Invalid PaymentId format"));
@@ -515,7 +527,7 @@ public class PaymentCancelController : ControllerBase
         if (request.Receipt != null)
         {
             if (!string.IsNullOrEmpty(request.Receipt.Email) && 
-                !System.ComponentModel.DataAnnotations.EmailAddressAttribute.IsValid(request.Receipt.Email))
+                !new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(request.Receipt.Email))
             {
                 errors.Add("Invalid receipt email format");
             }
@@ -614,7 +626,10 @@ public class PaymentCancelController : ControllerBase
             Success = false,
             ErrorCode = errorCode,
             Message = message,
-            Details = details
+            Details = new CancellationDetailsDto
+            {
+                Reason = details
+            }
         };
     }
 

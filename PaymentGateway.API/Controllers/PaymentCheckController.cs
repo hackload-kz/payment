@@ -265,7 +265,19 @@ public class PaymentCheckController : ControllerBase
                 Timestamp = DateTime.UtcNow
             };
 
-            var authResult = await _authenticationService.AuthenticateAsync(authContext, cancellationToken);
+            var authParameters = new Dictionary<string, object>
+            {
+                { "TeamSlug", authContext.TeamSlug },
+                { "Token", authContext.Token },
+                { "RequestId", authContext.RequestId },
+                { "PaymentId", authContext.PaymentId ?? "" },
+                { "OrderId", authContext.OrderId ?? "" },
+                { "ClientIp", authContext.ClientIp },
+                { "UserAgent", authContext.UserAgent },
+                { "Timestamp", authContext.Timestamp }
+            };
+            
+            var authResult = await _authenticationService.AuthenticateAsync(authParameters, cancellationToken);
             if (!authResult.IsAuthenticated)
             {
                 PaymentCheckRequests.WithLabels(teamId.ToString(), "auth_failed", lookupType).Inc();

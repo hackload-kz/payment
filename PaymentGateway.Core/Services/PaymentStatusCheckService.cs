@@ -5,6 +5,7 @@ using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Interfaces;
 using PaymentGateway.Core.Repositories;
 using PaymentGateway.Core.Enums;
+using PaymentGateway.Core.DTOs.PaymentCheck;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;
@@ -26,6 +27,10 @@ public interface IPaymentStatusCheckService
     Task<IEnumerable<Payment>> GetActivePaymentsAsync(int teamId, int limit = 100, CancellationToken cancellationToken = default);
     Task<bool> IsPaymentStatusFinalAsync(PaymentStatus status);
     Task<PaymentStatusSummary> GetPaymentStatusSummaryAsync(int teamId, DateTime? fromDate = null, DateTime? toDate = null, CancellationToken cancellationToken = default);
+    
+    // Methods needed by PaymentCheckController
+    Task<PaymentCheckResponseDto> CheckPaymentByIdAsync(string paymentId, PaymentCheckRequestDto request, CancellationToken cancellationToken = default);
+    Task<PaymentCheckResponseDto> CheckPaymentsByOrderIdAsync(string orderId, PaymentCheckRequestDto request, CancellationToken cancellationToken = default);
 }
 
 public class StatusCheckResult
@@ -527,7 +532,7 @@ public class PaymentStatusCheckService : IPaymentStatusCheckService
     {
         return new PaymentStatusInfo
         {
-            PaymentId = payment.Id,
+            PaymentId = payment.Id.GetHashCode(),
             PaymentIdString = payment.PaymentId,
             Amount = payment.Amount,
             Currency = payment.Currency ?? "RUB",
@@ -595,5 +600,122 @@ public class PaymentStatusCheckService : IPaymentStatusCheckService
         }
 
         return true;
+    }
+
+    // Methods needed by PaymentCheckController
+    public async Task<PaymentCheckResponseDto> CheckPaymentByIdAsync(string paymentId, PaymentCheckRequestDto request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Convert PaymentId string to find the payment
+            var payment = await _paymentRepository.GetByPaymentIdAsync(paymentId, cancellationToken);
+            
+            if (payment == null)
+            {
+                return new PaymentCheckResponseDto
+                {
+                    Success = false,
+                    ErrorCode = "1404",
+                    Message = "Payment not found",
+                    Payments = new List<PaymentStatusDto>(),
+                    TotalCount = 0
+                };
+            }
+
+            var paymentDto = new PaymentStatusDto
+            {
+                PaymentId = payment.PaymentId,
+                OrderId = payment.OrderId,
+                Status = payment.Status.ToString(),
+                StatusDescription = StatusDescriptions.GetValueOrDefault(payment.Status, payment.Status.ToString()),
+                Amount = payment.Amount,
+                Currency = payment.Currency ?? "RUB",
+                CreatedAt = payment.CreatedAt,
+                UpdatedAt = payment.UpdatedAt,
+                ExpiresAt = payment.ExpiresAt,
+                Description = payment.Description,
+                PayType = "O" // Default pay type
+            };
+
+            return new PaymentCheckResponseDto
+            {
+                Success = true,
+                Payments = new List<PaymentStatusDto> { paymentDto },
+                TotalCount = 1,
+                OrderId = payment.OrderId
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to check payment by ID: {PaymentId}", paymentId);
+            return new PaymentCheckResponseDto
+            {
+                Success = false,
+                ErrorCode = "9999",
+                Message = "Internal error",
+                Payments = new List<PaymentStatusDto>(),
+                TotalCount = 0
+            };
+        }
+    }
+
+    public async Task<PaymentCheckResponseDto> CheckPaymentsByOrderIdAsync(string orderId, PaymentCheckRequestDto request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Note: GetByOrderIdAsync returns a single payment, but we wrap it in a collection
+            // In a real implementation, you might have a method that returns multiple payments per order
+            var payment = await _paymentRepository.GetByOrderIdAsync(orderId, 0, cancellationToken); // teamId will be validated elsewhere
+            var payments = payment != null ? new List<Payment> { payment } : new List<Payment>();
+            
+            if (!payments.Any())
+            {
+                return new PaymentCheckResponseDto
+                {
+                    Success = false,
+                    ErrorCode = "1404",
+                    Message = "No payments found for order",
+                    Payments = new List<PaymentStatusDto>(),
+                    TotalCount = 0,
+                    OrderId = orderId
+                };
+            }
+
+            var paymentDtos = payments.Select(payment => new PaymentStatusDto
+            {
+                PaymentId = payment.PaymentId,
+                OrderId = payment.OrderId,
+                Status = payment.Status.ToString(),
+                StatusDescription = StatusDescriptions.GetValueOrDefault(payment.Status, payment.Status.ToString()),
+                Amount = payment.Amount,
+                Currency = payment.Currency ?? "RUB",
+                CreatedAt = payment.CreatedAt,
+                UpdatedAt = payment.UpdatedAt,
+                ExpiresAt = payment.ExpiresAt,
+                Description = payment.Description,
+                PayType = "O" // Default pay type
+            }).ToList();
+
+            return new PaymentCheckResponseDto
+            {
+                Success = true,
+                Payments = paymentDtos,
+                TotalCount = paymentDtos.Count,
+                OrderId = orderId
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to check payments by order ID: {OrderId}", orderId);
+            return new PaymentCheckResponseDto
+            {
+                Success = false,
+                ErrorCode = "9999",
+                Message = "Internal error",
+                Payments = new List<PaymentStatusDto>(),
+                TotalCount = 0,
+                OrderId = orderId
+            };
+        }
     }
 }
