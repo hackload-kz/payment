@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Interfaces;
+using PaymentGateway.Core.Repositories;
 using PaymentGateway.Core.Services;
 using PaymentGateway.Tests.TestHelpers;
 using System.Security.Cryptography;

@@ -2,9 +2,13 @@
 // Copyright (c) 2025 HackLoad Payment Gateway
 
 using AutoFixture;
+using Moq;
+using PaymentGateway.Core.DTOs;
+using PaymentGateway.Core.DTOs.PaymentInit;
 using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Enums;
-using PaymentGateway.Core.DTOs;
+using PaymentGateway.Core.Interfaces;
+using PaymentGateway.Core.Repositories;
 
 namespace PaymentGateway.Tests.TestHelpers;
 

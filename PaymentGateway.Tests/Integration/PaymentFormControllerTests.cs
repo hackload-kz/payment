@@ -11,6 +11,7 @@ using PaymentGateway.API;
 using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Enums;
 using PaymentGateway.Core.Interfaces;
+using PaymentGateway.Core.Repositories;
 using Microsoft.Extensions.Logging;
 
 namespace PaymentGateway.Tests.Integration;

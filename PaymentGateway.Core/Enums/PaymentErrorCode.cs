@@ -225,7 +225,14 @@ public enum PaymentErrorCode
     DuplicateOrderOperation = 9006,
     InternalRequestProcessingError = 9007,
     InvalidPaymentStatusForOperation = 9008,
-    OperationAmountLimitExceeded2 = 9009
+    OperationAmountLimitExceeded2 = 9009,
+    
+    // Additional Test Error Codes
+    INVALID_AMOUNT = 9010,
+    AUTHENTICATION_FAILED = 9011,
+    DATABASE_CONNECTION_FAILED = 9012,
+    RATE_LIMIT_EXCEEDED = 9013,
+    PAYMENT_NOT_FOUND = 9014
 }
 
 public enum ErrorCategory
@@ -241,7 +248,15 @@ public enum ErrorCategory
     BusinessLogic,
     Configuration,
     Critical,
-    UserAction
+    UserAction,
+    
+    // Additional categories for tests
+    BusinessRuleViolation,
+    AuthenticationError,
+    SystemError,
+    SecurityViolation,
+    NetworkError,
+    ValidationError
 }
 
 public enum ErrorSeverity
@@ -314,7 +329,14 @@ public static class PaymentErrorCodeExtensions
         // Configuration
         { PaymentErrorCode.TerminalBlocked, ErrorCategory.Configuration },
         { PaymentErrorCode.PaymentMethodDisabled, ErrorCategory.Configuration },
-        { PaymentErrorCode.ChargeMethodBlocked, ErrorCategory.Configuration }
+        { PaymentErrorCode.ChargeMethodBlocked, ErrorCategory.Configuration },
+        
+        // Additional Test Error Codes
+        { PaymentErrorCode.INVALID_AMOUNT, ErrorCategory.ValidationError },
+        { PaymentErrorCode.AUTHENTICATION_FAILED, ErrorCategory.AuthenticationError },
+        { PaymentErrorCode.DATABASE_CONNECTION_FAILED, ErrorCategory.SystemError },
+        { PaymentErrorCode.RATE_LIMIT_EXCEEDED, ErrorCategory.SecurityViolation },
+        { PaymentErrorCode.PAYMENT_NOT_FOUND, ErrorCategory.ValidationError }
     };
 
     private static readonly Dictionary<PaymentErrorCode, ErrorSeverity> ErrorSeverityMap = new()
@@ -339,7 +361,14 @@ public static class PaymentErrorCodeExtensions
 
         // Low
         { PaymentErrorCode.ServiceTemporarilyUnavailable, ErrorSeverity.Low },
-        { PaymentErrorCode.TemporaryProcessingIssue, ErrorSeverity.Low }
+        { PaymentErrorCode.TemporaryProcessingIssue, ErrorSeverity.Low },
+        
+        // Additional Test Error Codes
+        { PaymentErrorCode.INVALID_AMOUNT, ErrorSeverity.Medium },
+        { PaymentErrorCode.AUTHENTICATION_FAILED, ErrorSeverity.High },
+        { PaymentErrorCode.DATABASE_CONNECTION_FAILED, ErrorSeverity.Critical },
+        { PaymentErrorCode.RATE_LIMIT_EXCEEDED, ErrorSeverity.Medium },
+        { PaymentErrorCode.PAYMENT_NOT_FOUND, ErrorSeverity.Medium }
     };
 
     private static readonly HashSet<PaymentErrorCode> RetryableErrors = new()

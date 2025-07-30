@@ -7,6 +7,7 @@ using Moq;
 using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Enums;
 using PaymentGateway.Core.Interfaces;
+using PaymentGateway.Core.Repositories;
 using PaymentGateway.Core.Services;
 using PaymentGateway.Tests.TestHelpers;
 
