@@ -24,7 +24,13 @@ public interface IPaymentRepository : IRepository<Payment>
     Task<decimal> GetTotalAmountByTeamAndDateRangeAsync(Guid teamId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
     Task<(decimal TotalAmount, int Count)> GetPaymentStatsByTeamAsync(Guid teamId, DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default);
     Task<IEnumerable<Payment>> GetRecentPaymentsByTeamAsync(Guid teamId, int count = 10, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Payment>> GetRecentPaymentsAsync(int count = 1000, CancellationToken cancellationToken = default);
     Task<bool> IsOrderIdUniqueForTeamAsync(Guid teamId, string orderId, Guid? excludePaymentId = null, CancellationToken cancellationToken = default);
+    
+    // Performance monitoring and analytics methods
+    Task<Dictionary<string, object>> GetDatabasePerformanceMetricsAsync(CancellationToken cancellationToken = default);
+    Task<IEnumerable<Payment>> GetPaymentsByTeamAndStatusAsync(Guid teamId, PaymentStatus status, int? limit = null, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Payment>> GetPaymentsByTeamAndDateRangeAsync(Guid teamId, DateTime startDate, DateTime endDate, int? limit = null, CancellationToken cancellationToken = default);
     
     // Add missing methods used by services
     Task<Payment> CreateAsync(Payment payment, CancellationToken cancellationToken = default);
@@ -265,6 +271,24 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting recent payments for TeamId {TeamId}", teamId);
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<Payment>> GetRecentPaymentsAsync(int count = 1000, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _dbSet
+                .OrderByDescending(p => p.CreatedAt)
+                .Take(count)
+                .Include(p => p.Customer)
+                .Include(p => p.Team)
+                .ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting recent payments with count {Count}", count);
             throw;
         }
     }
@@ -519,6 +543,84 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting processing payment count for TeamId {TeamId}", teamId);
+            throw;
+        }
+    }
+
+    public async Task<Dictionary<string, object>> GetDatabasePerformanceMetricsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var metrics = new Dictionary<string, object>();
+            
+            // Get total record counts
+            metrics["TotalPayments"] = await _dbSet.CountAsync(cancellationToken);
+            metrics["ActivePayments"] = await _dbSet.Where(p => p.Status == PaymentStatus.AUTHORIZED || p.Status == PaymentStatus.CONFIRMING).CountAsync(cancellationToken);
+            
+            // Get performance statistics
+            var oldestPayment = await _dbSet.OrderBy(p => p.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+            var newestPayment = await _dbSet.OrderByDescending(p => p.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+            
+            if (oldestPayment != null && newestPayment != null)
+            {
+                metrics["DateRange"] = new { From = oldestPayment.CreatedAt, To = newestPayment.CreatedAt };
+                metrics["TotalDays"] = (newestPayment.CreatedAt - oldestPayment.CreatedAt).TotalDays;
+            }
+            
+            // Team distribution metrics
+            metrics["TeamCount"] = await _dbSet.Select(p => p.TeamId).Distinct().CountAsync(cancellationToken);
+            
+            return metrics;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting database performance metrics");
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<Payment>> GetPaymentsByTeamAndStatusAsync(Guid teamId, PaymentStatus status, int? limit = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            IQueryable<Payment> query = _dbSet
+                .Where(p => p.TeamId == teamId && p.Status == status)
+                .OrderByDescending(p => p.CreatedAt)
+                .Include(p => p.Customer);
+
+            if (limit.HasValue)
+            {
+                query = query.Take(limit.Value);
+            }
+
+            return await query.ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting payments for TeamId {TeamId} and Status {Status}", teamId, status);
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<Payment>> GetPaymentsByTeamAndDateRangeAsync(Guid teamId, DateTime startDate, DateTime endDate, int? limit = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            IQueryable<Payment> query = _dbSet
+                .Where(p => p.TeamId == teamId && p.CreatedAt >= startDate && p.CreatedAt <= endDate)
+                .OrderByDescending(p => p.CreatedAt)
+                .Include(p => p.Customer);
+
+            if (limit.HasValue)
+            {
+                query = query.Take(limit.Value);
+            }
+
+            return await query.ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting payments for TeamId {TeamId} between {StartDate} and {EndDate}", teamId, startDate, endDate);
             throw;
         }
     }

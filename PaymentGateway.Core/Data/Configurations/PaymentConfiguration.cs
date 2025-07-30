@@ -33,6 +33,16 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
             
         builder.HasIndex(p => new { p.Status, p.CreatedAt })
             .HasDatabaseName("IX_Payments_Status_CreatedAt");
+            
+        // Additional performance indexes for common query patterns
+        builder.HasIndex(p => new { p.TeamId, p.Status })
+            .HasDatabaseName("IX_Payments_TeamId_Status");
+            
+        builder.HasIndex(p => new { p.TeamId, p.CreatedAt })
+            .HasDatabaseName("IX_Payments_TeamId_CreatedAt");
+            
+        builder.HasIndex(p => new { p.TeamId, p.Status, p.CreatedAt })
+            .HasDatabaseName("IX_Payments_TeamId_Status_CreatedAt");
         
         // Properties configuration
         builder.Property(p => p.PaymentId)

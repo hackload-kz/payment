@@ -422,16 +422,15 @@ public class PaymentProcessingOptimizationService : IPaymentProcessingOptimizati
             }
 
             // Warmup recent payment data
-            // TODO: GetRecentPaymentsAsync method doesn't exist - implement if needed
-            // var recentPayments = await _paymentRepository.GetRecentPaymentsAsync(1000, cancellationToken);
-            // foreach (var payment in recentPayments)
-            // {
-            //     var cacheKey = $"payment_{payment.PaymentId}";
-            //     _cache.Set(cacheKey, payment, TimeSpan.FromMinutes(10));
-            // }
+            var recentPayments = await _paymentRepository.GetRecentPaymentsAsync(1000, cancellationToken);
+            foreach (var payment in recentPayments)
+            {
+                var cacheKey = $"payment_{payment.PaymentId}";
+                _cache.Set(cacheKey, payment, TimeSpan.FromMinutes(10));
+            }
 
-            _logger.LogInformation("Cache warmup completed: {TeamsCount} teams, payments warmup skipped", 
-                teams.Count());
+            _logger.LogInformation("Cache warmup completed: {TeamsCount} teams, {PaymentsCount} payments", 
+                teams.Count(), recentPayments.Count());
         }
         catch (Exception ex)
         {
