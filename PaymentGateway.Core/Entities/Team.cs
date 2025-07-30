@@ -76,9 +76,15 @@ public class Team : BaseEntity, IAuditableEntity
     [Range(0, double.MaxValue)]
     public decimal? MonthlyPaymentLimit { get; set; }
     
+    [Range(0, int.MaxValue)]
+    public int? DailyTransactionLimit { get; set; } = 1000;
+    
     // Supported currencies and payment methods
     public List<string> SupportedCurrencies { get; set; } = new() { "RUB" };
     public List<PaymentMethod> SupportedPaymentMethods { get; set; } = new() { PaymentMethod.Card };
+    
+    // Processing permissions
+    public bool CanProcessRefunds { get; set; } = true;
     
     // Business information
     [StringLength(500)]

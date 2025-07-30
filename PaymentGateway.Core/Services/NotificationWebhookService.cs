@@ -24,18 +24,18 @@ public interface INotificationWebhookService
     Task<NotificationDeliveryResult> SendWebhookAsync(WebhookNotificationRequest request, CancellationToken cancellationToken = default);
     Task<NotificationDeliveryResult> SendNotificationAsync(WebhookNotificationDeliveryRequest request, CancellationToken cancellationToken = default);
     Task<IEnumerable<NotificationDeliveryAttempt>> GetDeliveryAttemptsAsync(string notificationId, CancellationToken cancellationToken = default);
-    Task<NotificationDeliveryStatistics> GetDeliveryStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
+    Task<NotificationDeliveryStatistics> GetDeliveryStatisticsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
     Task<NotificationTemplate> CreateNotificationTemplateAsync(NotificationTemplate template, CancellationToken cancellationToken = default);
     Task<NotificationTemplate> UpdateNotificationTemplateAsync(NotificationTemplate template, CancellationToken cancellationToken = default);
-    Task<IEnumerable<NotificationTemplate>> GetNotificationTemplatesAsync(int teamId, NotificationType type, CancellationToken cancellationToken = default);
+    Task<IEnumerable<NotificationTemplate>> GetNotificationTemplatesAsync(Guid teamId, NotificationType type, CancellationToken cancellationToken = default);
     Task<bool> ValidateWebhookSignatureAsync(string payload, string signature, string secret, CancellationToken cancellationToken = default);
     Task<string> GenerateWebhookSignatureAsync(string payload, string secret, CancellationToken cancellationToken = default);
-    Task<NotificationRateLimitStatus> CheckRateLimitAsync(int teamId, NotificationType type, CancellationToken cancellationToken = default);
+    Task<NotificationRateLimitStatus> CheckRateLimitAsync(Guid teamId, NotificationType type, CancellationToken cancellationToken = default);
 }
 
 public class WebhookNotificationRequest
 {
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public string TeamSlug { get; set; } = string.Empty;
     public string WebhookUrl { get; set; } = string.Empty;
     public string EventType { get; set; } = string.Empty;
@@ -49,7 +49,7 @@ public class WebhookNotificationRequest
 
 public class WebhookNotificationDeliveryRequest
 {
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public string TeamSlug { get; set; } = string.Empty;
     public NotificationType Type { get; set; }
     public string TemplateId { get; set; } = string.Empty;
@@ -91,7 +91,7 @@ public class NotificationDeliveryResult
 public class NotificationDeliveryAttempt : BaseEntity
 {
     public string NotificationId { get; set; } = string.Empty;
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public NotificationType Type { get; set; }
     public string DeliveryMethod { get; set; } = string.Empty;
     public string Endpoint { get; set; } = string.Empty;
@@ -109,7 +109,7 @@ public class NotificationDeliveryAttempt : BaseEntity
 
 public class NotificationTemplate : BaseEntity
 {
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public NotificationType Type { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
@@ -738,7 +738,7 @@ public class NotificationWebhookService : BackgroundService, INotificationWebhoo
         }
     }
 
-    public async Task<NotificationRateLimitStatus> CheckRateLimitAsync(int teamId, NotificationType type, CancellationToken cancellationToken = default)
+    public async Task<NotificationRateLimitStatus> CheckRateLimitAsync(Guid teamId, NotificationType type, CancellationToken cancellationToken = default)
     {
         var policy = RateLimitPolicies.GetValueOrDefault(type, new RateLimitPolicy { MaxPerMinute = 100, MaxPerHour = 1000 });
         var key = $"{teamId}:{type}:minute";
@@ -805,7 +805,7 @@ public class NotificationWebhookService : BackgroundService, INotificationWebhoo
         return template;
     }
 
-    public async Task<IEnumerable<NotificationTemplate>> GetNotificationTemplatesAsync(int teamId, NotificationType type, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<NotificationTemplate>> GetNotificationTemplatesAsync(Guid teamId, NotificationType type, CancellationToken cancellationToken = default)
     {
         return _templates.Values
             .Where(t => t.TeamId == teamId && t.Type == type && t.IsActive)
@@ -813,7 +813,7 @@ public class NotificationWebhookService : BackgroundService, INotificationWebhoo
             .ToList();
     }
 
-    private async Task<NotificationTemplate?> GetNotificationTemplateAsync(int teamId, NotificationType type, string templateId, CancellationToken cancellationToken)
+    private async Task<NotificationTemplate?> GetNotificationTemplateAsync(Guid teamId, NotificationType type, string templateId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(templateId))
         {
@@ -872,7 +872,7 @@ public class NotificationWebhookService : BackgroundService, INotificationWebhoo
             new NotificationTemplate
             {
                 Id = Guid.Parse("11111111-1111-1111-1111-111111111111"), // Fixed Guid for default template
-                TeamId = 0, // Global template
+                TeamId = Guid.Empty, // Global template
                 Type = NotificationType.PAYMENT_SUCCESS,
                 Name = "Payment Success Default",
                 Subject = "Payment Successful",
@@ -884,7 +884,7 @@ public class NotificationWebhookService : BackgroundService, INotificationWebhoo
             new NotificationTemplate
             {
                 Id = Guid.Parse("22222222-2222-2222-2222-222222222222"), // Fixed Guid for default template
-                TeamId = 0,
+                TeamId = Guid.Empty,
                 Type = NotificationType.PAYMENT_FAILURE,
                 Name = "Payment Failure Default",
                 Subject = "Payment Failed",
@@ -910,7 +910,7 @@ public class NotificationWebhookService : BackgroundService, INotificationWebhoo
         return new List<NotificationDeliveryAttempt>();
     }
 
-    public async Task<NotificationDeliveryStatistics> GetDeliveryStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
+    public async Task<NotificationDeliveryStatistics> GetDeliveryStatisticsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
     {
         period ??= TimeSpan.FromDays(7);
         
@@ -968,7 +968,7 @@ public class NotificationWebhookService : BackgroundService, INotificationWebhoo
     private class NotificationDeliveryTask
     {
         public string NotificationId { get; set; } = string.Empty;
-        public int TeamId { get; set; }
+        public Guid TeamId { get; set; }
         public NotificationType Type { get; set; }
         public string Method { get; set; } = string.Empty;
         public string Endpoint { get; set; } = string.Empty;

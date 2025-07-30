@@ -25,9 +25,9 @@ public interface IPaymentTimeoutExpirationService
     Task<int> ExpirePaymentsAsync(IEnumerable<Guid> paymentIds, CancellationToken cancellationToken = default);
     Task<int> ProcessAllExpiredPaymentsAsync(CancellationToken cancellationToken = default);
     Task SchedulePaymentExpirationAsync(Guid paymentId, DateTime expirationTime, CancellationToken cancellationToken = default);
-    Task<PaymentTimeoutConfiguration> GetTimeoutConfigurationAsync(int teamId, CancellationToken cancellationToken = default);
-    Task UpdateTimeoutConfigurationAsync(int teamId, PaymentTimeoutConfiguration configuration, CancellationToken cancellationToken = default);
-    Task<ExpirationStatistics> GetExpirationStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
+    Task<PaymentTimeoutConfiguration> GetTimeoutConfigurationAsync(Guid teamId, CancellationToken cancellationToken = default);
+    Task UpdateTimeoutConfigurationAsync(Guid teamId, PaymentTimeoutConfiguration configuration, CancellationToken cancellationToken = default);
+    Task<ExpirationStatistics> GetExpirationStatisticsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
 }
 
 public class PaymentTimeoutConfiguration
@@ -66,7 +66,7 @@ public class PaymentTimeoutExpirationService : IPaymentTimeoutExpirationService
     
     // Scheduled expirations tracking
     private readonly ConcurrentDictionary<Guid, DateTime> _scheduledExpirations = new();
-    private readonly ConcurrentDictionary<int, PaymentTimeoutConfiguration> _teamConfigurations = new();
+    private readonly ConcurrentDictionary<Guid, PaymentTimeoutConfiguration> _teamConfigurations = new();
     
     // Metrics
     private static readonly Counter ExpirationOperations = Metrics
@@ -298,7 +298,7 @@ public class PaymentTimeoutExpirationService : IPaymentTimeoutExpirationService
         }
     }
 
-    public async Task<PaymentTimeoutConfiguration> GetTimeoutConfigurationAsync(int teamId, CancellationToken cancellationToken = default)
+    public async Task<PaymentTimeoutConfiguration> GetTimeoutConfigurationAsync(Guid teamId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -322,7 +322,7 @@ public class PaymentTimeoutExpirationService : IPaymentTimeoutExpirationService
         }
     }
 
-    public async Task UpdateTimeoutConfigurationAsync(int teamId, PaymentTimeoutConfiguration configuration, CancellationToken cancellationToken = default)
+    public async Task UpdateTimeoutConfigurationAsync(Guid teamId, PaymentTimeoutConfiguration configuration, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -345,7 +345,7 @@ public class PaymentTimeoutExpirationService : IPaymentTimeoutExpirationService
         }
     }
 
-    public async Task<ExpirationStatistics> GetExpirationStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
+    public async Task<ExpirationStatistics> GetExpirationStatisticsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
     {
         try
         {

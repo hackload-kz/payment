@@ -98,7 +98,7 @@ public class ConcurrentPaymentProcessingEngineService : IConcurrentPaymentProces
     
     // Processing state tracking
     private readonly ConcurrentDictionary<Guid, ProcessingStatus> _activeProcessing = new();
-    private readonly ConcurrentDictionary<int, SemaphoreSlim> _teamSemaphores = new();
+    private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _teamSemaphores = new();
     private readonly SemaphoreSlim _globalSemaphore;
     
     // Processing workers

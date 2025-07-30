@@ -19,10 +19,10 @@ namespace PaymentGateway.Core.Services;
 public interface IPaymentConfirmationService
 {
     Task<ConfirmationResult> ConfirmPaymentAsync(Guid paymentId, ConfirmationRequest request, CancellationToken cancellationToken = default);
-    Task<ConfirmationResult> ConfirmPaymentByOrderIdAsync(string orderId, int teamId, ConfirmationRequest request, CancellationToken cancellationToken = default);
+    Task<ConfirmationResult> ConfirmPaymentByOrderIdAsync(string orderId, Guid teamId, ConfirmationRequest request, CancellationToken cancellationToken = default);
     Task<bool> CanConfirmPaymentAsync(Guid paymentId, CancellationToken cancellationToken = default);
-    Task<IEnumerable<Payment>> GetConfirmablePaymentsAsync(int teamId, int limit = 100, CancellationToken cancellationToken = default);
-    Task<ConfirmationStatistics> GetConfirmationStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Payment>> GetConfirmablePaymentsAsync(Guid teamId, int limit = 100, CancellationToken cancellationToken = default);
+    Task<ConfirmationStatistics> GetConfirmationStatisticsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
     Task<IEnumerable<ConfirmationAuditLog>> GetConfirmationAuditTrailAsync(Guid paymentId, CancellationToken cancellationToken = default);
 }
 
@@ -36,7 +36,7 @@ public class ConfirmationRequest
 
 public class ConfirmationResult
 {
-    public long PaymentId { get; set; }
+    public Guid PaymentId { get; set; }
     public bool IsSuccess { get; set; }
     public PaymentStatus PreviousStatus { get; set; }
     public PaymentStatus CurrentStatus { get; set; }
@@ -63,8 +63,8 @@ public class ConfirmationStatistics
 
 public class ConfirmationAuditLog : BaseEntity
 {
-    public long PaymentId { get; set; }
-    public int TeamId { get; set; }
+    public Guid PaymentId { get; set; }
+    public Guid TeamId { get; set; }
     public string Action { get; set; } // "CONFIRMATION_ATTEMPT", "CONFIRMATION_SUCCESS", "CONFIRMATION_FAILED"
     public PaymentStatus StatusBefore { get; set; }
     public PaymentStatus StatusAfter { get; set; }
@@ -146,7 +146,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             {
                 var errorResult = new ConfirmationResult
                 {
-                    PaymentId = paymentId.GetHashCode(), // TODO: Fix data model - convert Guid to long
+                    PaymentId = paymentId,
                     IsSuccess = false,
                     Errors = new List<string> { "Failed to acquire confirmation lock" },
                     ProcessingDuration = DateTime.UtcNow - startTime
@@ -162,7 +162,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             {
                 var errorResult = new ConfirmationResult
                 {
-                    PaymentId = paymentId.GetHashCode(), // TODO: Fix data model - convert Guid to long
+                    PaymentId = paymentId,
                     IsSuccess = false,
                     Errors = new List<string> { "Payment not found" },
                     ProcessingDuration = DateTime.UtcNow - startTime
@@ -174,7 +174,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
 
             var result = new ConfirmationResult
             {
-                PaymentId = paymentId.GetHashCode(), // TODO: Fix data model - convert Guid to long
+                PaymentId = paymentId,
                 PreviousStatus = payment.Status,
                 ConfirmationId = confirmationId,
                 Validations = new List<string>(),
@@ -273,7 +273,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             
             var errorResult = new ConfirmationResult
             {
-                PaymentId = paymentId.GetHashCode(), // TODO: Fix data model - convert Guid to long
+                PaymentId = paymentId,
                 IsSuccess = false,
                 Errors = new List<string> { "Confirmation service error" },
                 ProcessingDuration = DateTime.UtcNow - startTime,
@@ -285,7 +285,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         }
     }
 
-    public async Task<ConfirmationResult> ConfirmPaymentByOrderIdAsync(string orderId, int teamId, ConfirmationRequest request, CancellationToken cancellationToken = default)
+    public async Task<ConfirmationResult> ConfirmPaymentByOrderIdAsync(string orderId, Guid teamId, ConfirmationRequest request, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -294,7 +294,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             {
                 return new ConfirmationResult
                 {
-                    PaymentId = 0,
+                    PaymentId = Guid.Empty,
                     IsSuccess = false,
                     Errors = new List<string> { $"Payment not found for OrderId: {orderId}, TeamId: {teamId}" }
                 };
@@ -307,7 +307,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             _logger.LogError(ex, "Failed to confirm payment by OrderId: {OrderId}, TeamId: {TeamId}", orderId, teamId);
             return new ConfirmationResult
             {
-                PaymentId = 0,
+                PaymentId = Guid.Empty,
                 IsSuccess = false,
                 Errors = new List<string> { "Failed to find payment by OrderId" }
             };
@@ -337,7 +337,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         }
     }
 
-    public async Task<IEnumerable<Payment>> GetConfirmablePaymentsAsync(int teamId, int limit = 100, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Payment>> GetConfirmablePaymentsAsync(Guid teamId, int limit = 100, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -366,7 +366,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         }
     }
 
-    public async Task<ConfirmationStatistics> GetConfirmationStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
+    public async Task<ConfirmationStatistics> GetConfirmationStatisticsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -433,7 +433,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
 
             var auditLog = new ConfirmationAuditLog
             {
-                PaymentId = paymentId.GetHashCode(), // TODO: Fix data model - convert Guid to long
+                PaymentId = paymentId,
                 TeamId = payment.TeamId,
                 Action = result.IsSuccess ? "CONFIRMATION_SUCCESS" : "CONFIRMATION_FAILED",
                 StatusBefore = result.PreviousStatus,

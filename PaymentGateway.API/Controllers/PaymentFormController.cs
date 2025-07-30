@@ -416,7 +416,7 @@ public class PaymentFormController : ControllerBase
             var expiryParts = cardData.ExpiryDate.Split('/');
             var cardRequest = new CardPaymentRequest
             {
-                PaymentId = long.Parse(payment.PaymentId.Replace("pay_", "")),
+                PaymentId = payment.Id, // Use the actual Payment entity ID (Guid)
                 CardNumber = cardData.CardNumber,
                 ExpiryMonth = expiryParts[0],
                 ExpiryYear = expiryParts[1],

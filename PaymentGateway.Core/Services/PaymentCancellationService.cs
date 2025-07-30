@@ -21,7 +21,7 @@ public interface IPaymentCancellationService
     Task<CancellationResult> CancelPaymentAsync(Guid paymentId, CancellationRequest request, CancellationToken cancellationToken = default);
     Task<CancellationResult> CancelPaymentByPaymentIdAsync(string paymentId, CancellationRequest request, CancellationToken cancellationToken = default);
     Task<bool> CanCancelPaymentAsync(Guid paymentId, CancellationToken cancellationToken = default);
-    Task<IEnumerable<Payment>> GetCancellablePaymentsAsync(int teamId, int limit = 100, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Payment>> GetCancellablePaymentsAsync(Guid teamId, int limit = 100, CancellationToken cancellationToken = default);
     Task<CancellationStatistics> GetCancellationStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
     Task<IEnumerable<CancellationAuditLog>> GetCancellationAuditTrailAsync(Guid paymentId, CancellationToken cancellationToken = default);
 }
@@ -52,7 +52,7 @@ public class CancellationResult
     public PaymentStatus Status { get; set; }
     public decimal OriginalAmount { get; set; }
     public decimal NewAmount { get; set; } // Always 0 for full cancellations
-    public long PaymentId { get; set; }
+    public Guid PaymentId { get; set; }
     public string ErrorCode { get; set; } = "0";
     public string Message { get; set; }
     public string Details { get; set; }
@@ -86,8 +86,8 @@ public class CancellationStatistics
 
 public class CancellationAuditLog : BaseEntity
 {
-    public long PaymentId { get; set; }
-    public int TeamId { get; set; }
+    public Guid PaymentId { get; set; }
+    public Guid TeamId { get; set; }
     public string Action { get; set; } // "CANCELLATION_ATTEMPT", "CANCELLATION_SUCCESS", "CANCELLATION_FAILED"
     public PaymentStatus StatusBefore { get; set; }
     public PaymentStatus StatusAfter { get; set; }
@@ -181,7 +181,7 @@ public class PaymentCancellationService : IPaymentCancellationService
             {
                 var errorResult = new CancellationResult
                 {
-                    PaymentId = paymentId.GetHashCode(), // TODO: Fix data model - convert Guid to long
+                    PaymentId = paymentId,
                     Success = false,
                     ErrorCode = "1029",
                     Message = "Failed to acquire cancellation lock",
@@ -198,7 +198,7 @@ public class PaymentCancellationService : IPaymentCancellationService
             {
                 var errorResult = new CancellationResult
                 {
-                    PaymentId = paymentId.GetHashCode(), // TODO: Fix data model - convert Guid to long
+                    PaymentId = paymentId,
                     Success = false,
                     ErrorCode = "1004",
                     Message = "Payment not found",
@@ -213,7 +213,7 @@ public class PaymentCancellationService : IPaymentCancellationService
             {
                 TeamSlug = payment.TeamSlug,
                 OrderId = payment.OrderId,
-                PaymentId = paymentId.GetHashCode(), // TODO: Fix data model - convert Guid to long
+                PaymentId = paymentId,
                 OriginalAmount = payment.Amount,
                 ExternalRequestId = request.ExternalRequestId,
                 CancelledAt = DateTime.UtcNow
@@ -352,7 +352,7 @@ public class PaymentCancellationService : IPaymentCancellationService
             
             var errorResult = new CancellationResult
             {
-                PaymentId = paymentId.GetHashCode(), // TODO: Fix data model - convert Guid to long
+                PaymentId = paymentId,
                 Success = false,
                 ErrorCode = "1001",
                 Message = "Cancellation service error",
@@ -420,7 +420,7 @@ public class PaymentCancellationService : IPaymentCancellationService
         }
     }
 
-    public async Task<IEnumerable<Payment>> GetCancellablePaymentsAsync(int teamId, int limit = 100, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Payment>> GetCancellablePaymentsAsync(Guid teamId, int limit = 100, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -521,7 +521,7 @@ public class PaymentCancellationService : IPaymentCancellationService
 
             var auditLog = new CancellationAuditLog
             {
-                PaymentId = paymentId.GetHashCode(), // TODO: Fix data model - convert Guid to long
+                PaymentId = paymentId,
                 TeamId = payment.TeamId,
                 Action = result.Success ? "CANCELLATION_SUCCESS" : "CANCELLATION_FAILED",
                 StatusBefore = payment.Status,

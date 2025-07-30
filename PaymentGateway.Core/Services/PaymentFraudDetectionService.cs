@@ -22,10 +22,10 @@ public interface IPaymentFraudDetectionService
     Task<RiskScore> CalculateRiskScoreAsync(Payment payment, CancellationToken cancellationToken = default);
     Task RegisterFraudDetectionHookAsync(IFraudDetectionHook hook);
     Task UnregisterFraudDetectionHookAsync(string hookId);
-    Task<FraudDetectionStatistics> GetFraudStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
+    Task<FraudDetectionStatistics> GetFraudStatisticsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
     Task<IEnumerable<FraudAlert>> GetActiveFraudAlertsAsync(CancellationToken cancellationToken = default);
-    Task UpdateFraudRulesAsync(int teamId, FraudDetectionRules rules, CancellationToken cancellationToken = default);
-    Task<FraudDetectionRules> GetFraudRulesAsync(int teamId, CancellationToken cancellationToken = default);
+    Task UpdateFraudRulesAsync(Guid teamId, FraudDetectionRules rules, CancellationToken cancellationToken = default);
+    Task<FraudDetectionRules> GetFraudRulesAsync(Guid teamId, CancellationToken cancellationToken = default);
 }
 
 public enum FraudRiskLevel
@@ -69,8 +69,8 @@ public class FraudIndicator
 public class FraudAlert
 {
     public string AlertId { get; set; }
-    public long PaymentId { get; set; }
-    public int TeamId { get; set; }
+    public string PaymentId { get; set; }
+    public Guid TeamId { get; set; }
     public FraudRiskLevel RiskLevel { get; set; }
     public string AlertType { get; set; }
     public string Description { get; set; }
@@ -94,7 +94,7 @@ public class FraudDetectionStatistics
 
 public class FraudDetectionRules
 {
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public bool EnableFraudDetection { get; set; } = true;
     public decimal HighValueThreshold { get; set; } = 100000; // Minor units
     public int MaxDailyTransactions { get; set; } = 1000;
@@ -148,7 +148,7 @@ public class PaymentFraudDetectionService : IPaymentFraudDetectionService
     
     // Fraud detection hooks registry
     private readonly ConcurrentDictionary<string, IFraudDetectionHook> _registeredHooks = new();
-    private readonly ConcurrentDictionary<int, FraudDetectionRules> _teamRules = new();
+    private readonly ConcurrentDictionary<Guid, FraudDetectionRules> _teamRules = new();
     private readonly ConcurrentDictionary<string, FraudAlert> _activeAlerts = new();
     
     // Metrics
@@ -409,7 +409,7 @@ public class PaymentFraudDetectionService : IPaymentFraudDetectionService
         }
     }
 
-    public async Task<FraudDetectionStatistics> GetFraudStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
+    public async Task<FraudDetectionStatistics> GetFraudStatisticsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -457,7 +457,7 @@ public class PaymentFraudDetectionService : IPaymentFraudDetectionService
         }
     }
 
-    public async Task UpdateFraudRulesAsync(int teamId, FraudDetectionRules rules, CancellationToken cancellationToken = default)
+    public async Task UpdateFraudRulesAsync(Guid teamId, FraudDetectionRules rules, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -473,7 +473,7 @@ public class PaymentFraudDetectionService : IPaymentFraudDetectionService
         }
     }
 
-    public async Task<FraudDetectionRules> GetFraudRulesAsync(int teamId, CancellationToken cancellationToken = default)
+    public async Task<FraudDetectionRules> GetFraudRulesAsync(Guid teamId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -720,7 +720,7 @@ public class PaymentFraudDetectionService : IPaymentFraudDetectionService
             var alert = new FraudAlert
             {
                 AlertId = Guid.NewGuid().ToString(),
-                PaymentId = payment.PaymentId.GetHashCode(), // TODO: Fix data model - convert string PaymentId to long
+                PaymentId = payment.PaymentId,
                 TeamId = payment.TeamId,
                 RiskLevel = result.RiskLevel,
                 AlertType = "FraudDetection",

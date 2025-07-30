@@ -112,10 +112,10 @@ public class Payment : BaseEntity, IAuditableEntity
     public Dictionary<string, string> Metadata { get; set; } = new();
     
     // Navigation properties
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public virtual Team Team { get; set; } = null!;
     
-    public int? CustomerId { get; set; }
+    public Guid? CustomerId { get; set; }
     public virtual Customer? Customer { get; set; }
     
     public virtual ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();

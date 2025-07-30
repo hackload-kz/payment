@@ -12,19 +12,19 @@ namespace PaymentGateway.Core.Repositories;
 public interface IPaymentRepository : IRepository<Payment>
 {
     Task<Payment?> GetByPaymentIdAsync(string paymentId, CancellationToken cancellationToken = default);
-    Task<Payment?> GetByOrderIdAsync(string orderId, int teamId, CancellationToken cancellationToken = default);
-    Task<IEnumerable<Payment>> GetByTeamIdAsync(int teamId, CancellationToken cancellationToken = default);
-    Task<IEnumerable<Payment>> GetByCustomerIdAsync(int? customerId, CancellationToken cancellationToken = default);
+    Task<Payment?> GetByOrderIdAsync(string orderId, Guid teamId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Payment>> GetByTeamIdAsync(Guid teamId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Payment>> GetByCustomerIdAsync(Guid? customerId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Payment>> GetByStatusAsync(PaymentStatus status, CancellationToken cancellationToken = default);
     Task<IEnumerable<Payment>> GetPaymentsByStatusAsync(PaymentStatus status, CancellationToken cancellationToken = default);
     Task<IEnumerable<Payment>> GetPaymentsRequiringProcessingAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<Payment>> GetExpiredPaymentsAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<Payment>> GetExpiredPaymentsAsync(DateTime cutoffTime, CancellationToken cancellationToken = default);
-    Task<IEnumerable<Payment>> GetActivePaymentsByTeamAsync(int teamId, CancellationToken cancellationToken = default);
-    Task<decimal> GetTotalAmountByTeamAndDateRangeAsync(int teamId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
-    Task<(decimal TotalAmount, int Count)> GetPaymentStatsByTeamAsync(int teamId, DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default);
-    Task<IEnumerable<Payment>> GetRecentPaymentsByTeamAsync(int teamId, int count = 10, CancellationToken cancellationToken = default);
-    Task<bool> IsOrderIdUniqueForTeamAsync(int teamId, string orderId, Guid? excludePaymentId = null, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Payment>> GetActivePaymentsByTeamAsync(Guid teamId, CancellationToken cancellationToken = default);
+    Task<decimal> GetTotalAmountByTeamAndDateRangeAsync(Guid teamId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
+    Task<(decimal TotalAmount, int Count)> GetPaymentStatsByTeamAsync(Guid teamId, DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Payment>> GetRecentPaymentsByTeamAsync(Guid teamId, int count = 10, CancellationToken cancellationToken = default);
+    Task<bool> IsOrderIdUniqueForTeamAsync(Guid teamId, string orderId, Guid? excludePaymentId = null, CancellationToken cancellationToken = default);
     
     // Add missing methods used by services
     Task<Payment> CreateAsync(Payment payment, CancellationToken cancellationToken = default);
@@ -34,9 +34,10 @@ public interface IPaymentRepository : IRepository<Payment>
     // Methods using teamSlug for validation services
     Task<Payment?> GetByOrderIdAsync(string teamSlug, string orderId, CancellationToken cancellationToken = default);
     Task<int> GetActivePaymentCountAsync(CancellationToken cancellationToken = default);
-    Task<decimal> GetTodayPaymentsTotalAsync(int teamId, CancellationToken cancellationToken = default);
-    Task<int> GetTodayTransactionCountAsync(int teamId, CancellationToken cancellationToken = default);
-    Task<int> GetProcessingPaymentCountAsync(int teamId, CancellationToken cancellationToken = default);
+    Task<int> GetActivePaymentCountAsync(Guid teamId, CancellationToken cancellationToken = default);
+    Task<decimal> GetTodayPaymentsTotalAsync(Guid teamId, CancellationToken cancellationToken = default);
+    Task<int> GetTodayTransactionCountAsync(Guid teamId, CancellationToken cancellationToken = default);
+    Task<int> GetProcessingPaymentCountAsync(Guid teamId, CancellationToken cancellationToken = default);
 }
 
 public class PaymentRepository : Repository<Payment>, IPaymentRepository
@@ -66,7 +67,7 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
         }
     }
 
-    public async Task<Payment?> GetByOrderIdAsync(string orderId, int teamId, CancellationToken cancellationToken = default)
+    public async Task<Payment?> GetByOrderIdAsync(string orderId, Guid teamId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -82,7 +83,7 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
         }
     }
 
-    public async Task<IEnumerable<Payment>> GetByTeamIdAsync(int teamId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Payment>> GetByTeamIdAsync(Guid teamId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -98,7 +99,7 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
         }
     }
 
-    public async Task<IEnumerable<Payment>> GetByCustomerIdAsync(int? customerId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Payment>> GetByCustomerIdAsync(Guid? customerId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -187,7 +188,7 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
         }
     }
 
-    public async Task<decimal> GetTotalAmountByTeamAndDateRangeAsync(int teamId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
+    public async Task<decimal> GetTotalAmountByTeamAndDateRangeAsync(Guid teamId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -212,7 +213,7 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
         }
     }
 
-    public async Task<(decimal TotalAmount, int Count)> GetPaymentStatsByTeamAsync(int teamId, DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default)
+    public async Task<(decimal TotalAmount, int Count)> GetPaymentStatsByTeamAsync(Guid teamId, DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -250,7 +251,7 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
         }
     }
 
-    public async Task<IEnumerable<Payment>> GetRecentPaymentsByTeamAsync(int teamId, int count = 10, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Payment>> GetRecentPaymentsByTeamAsync(Guid teamId, int count = 10, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -268,7 +269,7 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
         }
     }
 
-    public async Task<bool> IsOrderIdUniqueForTeamAsync(int teamId, string orderId, Guid? excludePaymentId = null, CancellationToken cancellationToken = default)
+    public async Task<bool> IsOrderIdUniqueForTeamAsync(Guid teamId, string orderId, Guid? excludePaymentId = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -302,7 +303,7 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
         }
     }
 
-    public async Task<IEnumerable<Payment>> GetActivePaymentsByTeamAsync(int teamId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Payment>> GetActivePaymentsByTeamAsync(Guid teamId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -429,8 +430,31 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
             throw;
         }
     }
+    
+    public async Task<int> GetActivePaymentCountAsync(Guid teamId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var activeStatuses = new[]
+            {
+                PaymentStatus.NEW,
+                PaymentStatus.FORM_SHOWED,
+                PaymentStatus.AUTHORIZED,
+                PaymentStatus.PROCESSING
+            };
+            
+            return await _dbSet
+                .Where(p => p.TeamId == teamId && activeStatuses.Contains(p.Status) && !p.IsDeleted)
+                .CountAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting active payment count for team {TeamId}", teamId);
+            throw;
+        }
+    }
 
-    public async Task<decimal> GetTodayPaymentsTotalAsync(int teamId, CancellationToken cancellationToken = default)
+    public async Task<decimal> GetTodayPaymentsTotalAsync(Guid teamId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -457,7 +481,7 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
         }
     }
 
-    public async Task<int> GetTodayTransactionCountAsync(int teamId, CancellationToken cancellationToken = default)
+    public async Task<int> GetTodayTransactionCountAsync(Guid teamId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -476,7 +500,7 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
         }
     }
 
-    public async Task<int> GetProcessingPaymentCountAsync(int teamId, CancellationToken cancellationToken = default)
+    public async Task<int> GetProcessingPaymentCountAsync(Guid teamId, CancellationToken cancellationToken = default)
     {
         try
         {

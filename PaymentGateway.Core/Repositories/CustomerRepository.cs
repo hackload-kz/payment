@@ -15,7 +15,7 @@ public interface ICustomerRepository : IRepository<Customer>
     Task<Customer?> GetByCustomerIdAsync(string customerId, CancellationToken cancellationToken = default);
     Task<Customer?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<Customer?> GetByPhoneAsync(string phone, CancellationToken cancellationToken = default);
-    Task<IEnumerable<Customer>> GetByTeamIdAsync(int teamId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Customer>> GetByTeamIdAsync(Guid teamId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Customer>> GetByRiskScoreRangeAsync(int minScore, int maxScore, CancellationToken cancellationToken = default);
     Task<IEnumerable<Customer>> GetHighRiskCustomersAsync(int riskThreshold = 75, CancellationToken cancellationToken = default);
     Task<IEnumerable<Customer>> GetCustomersRequiringKycAsync(CancellationToken cancellationToken = default);
@@ -23,7 +23,7 @@ public interface ICustomerRepository : IRepository<Customer>
     Task<(decimal TotalAmount, int Count)> GetCustomerPaymentStatsAsync(Guid customerId, DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default);
     Task<IEnumerable<Customer>> GetRecentCustomersAsync(int count = 50, CancellationToken cancellationToken = default);
     Task<bool> IsCustomerIdUniqueAsync(string customerId, Guid? excludeCustomerId = null, CancellationToken cancellationToken = default);
-    Task<bool> IsEmailUniqueForTeamAsync(int teamId, string email, Guid? excludeCustomerId = null, CancellationToken cancellationToken = default);
+    Task<bool> IsEmailUniqueForTeamAsync(Guid teamId, string email, Guid? excludeCustomerId = null, CancellationToken cancellationToken = default);
     Task<Customer?> GetByCustomerKeyAsync(string teamSlug, string customerKey, CancellationToken cancellationToken = default);
 }
 
@@ -86,7 +86,7 @@ public class CustomerRepository : Repository<Customer>, ICustomerRepository
         }
     }
 
-    public async Task<IEnumerable<Customer>> GetByTeamIdAsync(int teamId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Customer>> GetByTeamIdAsync(Guid teamId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -251,7 +251,7 @@ public class CustomerRepository : Repository<Customer>, ICustomerRepository
         }
     }
 
-    public async Task<bool> IsEmailUniqueForTeamAsync(int teamId, string email, Guid? excludeCustomerId = null, CancellationToken cancellationToken = default)
+    public async Task<bool> IsEmailUniqueForTeamAsync(Guid teamId, string email, Guid? excludeCustomerId = null, CancellationToken cancellationToken = default)
     {
         try
         {

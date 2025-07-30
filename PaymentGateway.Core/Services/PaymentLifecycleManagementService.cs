@@ -26,7 +26,7 @@ public interface IPaymentLifecycleManagementService
     Task<Payment> ExpirePaymentAsync(Guid paymentId, CancellationToken cancellationToken = default);
     Task<Payment> FailPaymentAsync(Guid paymentId, string errorCode, string errorMessage, CancellationToken cancellationToken = default);
     Task<Payment> GetPaymentStatusAsync(Guid paymentId, CancellationToken cancellationToken = default);
-    Task<IEnumerable<Payment>> GetActivePaymentsAsync(int teamId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Payment>> GetActivePaymentsAsync(Guid teamId, CancellationToken cancellationToken = default);
     Task<bool> IsPaymentExpiredAsync(Guid paymentId, CancellationToken cancellationToken = default);
     Task ProcessExpiredPaymentsAsync(CancellationToken cancellationToken = default);
 }
@@ -580,7 +580,7 @@ public class PaymentLifecycleManagementService : IPaymentLifecycleManagementServ
         }
     }
 
-    public async Task<IEnumerable<Payment>> GetActivePaymentsAsync(int teamId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Payment>> GetActivePaymentsAsync(Guid teamId, CancellationToken cancellationToken = default)
     {
         try
         {

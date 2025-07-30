@@ -17,9 +17,9 @@ public interface ITeamRepository : IRepository<Team>
     Task<IEnumerable<Team>> GetTeamsRequiringPasswordChangeAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<Team>> GetLockedTeamsAsync(CancellationToken cancellationToken = default);
     Task<bool> IsTeamSlugUniqueAsync(string teamSlug, Guid? excludeTeamId = null, CancellationToken cancellationToken = default);
-    Task<(decimal TotalAmount, int Count)> GetPaymentStatsByTeamAsync(int teamId, DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default);
-    Task<decimal> GetCurrentDailyAmountAsync(int teamId, CancellationToken cancellationToken = default);
-    Task<decimal> GetCurrentMonthlyAmountAsync(int teamId, CancellationToken cancellationToken = default);
+    Task<(decimal TotalAmount, int Count)> GetPaymentStatsByTeamAsync(Guid teamId, DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default);
+    Task<decimal> GetCurrentDailyAmountAsync(Guid teamId, CancellationToken cancellationToken = default);
+    Task<decimal> GetCurrentMonthlyAmountAsync(Guid teamId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Team>> GetTeamsWithHighFailedAuthAttemptsAsync(int threshold = 3, CancellationToken cancellationToken = default);
     Task<IEnumerable<Team>> GetTeamsForRiskReviewAsync(CancellationToken cancellationToken = default);
     Task<Team> UpdateAsync(Team team, CancellationToken cancellationToken = default);
@@ -134,7 +134,7 @@ public class TeamRepository : Repository<Team>, ITeamRepository
         }
     }
 
-    public async Task<(decimal TotalAmount, int Count)> GetPaymentStatsByTeamAsync(int teamId, DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default)
+    public async Task<(decimal TotalAmount, int Count)> GetPaymentStatsByTeamAsync(Guid teamId, DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -172,7 +172,7 @@ public class TeamRepository : Repository<Team>, ITeamRepository
         }
     }
 
-    public async Task<decimal> GetCurrentDailyAmountAsync(int teamId, CancellationToken cancellationToken = default)
+    public async Task<decimal> GetCurrentDailyAmountAsync(Guid teamId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -199,7 +199,7 @@ public class TeamRepository : Repository<Team>, ITeamRepository
         }
     }
 
-    public async Task<decimal> GetCurrentMonthlyAmountAsync(int teamId, CancellationToken cancellationToken = default)
+    public async Task<decimal> GetCurrentMonthlyAmountAsync(Guid teamId, CancellationToken cancellationToken = default)
     {
         try
         {

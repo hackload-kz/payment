@@ -17,7 +17,7 @@ public interface IPaymentStateTransitionValidationService
 {
     Task<ValidationResult> ValidateTransitionAsync(Guid paymentId, PaymentStatus fromStatus, PaymentStatus toStatus, CancellationToken cancellationToken = default);
     Task<ValidationResult> ValidatePaymentBusinessRulesAsync(Payment payment, PaymentStatus targetStatus, CancellationToken cancellationToken = default);
-    Task<ValidationResult> ValidateTeamLimitsAsync(int teamId, decimal amount, CancellationToken cancellationToken = default);
+    Task<ValidationResult> ValidateTeamLimitsAsync(Guid teamId, decimal amount, CancellationToken cancellationToken = default);
     Task<ValidationResult> ValidatePaymentExpirationAsync(Payment payment, CancellationToken cancellationToken = default);
     Task<ValidationResult> ValidateRefundRulesAsync(Payment payment, decimal refundAmount, CancellationToken cancellationToken = default);
     Task<ValidationResult> ValidateConcurrencyRulesAsync(Payment payment, PaymentStatus targetStatus, CancellationToken cancellationToken = default);
@@ -188,9 +188,7 @@ public class PaymentStateTransitionValidationService : IPaymentStateTransitionVa
             }
 
             // 5. Validate currency support
-            // TODO: Fix data model inconsistency - Payment.TeamId is int but Team.Id is Guid
-            var teamGuid = new Guid(payment.TeamId.ToString().PadLeft(32, '0').Insert(8, "-").Insert(12, "-").Insert(16, "-").Insert(20, "-"));
-            var team = await _teamRepository.GetByIdAsync(teamGuid, cancellationToken);
+            var team = await _teamRepository.GetByIdAsync(payment.TeamId, cancellationToken);
             if (team?.SupportedCurrencies != null && !string.IsNullOrEmpty(payment.Currency))
             {
                 if (!team.SupportedCurrencies.Contains(payment.Currency))
@@ -222,7 +220,7 @@ public class PaymentStateTransitionValidationService : IPaymentStateTransitionVa
         }
     }
 
-    public async Task<ValidationResult> ValidateTeamLimitsAsync(int teamId, decimal amount, CancellationToken cancellationToken = default)
+    public async Task<ValidationResult> ValidateTeamLimitsAsync(Guid teamId, decimal amount, CancellationToken cancellationToken = default)
     {
         using var activity = ValidationDuration.WithLabels("team_limits").NewTimer();
         
@@ -230,9 +228,7 @@ public class PaymentStateTransitionValidationService : IPaymentStateTransitionVa
         {
             var result = new ValidationResult { IsValid = true };
 
-            // TODO: Fix data model inconsistency - teamId is int but Team.Id is Guid
-            var teamGuid2 = new Guid(teamId.ToString().PadLeft(32, '0').Insert(8, "-").Insert(12, "-").Insert(16, "-").Insert(20, "-"));
-            var team = await _teamRepository.GetByIdAsync(teamGuid2, cancellationToken);
+            var team = await _teamRepository.GetByIdAsync(teamId, cancellationToken);
             if (team == null)
             {
                 ValidationOperations.WithLabels("team_limits", "team_not_found").Inc();
@@ -255,17 +251,18 @@ public class PaymentStateTransitionValidationService : IPaymentStateTransitionVa
                 }
             }
 
-            // 3. Check transaction count limits (Team doesn't have DailyTransactionLimit - using basic validation)
-            // TODO: Team entity missing DailyTransactionLimit property - implement if needed
-            var todayTransactionCount = await _paymentRepository.GetTodayTransactionCountAsync(teamId, cancellationToken);
-            if (todayTransactionCount >= 1000) // Basic limit placeholder
+            // 3. Check transaction count limits
+            if (team.DailyTransactionLimit.HasValue)
             {
-                result.Errors.Add($"Daily transaction count limit exceeded. Limit: 1000, Current: {todayTransactionCount}");
+                var todayTransactionCount = await _paymentRepository.GetTodayTransactionCountAsync(teamId, cancellationToken);
+                if (todayTransactionCount >= team.DailyTransactionLimit.Value)
+                {
+                    result.Errors.Add($"Daily transaction count limit exceeded. Limit: {team.DailyTransactionLimit.Value}, Current: {todayTransactionCount}");
+                }
             }
 
             // 4. Check concurrent payment limits
-            // TODO: GetActivePaymentCountAsync doesn't support team filtering - using global count
-            var activePaymentCount = await _paymentRepository.GetActivePaymentCountAsync(cancellationToken);
+            var activePaymentCount = await _paymentRepository.GetActivePaymentCountAsync(teamId, cancellationToken);
             if (activePaymentCount >= _maxConcurrentPaymentsPerTeam)
             {
                 result.Errors.Add($"Concurrent payment limit exceeded. Limit: {_maxConcurrentPaymentsPerTeam}, Current: {activePaymentCount}");
@@ -379,11 +376,8 @@ public class PaymentStateTransitionValidationService : IPaymentStateTransitionVa
             }
 
             // 4. Validate team refund permissions
-            // TODO: Fix data model inconsistency - Payment.TeamId is int but Team.Id is Guid
-            var teamGuid = new Guid(payment.TeamId.ToString().PadLeft(32, '0').Insert(8, "-").Insert(12, "-").Insert(16, "-").Insert(20, "-"));
-            var team = await _teamRepository.GetByIdAsync(teamGuid, cancellationToken);
-            // TODO: Team entity missing CanProcessRefunds property - assuming true for now
-            if (team != null && false) // Placeholder: assume can process refunds
+            var team = await _teamRepository.GetByIdAsync(payment.TeamId, cancellationToken);
+            if (team != null && !team.CanProcessRefunds)
             {
                 result.Errors.Add("Team does not have refund processing permissions");
             }

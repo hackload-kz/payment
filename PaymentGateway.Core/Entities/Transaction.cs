@@ -11,7 +11,7 @@ public class Transaction : BaseEntity, IAuditableEntity
     public string TransactionId { get; set; } = string.Empty;
     
     [Required]
-    public int PaymentId { get; set; }
+    public Guid PaymentId { get; set; }
     
     [Required]
     [StringLength(50)]
@@ -135,7 +135,7 @@ public class Transaction : BaseEntity, IAuditableEntity
     public Dictionary<string, string> AcquirerResponseData { get; set; } = new();
     
     // Parent/Child transaction relationships
-    public int? ParentTransactionId { get; set; }
+    public Guid? ParentTransactionId { get; set; }
     public virtual Transaction? ParentTransaction { get; set; }
     public virtual ICollection<Transaction> ChildTransactions { get; set; } = new List<Transaction>();
     

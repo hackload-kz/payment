@@ -19,14 +19,14 @@ namespace PaymentGateway.Core.Services;
 /// </summary>
 public interface IPaymentProcessingMetricsService
 {
-    void RecordPaymentProcessingStarted(long paymentId, PaymentStatus fromStatus);
-    void RecordPaymentProcessingCompleted(long paymentId, PaymentStatus toStatus, TimeSpan duration, bool isSuccess);
-    void RecordPaymentProcessingFailed(long paymentId, PaymentStatus status, string errorCode, TimeSpan duration);
+    void RecordPaymentProcessingStarted(Guid paymentId, PaymentStatus fromStatus);
+    void RecordPaymentProcessingCompleted(Guid paymentId, PaymentStatus toStatus, TimeSpan duration, bool isSuccess);
+    void RecordPaymentProcessingFailed(Guid paymentId, PaymentStatus status, string errorCode, TimeSpan duration);
     void RecordConcurrentProcessingMetrics(int activeCount, int queueLength);
     void RecordPerformanceMetrics(string operation, TimeSpan duration, bool isSuccess);
-    void RecordBusinessMetrics(int teamId, decimal amount, string currency, PaymentStatus status);
+    void RecordBusinessMetrics(Guid teamId, decimal amount, string currency, PaymentStatus status);
     Task<ProcessingMetricsSnapshot> GetCurrentMetricsSnapshotAsync(CancellationToken cancellationToken = default);
-    Task<ProcessingAnalytics> GetProcessingAnalyticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
+    Task<ProcessingAnalytics> GetProcessingAnalyticsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
     Task<IEnumerable<MetricsAlert>> CheckMetricsAlertsAsync(CancellationToken cancellationToken = default);
     void RecordSystemResourceMetrics();
     void RecordDatabaseMetrics(string operation, TimeSpan duration, bool isSuccess, int recordsAffected = 0);
@@ -57,7 +57,7 @@ public class ProcessingAnalytics
     public TimeSpan P95ProcessingTime { get; set; }
     public double PeakProcessingRate { get; set; }
     public Dictionary<PaymentStatus, ProcessingStatusAnalytics> AnalyticsByStatus { get; set; } = new();
-    public Dictionary<int, TeamProcessingAnalytics> AnalyticsByTeam { get; set; } = new();
+    public Dictionary<Guid, TeamProcessingAnalytics> AnalyticsByTeam { get; set; } = new();
     public Dictionary<string, ErrorAnalytics> ErrorAnalytics { get; set; } = new();
     public List<PerformanceInsight> PerformanceInsights { get; set; } = new();
 }
@@ -72,7 +72,7 @@ public class ProcessingStatusAnalytics
 
 public class TeamProcessingAnalytics
 {
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public string TeamSlug { get; set; }
     public int TotalPayments { get; set; }
     public decimal TotalAmount { get; set; }
@@ -123,8 +123,8 @@ public class PaymentProcessingMetricsService : IPaymentProcessingMetricsService
     private readonly ILogger<PaymentProcessingMetricsService> _logger;
     
     // Processing tracking
-    private readonly ConcurrentDictionary<long, DateTime> _processingStartTimes = new();
-    private readonly ConcurrentDictionary<long, PaymentStatus> _processingStartStatuses = new();
+    private readonly ConcurrentDictionary<Guid, DateTime> _processingStartTimes = new();
+    private readonly ConcurrentDictionary<Guid, PaymentStatus> _processingStartStatuses = new();
     
     // Performance data collection
     private readonly ConcurrentQueue<ProcessingRecord> _processingRecords = new();
@@ -170,8 +170,8 @@ public class PaymentProcessingMetricsService : IPaymentProcessingMetricsService
 
     private class ProcessingRecord
     {
-        public long PaymentId { get; set; }
-        public int TeamId { get; set; }
+        public Guid PaymentId { get; set; }
+        public Guid TeamId { get; set; }
         public PaymentStatus FromStatus { get; set; }
         public PaymentStatus ToStatus { get; set; }
         public TimeSpan Duration { get; set; }
@@ -207,7 +207,7 @@ public class PaymentProcessingMetricsService : IPaymentProcessingMetricsService
         */
     }
 
-    public void RecordPaymentProcessingStarted(long paymentId, PaymentStatus fromStatus)
+    public void RecordPaymentProcessingStarted(Guid paymentId, PaymentStatus fromStatus)
     {
         try
         {
@@ -225,7 +225,7 @@ public class PaymentProcessingMetricsService : IPaymentProcessingMetricsService
         }
     }
 
-    public void RecordPaymentProcessingCompleted(long paymentId, PaymentStatus toStatus, TimeSpan duration, bool isSuccess)
+    public void RecordPaymentProcessingCompleted(Guid paymentId, PaymentStatus toStatus, TimeSpan duration, bool isSuccess)
     {
         try
         {
@@ -241,11 +241,7 @@ public class PaymentProcessingMetricsService : IPaymentProcessingMetricsService
                 {
                     using var scope = _serviceProvider.CreateScope();
                     var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
-                    // TODO: Fix data model inconsistency - convert long paymentId to Guid
-                    var guidBytes = new byte[16];
-                    BitConverter.GetBytes(paymentId).CopyTo(guidBytes, 0);
-                    var paymentGuid = new Guid(guidBytes);
-                    var payment = await paymentRepository.GetByIdAsync(paymentGuid);
+                    var payment = await paymentRepository.GetByIdAsync(paymentId);
                     
                     if (payment != null)
                     {
@@ -290,7 +286,7 @@ public class PaymentProcessingMetricsService : IPaymentProcessingMetricsService
         }
     }
 
-    public void RecordPaymentProcessingFailed(long paymentId, PaymentStatus status, string errorCode, TimeSpan duration)
+    public void RecordPaymentProcessingFailed(Guid paymentId, PaymentStatus status, string errorCode, TimeSpan duration)
     {
         try
         {
@@ -305,11 +301,7 @@ public class PaymentProcessingMetricsService : IPaymentProcessingMetricsService
                 {
                     using var scope = _serviceProvider.CreateScope();
                     var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
-                    // TODO: Fix data model inconsistency - convert long paymentId to Guid
-                    var guidBytes = new byte[16];
-                    BitConverter.GetBytes(paymentId).CopyTo(guidBytes, 0);
-                    var paymentGuid = new Guid(guidBytes);
-                    var payment = await paymentRepository.GetByIdAsync(paymentGuid);
+                    var payment = await paymentRepository.GetByIdAsync(paymentId);
                     
                     if (payment != null)
                     {
@@ -391,7 +383,7 @@ public class PaymentProcessingMetricsService : IPaymentProcessingMetricsService
         }
     }
 
-    public void RecordBusinessMetrics(int teamId, decimal amount, string currency, PaymentStatus status)
+    public void RecordBusinessMetrics(Guid teamId, decimal amount, string currency, PaymentStatus status)
     {
         try
         {
@@ -458,7 +450,7 @@ public class PaymentProcessingMetricsService : IPaymentProcessingMetricsService
         }
     }
 
-    public async Task<ProcessingAnalytics> GetProcessingAnalyticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
+    public async Task<ProcessingAnalytics> GetProcessingAnalyticsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -639,7 +631,7 @@ public class PaymentProcessingMetricsService : IPaymentProcessingMetricsService
         }
     }
 
-    private void UpdateSuccessRateMetrics(int teamId)
+    private void UpdateSuccessRateMetrics(Guid teamId)
     {
         try
         {

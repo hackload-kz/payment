@@ -95,10 +95,10 @@ public class PaymentMethodInfo : BaseEntity, IAuditableEntity
     public DateTime? VerifiedAt { get; set; }
     
     // Customer and team associations
-    public int? CustomerId { get; set; }
+    public Guid? CustomerId { get; set; }
     public virtual Customer? Customer { get; set; }
     
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public virtual Team Team { get; set; } = null!;
     
     // Payment associations

@@ -341,7 +341,7 @@ public class PaymentFormIntegrationService
             // Process card payment through integration
             var cardProcessingResult = await _cardProcessingService.ProcessCardPaymentAsync(new CardPaymentRequest
             {
-                PaymentId = payment.Id.GetHashCode(), // TODO: Fix data model - convert Guid to long
+                PaymentId = payment.Id,
                 TeamId = payment.TeamId,
                 OrderId = payment.OrderId,
                 CardNumber = request.CardNumber!,

@@ -23,8 +23,8 @@ public interface ICardPaymentProcessingService
     Task<CardTokenizationResult> TokenizeCardAsync(CardPaymentRequest request, CancellationToken cancellationToken = default);
     Task<CardProcessingResult> ProcessCardPaymentAsync(CardPaymentRequest request, CancellationToken cancellationToken = default);
     Task<BinDetectionResult> DetectCardBinAsync(string cardNumber, CancellationToken cancellationToken = default);
-    Task<IEnumerable<CardTransaction>> GetCardTransactionsAsync(int teamId, DateTime? fromDate = null, DateTime? toDate = null, CancellationToken cancellationToken = default);
-    Task<CardProcessingStatistics> GetCardProcessingStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
+    Task<IEnumerable<CardTransaction>> GetCardTransactionsAsync(Guid teamId, DateTime? fromDate = null, DateTime? toDate = null, CancellationToken cancellationToken = default);
+    Task<CardProcessingStatistics> GetCardProcessingStatisticsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
 }
 
 public class CardPaymentRequest
@@ -36,8 +36,8 @@ public class CardPaymentRequest
     public string CardholderName { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public string Currency { get; set; } = "RUB";
-    public long PaymentId { get; set; }
-    public int TeamId { get; set; }
+    public Guid PaymentId { get; set; }
+    public Guid TeamId { get; set; }
     public string OrderId { get; set; } = string.Empty;
     public Dictionary<string, object> Metadata { get; set; } = new();
 }
@@ -126,8 +126,8 @@ public enum CardLevel
 
 public class CardTransaction : BaseEntity
 {
-    public long PaymentId { get; set; }
-    public int TeamId { get; set; }
+    public Guid PaymentId { get; set; }
+    public Guid TeamId { get; set; }
     public string OrderId { get; set; } = string.Empty;
     public string MaskedCardNumber { get; set; } = string.Empty;
     public CardType CardType { get; set; }
@@ -509,7 +509,7 @@ public class CardPaymentProcessingService : ICardPaymentProcessingService
         }
     }
 
-    public async Task<IEnumerable<CardTransaction>> GetCardTransactionsAsync(int teamId, DateTime? fromDate = null, DateTime? toDate = null, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<CardTransaction>> GetCardTransactionsAsync(Guid teamId, DateTime? fromDate = null, DateTime? toDate = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -524,7 +524,7 @@ public class CardPaymentProcessingService : ICardPaymentProcessingService
         }
     }
 
-    public async Task<CardProcessingStatistics> GetCardProcessingStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
+    public async Task<CardProcessingStatistics> GetCardProcessingStatisticsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
     {
         try
         {

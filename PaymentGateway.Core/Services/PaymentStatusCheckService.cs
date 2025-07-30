@@ -19,14 +19,14 @@ namespace PaymentGateway.Core.Services;
 /// </summary>
 public interface IPaymentStatusCheckService
 {
-    Task<StatusCheckResult> CheckOrderStatusAsync(string orderId, int teamId, CancellationToken cancellationToken = default);
-    Task<StatusCheckResult> CheckPaymentStatusAsync(long paymentId, CancellationToken cancellationToken = default);
+    Task<StatusCheckResult> CheckOrderStatusAsync(string orderId, Guid teamId, CancellationToken cancellationToken = default);
+    Task<StatusCheckResult> CheckPaymentStatusAsync(Guid paymentId, CancellationToken cancellationToken = default);
     Task<StatusCheckResult> CheckPaymentByPaymentIdAsync(string paymentId, CancellationToken cancellationToken = default);
-    Task<IEnumerable<PaymentStatusHistory>> GetPaymentStatusHistoryAsync(long paymentId, CancellationToken cancellationToken = default);
-    Task<StatusCheckStatistics> GetStatusCheckStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
-    Task<IEnumerable<Payment>> GetActivePaymentsAsync(int teamId, int limit = 100, CancellationToken cancellationToken = default);
+    Task<IEnumerable<PaymentStatusHistory>> GetPaymentStatusHistoryAsync(Guid paymentId, CancellationToken cancellationToken = default);
+    Task<StatusCheckStatistics> GetStatusCheckStatisticsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Payment>> GetActivePaymentsAsync(Guid teamId, int limit = 100, CancellationToken cancellationToken = default);
     Task<bool> IsPaymentStatusFinalAsync(PaymentStatus status);
-    Task<PaymentStatusSummary> GetPaymentStatusSummaryAsync(int teamId, DateTime? fromDate = null, DateTime? toDate = null, CancellationToken cancellationToken = default);
+    Task<PaymentStatusSummary> GetPaymentStatusSummaryAsync(Guid teamId, DateTime? fromDate = null, DateTime? toDate = null, CancellationToken cancellationToken = default);
     
     // Methods needed by PaymentCheckController
     Task<PaymentCheckResponseDto> CheckPaymentByIdAsync(string paymentId, PaymentCheckRequestDto request, CancellationToken cancellationToken = default);
@@ -36,7 +36,7 @@ public interface IPaymentStatusCheckService
 public class StatusCheckResult
 {
     public string OrderId { get; set; }
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public string TeamSlug { get; set; }
     public bool Success { get; set; }
     public string ErrorCode { get; set; } = "0";
@@ -98,7 +98,7 @@ public class StatusCheckStatistics
 
 public class PaymentStatusSummary
 {
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public DateTime FromDate { get; set; }
     public DateTime ToDate { get; set; }
     public int TotalPayments { get; set; }
@@ -178,7 +178,7 @@ public class PaymentStatusCheckService : IPaymentStatusCheckService
         _logger = logger;
     }
 
-    public async Task<StatusCheckResult> CheckOrderStatusAsync(string orderId, int teamId, CancellationToken cancellationToken = default)
+    public async Task<StatusCheckResult> CheckOrderStatusAsync(string orderId, Guid teamId, CancellationToken cancellationToken = default)
     {
         using var activity = StatusCheckDuration.NewTimer();
         var startTime = DateTime.UtcNow;
@@ -212,7 +212,7 @@ public class PaymentStatusCheckService : IPaymentStatusCheckService
             }
 
             // Get team information
-            var team = await _teamRepository.GetByIdAsync(new Guid(teamId.ToString()), cancellationToken);
+            var team = await _teamRepository.GetByIdAsync(teamId, cancellationToken);
             if (team == null)
             {
                 StatusCheckOperations.WithLabels(teamId.ToString(), "failed", "team_not_found").Inc();
@@ -288,7 +288,7 @@ public class PaymentStatusCheckService : IPaymentStatusCheckService
         }
     }
 
-    public async Task<StatusCheckResult> CheckPaymentStatusAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<StatusCheckResult> CheckPaymentStatusAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         using var activity = StatusCheckDuration.NewTimer();
         var startTime = DateTime.UtcNow;
@@ -363,8 +363,8 @@ public class PaymentStatusCheckService : IPaymentStatusCheckService
                 };
             }
 
-            // TODO: Fix data model inconsistency - method expects long but entity ID is Guid
-            return await CheckPaymentStatusAsync(payment.Id.GetHashCode(), cancellationToken);
+            // Fixed: Now using Guid directly instead of GetHashCode conversion
+            return await CheckPaymentStatusAsync(payment.Id, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -378,7 +378,7 @@ public class PaymentStatusCheckService : IPaymentStatusCheckService
         }
     }
 
-    public async Task<IEnumerable<PaymentStatusHistory>> GetPaymentStatusHistoryAsync(long paymentId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<PaymentStatusHistory>> GetPaymentStatusHistoryAsync(Guid paymentId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -393,7 +393,7 @@ public class PaymentStatusCheckService : IPaymentStatusCheckService
         }
     }
 
-    public async Task<StatusCheckStatistics> GetStatusCheckStatisticsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
+    public async Task<StatusCheckStatistics> GetStatusCheckStatisticsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -432,7 +432,7 @@ public class PaymentStatusCheckService : IPaymentStatusCheckService
         }
     }
 
-    public async Task<IEnumerable<Payment>> GetActivePaymentsAsync(int teamId, int limit = 100, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Payment>> GetActivePaymentsAsync(Guid teamId, int limit = 100, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -465,7 +465,7 @@ public class PaymentStatusCheckService : IPaymentStatusCheckService
         return FinalStatuses.Contains(status);
     }
 
-    public async Task<PaymentStatusSummary> GetPaymentStatusSummaryAsync(int teamId, DateTime? fromDate = null, DateTime? toDate = null, CancellationToken cancellationToken = default)
+    public async Task<PaymentStatusSummary> GetPaymentStatusSummaryAsync(Guid teamId, DateTime? fromDate = null, DateTime? toDate = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -665,7 +665,7 @@ public class PaymentStatusCheckService : IPaymentStatusCheckService
         {
             // Note: GetByOrderIdAsync returns a single payment, but we wrap it in a collection
             // In a real implementation, you might have a method that returns multiple payments per order
-            var payment = await _paymentRepository.GetByOrderIdAsync(orderId, 0, cancellationToken); // teamId will be validated elsewhere
+            var payment = await _paymentRepository.GetByOrderIdAsync(request.TeamSlug, orderId, cancellationToken); // Use TeamSlug from request
             var payments = payment != null ? new List<Payment> { payment } : new List<Payment>();
             
             if (!payments.Any())

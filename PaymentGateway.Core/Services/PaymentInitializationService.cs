@@ -246,11 +246,7 @@ public class PaymentInitializationService : IPaymentInitializationService
         {
             // In a real implementation, this would validate customer against the database
             var customer = await _customerRepository.GetByIdAsync(Guid.Parse(customerKey), cancellationToken);
-            // TODO: Fix data model inconsistency - customer.TeamId is int but team.Id is Guid
-            var customerTeamGuid = customer != null 
-                ? new Guid(customer.TeamId.ToString().PadLeft(32, '0').Insert(8, "-").Insert(12, "-").Insert(16, "-").Insert(20, "-"))
-                : (Guid?)null;
-            return customerTeamGuid == team.Id ? customer : null;
+            return customer?.TeamId == team.Id ? customer : null;
         }
         catch (Exception ex)
         {
@@ -343,9 +339,9 @@ public class PaymentInitializationService : IPaymentInitializationService
             Status = Enums.PaymentStatus.INIT,
             Description = request.Description,
             Team = team,
-            TeamId = team.Id.GetHashCode(), // TODO: Fix data model - convert Guid to int
+            TeamId = team.Id,
             Customer = customer,
-            CustomerId = customer?.Id != null ? customer.Id.GetHashCode() : null, // TODO: Fix data model - convert Guid to int
+            CustomerId = customer?.Id,
             CustomerEmail = request.Email ?? customer?.Email,
             ExpiresAt = expiryTime,
             CreatedAt = DateTime.UtcNow,
