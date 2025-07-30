@@ -137,13 +137,16 @@ public class PaymentMethodInfoConfiguration : IEntityTypeConfiguration<PaymentMe
         builder.Property(pm => pm.RowVersion)
             .IsRowVersion();
             
-        // Check constraints
-        builder.HasCheckConstraint("CK_PaymentMethods_UsageCount", "UsageCount >= 0");
-        builder.HasCheckConstraint("CK_PaymentMethods_TotalAmountProcessed", "TotalAmountProcessed >= 0");
-        builder.HasCheckConstraint("CK_PaymentMethods_SuccessfulTransactions", "SuccessfulTransactions >= 0");
-        builder.HasCheckConstraint("CK_PaymentMethods_FailedTransactions", "FailedTransactions >= 0");
-        builder.HasCheckConstraint("CK_PaymentMethods_CardExpiryMonth", "CardExpiryMonth IS NULL OR (CardExpiryMonth >= 1 AND CardExpiryMonth <= 12)");
-        builder.HasCheckConstraint("CK_PaymentMethods_CardExpiryYear", "CardExpiryYear IS NULL OR CardExpiryYear >= 2024");
+        // Check constraints using modern syntax
+        builder.ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_PaymentMethods_UsageCount", "UsageCount >= 0");
+            t.HasCheckConstraint("CK_PaymentMethods_TotalAmountProcessed", "TotalAmountProcessed >= 0");
+            t.HasCheckConstraint("CK_PaymentMethods_SuccessfulTransactions", "SuccessfulTransactions >= 0");
+            t.HasCheckConstraint("CK_PaymentMethods_FailedTransactions", "FailedTransactions >= 0");
+            t.HasCheckConstraint("CK_PaymentMethods_CardExpiryMonth", "CardExpiryMonth IS NULL OR (CardExpiryMonth >= 1 AND CardExpiryMonth <= 12)");
+            t.HasCheckConstraint("CK_PaymentMethods_CardExpiryYear", "CardExpiryYear IS NULL OR CardExpiryYear >= 2024");
+        });
         
         // Foreign key relationships
         builder.HasOne(pm => pm.Customer)

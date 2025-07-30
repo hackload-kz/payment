@@ -588,7 +588,7 @@ public class AntiBotValidationResult
 
 public class CaptchaValidationResult : AntiBotValidationResult
 {
-    public string? FailureReason { get; set; }
+    public new string? FailureReason { get; set; }
     public double? Score { get; set; }
 }
 

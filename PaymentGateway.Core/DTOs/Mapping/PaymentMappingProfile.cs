@@ -274,7 +274,7 @@ public class DataDictionaryConverter : ITypeConverter<Dictionary<string, object>
 {
     public Dictionary<string, string> Convert(Dictionary<string, object> source, Dictionary<string, string> destination, ResolutionContext context)
     {
-        return source.ToDictionary(kvp => kvp.Key, kvp => kvp.Value != null ? kvp.Value.ToString() : "");
+        return source.ToDictionary(kvp => kvp.Key, kvp => kvp.Value?.ToString() ?? "");
     }
 }
 

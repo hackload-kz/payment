@@ -195,8 +195,14 @@ public class AuditAnalysisService : IAuditAnalysisService
         }
 
         // Anomaly 2: Unusual user activity
-        var baselineUserActivity = baselineEntries.GroupBy(e => e.UserId).ToDictionary(g => g.Key, g => g.Count());
-        var currentUserActivity = currentEntries.GroupBy(e => e.UserId).ToDictionary(g => g.Key, g => g.Count());
+        var baselineUserActivity = baselineEntries
+            .Where(e => !string.IsNullOrEmpty(e.UserId))
+            .GroupBy(e => e.UserId!)
+            .ToDictionary(g => g.Key, g => g.Count());
+        var currentUserActivity = currentEntries
+            .Where(e => !string.IsNullOrEmpty(e.UserId))
+            .GroupBy(e => e.UserId!)
+            .ToDictionary(g => g.Key, g => g.Count());
 
         foreach (var user in currentUserActivity.Keys)
         {

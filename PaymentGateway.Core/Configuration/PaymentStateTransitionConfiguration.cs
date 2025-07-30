@@ -99,11 +99,13 @@ public class PaymentStateTransitionConfiguration : IEntityTypeConfiguration<Paym
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("FK_PaymentStateTransitions_Payments");
 
-        // Check constraints
-        builder.HasCheckConstraint("CK_PaymentStateTransitions_TransitionedAt_Valid", 
-            "\"TransitionedAt\" >= '2020-01-01'::timestamp");
-            
-        builder.HasCheckConstraint("CK_PaymentStateTransitions_FromStatus_ToStatus_Different", 
-            "\"FromStatus\" != \"ToStatus\"");
+        // Check constraints using modern syntax
+        builder.ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_PaymentStateTransitions_TransitionedAt_Valid", 
+                "\"TransitionedAt\" >= '2020-01-01'::timestamp");
+            t.HasCheckConstraint("CK_PaymentStateTransitions_FromStatus_ToStatus_Different", 
+                "\"FromStatus\" != \"ToStatus\"");
+        });
     }
 }

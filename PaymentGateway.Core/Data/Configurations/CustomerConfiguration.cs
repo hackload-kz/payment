@@ -98,11 +98,14 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         builder.Property(c => c.RowVersion)
             .IsRowVersion();
             
-        // Check constraints
-        builder.HasCheckConstraint("CK_Customers_RiskScore", "RiskScore >= 0 AND RiskScore <= 100");
-        builder.HasCheckConstraint("CK_Customers_TotalPaymentCount", "TotalPaymentCount >= 0");
-        builder.HasCheckConstraint("CK_Customers_TotalPaymentAmount", "TotalPaymentAmount >= 0");
-        builder.HasCheckConstraint("CK_Customers_RiskLevel", "RiskLevel IN ('VERY_LOW', 'LOW', 'MEDIUM', 'HIGH')");
+        // Check constraints using modern syntax
+        builder.ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_Customers_RiskScore", "RiskScore >= 0 AND RiskScore <= 100");
+            t.HasCheckConstraint("CK_Customers_TotalPaymentCount", "TotalPaymentCount >= 0");
+            t.HasCheckConstraint("CK_Customers_TotalPaymentAmount", "TotalPaymentAmount >= 0");
+            t.HasCheckConstraint("CK_Customers_RiskLevel", "RiskLevel IN ('VERY_LOW', 'LOW', 'MEDIUM', 'HIGH')");
+        });
         
         // Foreign key relationships
         builder.HasOne(c => c.Team)

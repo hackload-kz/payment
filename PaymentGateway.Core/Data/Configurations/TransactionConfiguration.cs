@@ -78,13 +78,16 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
         builder.Property(t => t.RowVersion)
             .IsRowVersion();
             
-        // Check constraints
-        builder.HasCheckConstraint("CK_Transactions_Amount", "Amount > 0");
-        builder.HasCheckConstraint("CK_Transactions_TotalFees", "TotalFees >= 0");
-        builder.HasCheckConstraint("CK_Transactions_ProcessingFee", "ProcessingFee >= 0");
-        builder.HasCheckConstraint("CK_Transactions_AcquirerFee", "AcquirerFee >= 0");
-        builder.HasCheckConstraint("CK_Transactions_FraudScore", "FraudScore >= 0 AND FraudScore <= 100");
-        builder.HasCheckConstraint("CK_Transactions_RetryAttempts", "RetryAttempts >= 0");
+        // Check constraints using modern syntax
+        builder.ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_Transactions_Amount", "Amount > 0");
+            t.HasCheckConstraint("CK_Transactions_TotalFees", "TotalFees >= 0");
+            t.HasCheckConstraint("CK_Transactions_ProcessingFee", "ProcessingFee >= 0");
+            t.HasCheckConstraint("CK_Transactions_AcquirerFee", "AcquirerFee >= 0");
+            t.HasCheckConstraint("CK_Transactions_FraudScore", "FraudScore >= 0 AND FraudScore <= 100");
+            t.HasCheckConstraint("CK_Transactions_RetryAttempts", "RetryAttempts >= 0");
+        });
         
         // Foreign key relationships
         builder.HasOne(t => t.Payment)

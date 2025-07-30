@@ -260,7 +260,7 @@ public class BackgroundProcessingService : BackgroundService, IBackgroundProcess
         _taskReader = channel.Reader;
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public override async Task StartAsync(CancellationToken cancellationToken)
     {
         _startedAt = DateTime.UtcNow;
         _logger.LogInformation("Background processing service starting");
@@ -273,7 +273,7 @@ public class BackgroundProcessingService : BackgroundService, IBackgroundProcess
         _logger.LogInformation("Background processing service started successfully");
     }
 
-    public async Task StopAsync(CancellationToken cancellationToken)
+    public override async Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Background processing service stopping");
         

@@ -68,14 +68,17 @@ public class TeamConfiguration : IEntityTypeConfiguration<Team>
         builder.Property(t => t.RowVersion)
             .IsRowVersion();
             
-        // Check constraints
-        builder.HasCheckConstraint("CK_Teams_MinPaymentAmount", "MinPaymentAmount >= 0");
-        builder.HasCheckConstraint("CK_Teams_MaxPaymentAmount", "MaxPaymentAmount >= 0");
-        builder.HasCheckConstraint("CK_Teams_DailyPaymentLimit", "DailyPaymentLimit >= 0");
-        builder.HasCheckConstraint("CK_Teams_MonthlyPaymentLimit", "MonthlyPaymentLimit >= 0");
-        builder.HasCheckConstraint("CK_Teams_FailedAuthenticationAttempts", "FailedAuthenticationAttempts >= 0");
-        builder.HasCheckConstraint("CK_Teams_MinMax_PaymentAmount", "MinPaymentAmount IS NULL OR MaxPaymentAmount IS NULL OR MinPaymentAmount <= MaxPaymentAmount");
-        builder.HasCheckConstraint("CK_Teams_DailyMonthly_PaymentLimit", "DailyPaymentLimit IS NULL OR MonthlyPaymentLimit IS NULL OR DailyPaymentLimit <= MonthlyPaymentLimit");
+        // Check constraints using modern syntax
+        builder.ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_Teams_MinPaymentAmount", "MinPaymentAmount >= 0");
+            t.HasCheckConstraint("CK_Teams_MaxPaymentAmount", "MaxPaymentAmount >= 0");
+            t.HasCheckConstraint("CK_Teams_DailyPaymentLimit", "DailyPaymentLimit >= 0");
+            t.HasCheckConstraint("CK_Teams_MonthlyPaymentLimit", "MonthlyPaymentLimit >= 0");
+            t.HasCheckConstraint("CK_Teams_FailedAuthenticationAttempts", "FailedAuthenticationAttempts >= 0");
+            t.HasCheckConstraint("CK_Teams_MinMax_PaymentAmount", "MinPaymentAmount IS NULL OR MaxPaymentAmount IS NULL OR MinPaymentAmount <= MaxPaymentAmount");
+            t.HasCheckConstraint("CK_Teams_DailyMonthly_PaymentLimit", "DailyPaymentLimit IS NULL OR MonthlyPaymentLimit IS NULL OR DailyPaymentLimit <= MonthlyPaymentLimit");
+        });
         
         // JSON columns for collections
         builder.Property(t => t.SupportedCurrencies)

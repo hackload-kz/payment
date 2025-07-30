@@ -81,12 +81,15 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.Property(p => p.RowVersion)
             .IsRowVersion();
             
-        // Check constraints
-        builder.HasCheckConstraint("CK_Payments_Amount", "Amount > 0");
-        builder.HasCheckConstraint("CK_Payments_RefundedAmount", "RefundedAmount >= 0");
-        builder.HasCheckConstraint("CK_Payments_RefundedAmount_LessOrEqual_Amount", "RefundedAmount <= Amount");
-        builder.HasCheckConstraint("CK_Payments_RefundCount", "RefundCount >= 0");
-        builder.HasCheckConstraint("CK_Payments_AuthorizationAttempts", "AuthorizationAttempts >= 0");
+        // Check constraints using modern syntax
+        builder.ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_Payments_Amount", "Amount > 0");
+            t.HasCheckConstraint("CK_Payments_RefundedAmount", "RefundedAmount >= 0");
+            t.HasCheckConstraint("CK_Payments_RefundedAmount_LessOrEqual_Amount", "RefundedAmount <= Amount");
+            t.HasCheckConstraint("CK_Payments_RefundCount", "RefundCount >= 0");
+            t.HasCheckConstraint("CK_Payments_AuthorizationAttempts", "AuthorizationAttempts >= 0");
+        });
         
         // Foreign key relationships
         builder.HasOne(p => p.Team)

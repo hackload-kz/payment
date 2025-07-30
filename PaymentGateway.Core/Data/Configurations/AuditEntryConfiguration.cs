@@ -146,9 +146,12 @@ public class AuditEntryConfiguration : IEntityTypeConfiguration<AuditEntry>
         builder.Property<DateTime>("CreatedAt")
             .HasDefaultValueSql("CURRENT_TIMESTAMP");
             
-        // Add check constraints for data integrity
-        builder.HasCheckConstraint("CK_AuditLog_RiskScore", "\"RiskScore\" IS NULL OR (\"RiskScore\" >= 0 AND \"RiskScore\" <= 999.99)");
-        builder.HasCheckConstraint("CK_AuditLog_ArchivedConstraint", "(\"IsArchived\" = false AND \"ArchivedAt\" IS NULL) OR (\"IsArchived\" = true AND \"ArchivedAt\" IS NOT NULL)");
-        builder.HasCheckConstraint("CK_AuditLog_Timestamp", "\"Timestamp\" <= CURRENT_TIMESTAMP");
+        // Add check constraints for data integrity using modern syntax
+        builder.ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_AuditLog_RiskScore", "\"RiskScore\" IS NULL OR (\"RiskScore\" >= 0 AND \"RiskScore\" <= 999.99)");
+            t.HasCheckConstraint("CK_AuditLog_ArchivedConstraint", "(\"IsArchived\" = false AND \"ArchivedAt\" IS NULL) OR (\"IsArchived\" = true AND \"ArchivedAt\" IS NOT NULL)");
+            t.HasCheckConstraint("CK_AuditLog_Timestamp", "\"Timestamp\" <= CURRENT_TIMESTAMP");
+        });
     }
 }
