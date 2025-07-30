@@ -152,7 +152,7 @@ public class PaymentInitController : ControllerBase
         
         var requestId = Guid.NewGuid().ToString();
         var startTime = DateTime.UtcNow;
-        var teamId = HttpContext.Items["TeamId"] as int? ?? 0;
+        var teamId = HttpContext.Items["TeamId"] as Guid? ?? Guid.Empty;
         var teamSlug = HttpContext.Items["TeamSlug"] as string ?? "";
         
         traceActivity?.SetTag("payment.request_id", requestId);
@@ -581,7 +581,7 @@ public class PaymentInitController : ControllerBase
         };
     }
 
-    private async Task<PaymentInitValidationResult> ValidatePaymentInitRequestAsync(PaymentInitRequestDto request, int teamId, CancellationToken cancellationToken)
+    private async Task<PaymentInitValidationResult> ValidatePaymentInitRequestAsync(PaymentInitRequestDto request, Guid teamId, CancellationToken cancellationToken)
     {
         var errors = new List<string>();
         var warnings = new List<string>();
@@ -662,7 +662,7 @@ public class PaymentInitController : ControllerBase
         };
     }
 
-    private PaymentInitRequestDto EnhanceRequestWithContext(PaymentInitRequestDto request, string requestId, int teamId, string teamSlug, string clientIp, string userAgent)
+    private PaymentInitRequestDto EnhanceRequestWithContext(PaymentInitRequestDto request, string requestId, Guid teamId, string teamSlug, string clientIp, string userAgent)
     {
         // Add contextual information to the request
         if (request.Data == null)

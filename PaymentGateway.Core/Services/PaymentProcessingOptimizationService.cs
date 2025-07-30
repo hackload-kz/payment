@@ -20,11 +20,11 @@ public interface IPaymentProcessingOptimizationService
     Task<OptimizationResult> OptimizePaymentAsync(long paymentId, OptimizationOptions options = null, CancellationToken cancellationToken = default);
     Task<BatchOptimizationResult> OptimizeBatchAsync(IEnumerable<long> paymentIds, OptimizationOptions options = null, CancellationToken cancellationToken = default);
     Task<ProcessingRecommendation> GetProcessingRecommendationAsync(long paymentId, CancellationToken cancellationToken = default);
-    Task<PerformanceMetrics> GetPerformanceMetricsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
+    Task<PerformanceMetrics> GetPerformanceMetricsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default);
     Task WarmupCacheAsync(CancellationToken cancellationToken = default);
-    Task<OptimizationConfiguration> GetOptimizationConfigurationAsync(int teamId, CancellationToken cancellationToken = default);
-    Task UpdateOptimizationConfigurationAsync(int teamId, OptimizationConfiguration configuration, CancellationToken cancellationToken = default);
-    Task<IEnumerable<OptimizationInsight>> GenerateOptimizationInsightsAsync(int? teamId = null, CancellationToken cancellationToken = default);
+    Task<OptimizationConfiguration> GetOptimizationConfigurationAsync(Guid teamId, CancellationToken cancellationToken = default);
+    Task UpdateOptimizationConfigurationAsync(Guid teamId, OptimizationConfiguration configuration, CancellationToken cancellationToken = default);
+    Task<IEnumerable<OptimizationInsight>> GenerateOptimizationInsightsAsync(Guid? teamId = null, CancellationToken cancellationToken = default);
 }
 
 public class OptimizationOptions
@@ -138,7 +138,7 @@ public class PaymentProcessingOptimizationService : IPaymentProcessingOptimizati
     // Performance tracking
     private readonly ConcurrentDictionary<long, DateTime> _processingStartTimes = new();
     private readonly ConcurrentDictionary<long, List<string>> _appliedOptimizations = new();
-    private readonly ConcurrentDictionary<int, OptimizationConfiguration> _teamConfigurations = new();
+    private readonly ConcurrentDictionary<Guid, OptimizationConfiguration> _teamConfigurations = new();
     
     // Metrics
     private static readonly Counter OptimizationOperations = Metrics
@@ -366,7 +366,7 @@ public class PaymentProcessingOptimizationService : IPaymentProcessingOptimizati
         }
     }
 
-    public async Task<PerformanceMetrics> GetPerformanceMetricsAsync(int? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
+    public async Task<PerformanceMetrics> GetPerformanceMetricsAsync(Guid? teamId = null, TimeSpan? period = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -440,7 +440,7 @@ public class PaymentProcessingOptimizationService : IPaymentProcessingOptimizati
         }
     }
 
-    public async Task<OptimizationConfiguration> GetOptimizationConfigurationAsync(int teamId, CancellationToken cancellationToken = default)
+    public async Task<OptimizationConfiguration> GetOptimizationConfigurationAsync(Guid teamId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -462,7 +462,7 @@ public class PaymentProcessingOptimizationService : IPaymentProcessingOptimizati
         }
     }
 
-    public async Task UpdateOptimizationConfigurationAsync(int teamId, OptimizationConfiguration configuration, CancellationToken cancellationToken = default)
+    public async Task UpdateOptimizationConfigurationAsync(Guid teamId, OptimizationConfiguration configuration, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -476,7 +476,7 @@ public class PaymentProcessingOptimizationService : IPaymentProcessingOptimizati
         }
     }
 
-    public async Task<IEnumerable<OptimizationInsight>> GenerateOptimizationInsightsAsync(int? teamId = null, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<OptimizationInsight>> GenerateOptimizationInsightsAsync(Guid? teamId = null, CancellationToken cancellationToken = default)
     {
         try
         {

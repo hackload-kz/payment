@@ -307,13 +307,34 @@ public class PaymentTimeoutExpirationService : IPaymentTimeoutExpirationService
                 return cachedConfig;
             }
 
-            // TODO: Implement proper team lookup by integer teamId
-            // For now, using default configuration since Team.TimeoutConfiguration doesn't exist
-            // and there's no clear mapping between int teamId and Team.Id (Guid)
+            // Lookup team configuration from repository
+            var team = await _teamRepository.GetByIdAsync(teamId, cancellationToken);
+            if (team == null)
+            {
+                _logger.LogWarning("Team not found for timeout configuration lookup: {TeamId}", teamId);
+                _teamConfigurations.TryAdd(teamId, DefaultConfiguration);
+                return DefaultConfiguration;
+            }
 
-            // Use default configuration
-            _teamConfigurations.TryAdd(teamId, DefaultConfiguration);
-            return DefaultConfiguration;
+            // Create team-specific configuration based on team settings
+            var teamConfiguration = new PaymentTimeoutConfiguration
+            {
+                DefaultTimeout = TimeSpan.FromSeconds(team.WebhookTimeoutSeconds),
+                MaxTimeout = TimeSpan.FromHours(24),
+                MinTimeout = TimeSpan.FromMinutes(1),
+                WarningPeriod = TimeSpan.FromMinutes(2),
+                EnableAutomaticExpiration = true,
+                EnableExpirationWarnings = true,
+                StatusSpecificTimeouts = new Dictionary<PaymentStatus, TimeSpan>
+                {
+                    [PaymentStatus.NEW] = TimeSpan.FromMinutes(15),
+                    [PaymentStatus.PROCESSING] = TimeSpan.FromSeconds(team.WebhookTimeoutSeconds),
+                    [PaymentStatus.AUTHORIZED] = TimeSpan.FromHours(24)
+                }
+            };
+
+            _teamConfigurations.TryAdd(teamId, teamConfiguration);
+            return teamConfiguration;
         }
         catch (Exception ex)
         {

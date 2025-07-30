@@ -25,7 +25,7 @@ public interface IBusinessRuleEngineService
     Task<BusinessRule> CreateRuleAsync(BusinessRule rule, CancellationToken cancellationToken = default);
     Task<BusinessRule> UpdateRuleAsync(BusinessRule rule, CancellationToken cancellationToken = default);
     Task<bool> DeleteRuleAsync(string ruleId, CancellationToken cancellationToken = default);
-    Task<IEnumerable<BusinessRule>> GetRulesAsync(int? teamId = null, RuleType? type = null, bool activeOnly = true, CancellationToken cancellationToken = default);
+    Task<IEnumerable<BusinessRule>> GetRulesAsync(Guid? teamId = null, RuleType? type = null, bool activeOnly = true, CancellationToken cancellationToken = default);
     Task<RuleTestResult> TestRuleAsync(BusinessRule rule, RuleTestContext testContext, CancellationToken cancellationToken = default);
     Task<RulePerformanceStatistics> GetRulePerformanceStatisticsAsync(TimeSpan? period = null, CancellationToken cancellationToken = default);
     Task RefreshRuleCacheAsync(CancellationToken cancellationToken = default);
@@ -34,7 +34,7 @@ public interface IBusinessRuleEngineService
 public class PaymentRuleContext
 {
     public long PaymentId { get; set; }
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public string TeamSlug { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public string Currency { get; set; } = string.Empty;
@@ -50,7 +50,7 @@ public class PaymentRuleContext
 
 public class AmountRuleContext
 {
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public decimal Amount { get; set; }
     public string Currency { get; set; } = string.Empty;
     public string PaymentMethod { get; set; } = string.Empty;
@@ -65,7 +65,7 @@ public class AmountRuleContext
 
 public class CurrencyRuleContext
 {
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public string Currency { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public string CustomerCountry { get; set; } = string.Empty;
@@ -77,7 +77,7 @@ public class CurrencyRuleContext
 
 public class TeamRuleContext
 {
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public string TeamSlug { get; set; } = string.Empty;
     public bool IsActive { get; set; }
     public DateTime LastPaymentDate { get; set; }
@@ -142,7 +142,7 @@ public enum RuleAction
 
 public class BusinessRule : BaseEntity
 {
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public RuleType Type { get; set; }
@@ -198,7 +198,7 @@ public class RulePerformanceStatistics
 public class RuleChangeAuditLog : BaseEntity
 {
     public string RuleId { get; set; } = string.Empty;
-    public int TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public string Action { get; set; } = string.Empty; // CREATE, UPDATE, DELETE, ACTIVATE, DEACTIVATE
     public string OldRuleData { get; set; } = string.Empty;
     public string NewRuleData { get; set; } = string.Empty;
@@ -581,7 +581,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
         }
     }
 
-    public async Task<IEnumerable<BusinessRule>> GetRulesAsync(int? teamId = null, RuleType? type = null, bool activeOnly = true, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<BusinessRule>> GetRulesAsync(Guid? teamId = null, RuleType? type = null, bool activeOnly = true, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -733,7 +733,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
 
     #region Private Helper Methods
 
-    private async Task<IEnumerable<BusinessRule>> GetApplicableRulesAsync(int teamId, RuleType ruleType, CancellationToken cancellationToken)
+    private async Task<IEnumerable<BusinessRule>> GetApplicableRulesAsync(Guid teamId, RuleType ruleType, CancellationToken cancellationToken)
     {
         var cacheKey = $"rules_{teamId}_{ruleType}";
         if (_cache.TryGetValue<IEnumerable<BusinessRule>>(cacheKey, out var cachedRules) && cachedRules != null)
@@ -947,7 +947,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
         };
     }
 
-    private async Task<decimal> GetDailyTotalAsync(int teamId, CancellationToken cancellationToken)
+    private async Task<decimal> GetDailyTotalAsync(Guid teamId, CancellationToken cancellationToken)
     {
         // This would query actual payment data in production
         // For now, return simulated daily total
@@ -982,7 +982,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
         }
     }
 
-    private async Task LogRuleChangeAsync(string ruleId, int teamId, string action, string oldData, string newData, string changedBy, string reason, CancellationToken cancellationToken)
+    private async Task LogRuleChangeAsync(string ruleId, Guid teamId, string action, string oldData, string newData, string changedBy, string reason, CancellationToken cancellationToken)
     {
         try
         {
@@ -1035,7 +1035,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
         return new PaymentRuleContext
         {
             PaymentId = testData.TryGetValue("payment_id", out var paymentId) ? Convert.ToInt64(paymentId) : 1,
-            TeamId = testData.TryGetValue("team_id", out var teamId) ? Convert.ToInt32(teamId) : 1,
+            TeamId = testData.TryGetValue("team_id", out var teamId) ? Guid.Parse(teamId.ToString()!) : Guid.NewGuid(),
             Amount = testData.TryGetValue("amount", out var amount) ? Convert.ToDecimal(amount) : 1000m,
             Currency = testData.TryGetValue("currency", out var currency) ? currency.ToString() ?? "RUB" : "RUB",
             PaymentDate = DateTime.UtcNow
@@ -1060,7 +1060,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
             new BusinessRule
             {
                 Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
-                TeamId = 0, // Global rule
+                TeamId = Guid.Empty, // Global rule
                 Name = "Default Daily Limit",
                 Description = "Default daily payment limit for all teams",
                 Type = RuleType.PAYMENT_LIMIT,
@@ -1074,7 +1074,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
             new BusinessRule
             {
                 Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
-                TeamId = 0,
+                TeamId = Guid.Empty,
                 Name = "Default Transaction Limit",
                 Description = "Default single transaction limit",
                 Type = RuleType.PAYMENT_LIMIT,
@@ -1088,7 +1088,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
             new BusinessRule
             {
                 Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
-                TeamId = 0,
+                TeamId = Guid.Empty,
                 Name = "Minimum Amount",
                 Description = "Minimum payment amount validation",
                 Type = RuleType.AMOUNT_VALIDATION,
@@ -1168,9 +1168,9 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
         // Simplified implementation for compilation
         return new RuleEvaluationResult
         {
-            IsAllowed = context.TeamId > 0, // Basic team validation
+            IsAllowed = context.TeamId != Guid.Empty, // Basic team validation
             RuleType = RuleType.TEAM_RESTRICTION,
-            Message = context.TeamId <= 0 ? "Invalid team" : ""
+            Message = context.TeamId == Guid.Empty ? "Invalid team" : ""
         };
     }
 

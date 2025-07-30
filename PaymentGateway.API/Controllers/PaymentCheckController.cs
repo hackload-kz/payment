@@ -197,7 +197,7 @@ public class PaymentCheckController : ControllerBase
 
         var requestId = Guid.NewGuid().ToString();
         var startTime = DateTime.UtcNow;
-        var teamId = HttpContext.Items["TeamId"] as int? ?? 0;
+        var teamId = HttpContext.Items["TeamId"] as Guid? ?? Guid.Empty;
         var teamSlug = HttpContext.Items["TeamSlug"] as string ?? "";
         var lookupType = !string.IsNullOrEmpty(request?.PaymentId) ? "payment_id" : "order_id";
 
@@ -437,7 +437,7 @@ public class PaymentCheckController : ControllerBase
         return await CheckPaymentStatus(request, cancellationToken);
     }
 
-    private async Task<PaymentCheckValidationResult> ValidatePaymentCheckRequestAsync(PaymentCheckRequestDto request, int teamId, CancellationToken cancellationToken)
+    private async Task<PaymentCheckValidationResult> ValidatePaymentCheckRequestAsync(PaymentCheckRequestDto request, Guid teamId, CancellationToken cancellationToken)
     {
         var errors = new List<string>();
         var warnings = new List<string>();
@@ -499,7 +499,7 @@ public class PaymentCheckController : ControllerBase
         };
     }
 
-    private string GenerateCacheKey(PaymentCheckRequestDto request, int teamId)
+    private string GenerateCacheKey(PaymentCheckRequestDto request, Guid teamId)
     {
         var keyBuilder = new System.Text.StringBuilder();
         keyBuilder.Append($"payment_check:{teamId}:");

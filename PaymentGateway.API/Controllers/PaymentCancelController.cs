@@ -214,7 +214,7 @@ public class PaymentCancelController : ControllerBase
 
         var requestId = Guid.NewGuid().ToString();
         var startTime = DateTime.UtcNow;
-        var teamId = HttpContext.Items["TeamId"] as int? ?? 0;
+        var teamId = HttpContext.Items["TeamId"] as Guid? ?? Guid.Empty;
         var teamSlug = HttpContext.Items["TeamSlug"] as string ?? "";
 
         traceActivity?.SetTag("payment_cancel.request_id", requestId);
@@ -476,7 +476,7 @@ public class PaymentCancelController : ControllerBase
         }
     }
 
-    private async Task<PaymentCancelValidationResult> ValidatePaymentCancelRequestAsync(PaymentCancelRequestDto request, int teamId, CancellationToken cancellationToken)
+    private async Task<PaymentCancelValidationResult> ValidatePaymentCancelRequestAsync(PaymentCancelRequestDto request, Guid teamId, CancellationToken cancellationToken)
     {
         var errors = new List<string>();
         var warnings = new List<string>();

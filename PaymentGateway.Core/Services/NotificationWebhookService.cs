@@ -536,15 +536,13 @@ public class NotificationWebhookService : BackgroundService, INotificationWebhoo
                 request.Headers.TryAddWithoutValidation(header.Key, header.Value);
             }
 
-            // TODO: Add signature if team has webhook secret
-            // Issue: Cannot lookup Team by int TeamId since Team.Id is Guid
-            // Need to implement proper teamId to Team entity mapping
-            // var team = await _teamRepository.GetByIdAsync(task.TeamId, cancellationToken);
-            // if (team != null && !string.IsNullOrEmpty(team.WebhookSecret))
-            // {
-            //     var signature = await GenerateWebhookSignatureAsync(task.Payload, team.WebhookSecret, cancellationToken);
-            //     request.Headers.TryAddWithoutValidation("X-Webhook-Signature", signature);
-            // }
+            // Add signature if team has webhook secret
+            var team = await _teamRepository.GetByIdAsync(task.TeamId, cancellationToken);
+            if (team != null && !string.IsNullOrEmpty(team.WebhookSecret))
+            {
+                var signature = await GenerateWebhookSignatureAsync(task.Payload, team.WebhookSecret, cancellationToken);
+                request.Headers.TryAddWithoutValidation("X-Webhook-Signature", signature);
+            }
 
             // Add standard headers
             request.Headers.TryAddWithoutValidation("X-Notification-Id", task.NotificationId);
@@ -962,6 +960,7 @@ public class NotificationWebhookService : BackgroundService, INotificationWebhoo
             }
         };
     }
+
 
     #region Helper Classes
 

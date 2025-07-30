@@ -157,19 +157,17 @@ public class PaymentFormIntegrationService
                 };
             }
 
-            // TODO: Get team information
-            // Issue: Cannot lookup Team by int TeamId since Team.Id is Guid
-            // Need to implement proper teamId to Team entity mapping
-            // var team = await _teamRepository.GetByIdAsync(payment.TeamId);
-            // if (team == null)
-            // {
-            //     _formIntegrationCounter.Add(1, new KeyValuePair<string, object?>("result", "team_not_found"));
-            //     return new PaymentFormInitializationResult
-            //     {
-            //         Success = false,
-            //         ErrorMessage = "Team configuration not found"
-            //     };
-            // }
+            // Get team information for form configuration
+            var team = await _teamRepository.GetByIdAsync(payment.TeamId);
+            if (team == null)
+            {
+                _formIntegrationCounter.Add(1, new KeyValuePair<string, object?>("result", "team_not_found"));
+                return new PaymentFormInitializationResult
+                {
+                    Success = false,
+                    ErrorMessage = "Team configuration not found"
+                };
+            }
 
             // Generate secure form tokens
             var csrfTokenResult = await _formTokenService.GenerateCsrfTokenAsync(new CsrfTokenRequest
@@ -246,7 +244,7 @@ public class PaymentFormIntegrationService
                     Amount = payment.Amount,
                     Currency = payment.Currency,
                     Description = payment.Description,
-                    MerchantName = "Merchant", // TODO: Fix team lookup - cannot use team variable due to data model inconsistency
+                    MerchantName = team.TeamName,
                     SuccessUrl = payment.SuccessUrl,
                     FailUrl = payment.FailUrl
                 }
@@ -338,6 +336,18 @@ public class PaymentFormIntegrationService
                 };
             }
 
+            // Get team information for notifications
+            var team = await _teamRepository.GetByIdAsync(payment.TeamId);
+            if (team == null)
+            {
+                _formIntegrationCounter.Add(1, new KeyValuePair<string, object?>("result", "team_not_found"));
+                return new PaymentFormProcessingResult
+                {
+                    Success = false,
+                    ErrorMessage = "Team configuration not found"
+                };
+            }
+
             // Process card payment through integration
             var cardProcessingResult = await _cardProcessingService.ProcessCardPaymentAsync(new CardPaymentRequest
             {
@@ -409,7 +419,7 @@ public class PaymentFormIntegrationService
                 TeamId = payment.TeamId,
                 TeamSlug = $"team-{payment.TeamId}",
                 TemplateId = "payment-status-change",
-                Recipients = new List<string> { "merchant@example.com" }, // TODO: Get actual merchant email
+                Recipients = new List<string> { team.ContactEmail ?? "noreply@merchant.local" },
                 TemplateData = new Dictionary<string, object>
                 {
                     ["PaymentId"] = payment.PaymentId,

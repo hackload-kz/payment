@@ -343,7 +343,7 @@ public class TeamAuthenticationService : ITeamAuthenticationService
 public class TeamAuthenticationResult
 {
     public bool IsAuthenticated { get; set; }
-    public int? TeamId { get; set; }
+    public Guid? TeamId { get; set; }
     public string? TeamSlug { get; set; }
     public string? FailureReason { get; set; }
     public string? ErrorCode { get; set; }
@@ -353,7 +353,7 @@ public class TeamAuthenticationResult
 public class TeamAuthorizationInfo
 {
     public string TeamSlug { get; set; } = string.Empty;
-    public int? TeamId { get; set; }
+    public Guid? TeamId { get; set; }
     public bool IsActive { get; set; }
     public bool IsLocked { get; set; }
     public List<string> Permissions { get; set; } = new();
