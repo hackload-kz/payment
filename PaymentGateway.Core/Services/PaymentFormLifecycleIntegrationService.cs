@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Interfaces;
 using PaymentGateway.Core.Repositories;
+using System.Linq;
 
 namespace PaymentGateway.Core.Services;
 
@@ -463,26 +464,100 @@ public class PaymentFormLifecycleIntegrationService
     {
         try
         {
-            // TODO: Business rule context classes don't exist - using simplified validation
-            // Basic business rule validation without complex context
-            if (payment.Amount <= 0)
+            // Create comprehensive payment rule context
+            var paymentContext = new PaymentRuleContext
             {
+                PaymentId = payment.Id,
+                TeamId = payment.TeamId,
+                TeamSlug = $"team-{payment.TeamId}",
+                Amount = payment.Amount,
+                Currency = payment.Currency,
+                OrderId = payment.OrderId,
+                PaymentMethod = payment.PaymentMethods.FirstOrDefault()?.Type.ToString() ?? "CARD",
+                CustomerEmail = payment.Customer?.Email ?? "",
+                CustomerCountry = payment.Customer?.Country ?? "",
+                PaymentDate = payment.CreatedAt,
+                PaymentMetadata = payment.Metadata.ToDictionary(x => x.Key, x => (object)x.Value),
+                CustomerData = new Dictionary<string, object>
+                {
+                    ["customer_id"] = payment.Customer?.Id.ToString() ?? "",
+                    ["customer_email"] = payment.Customer?.Email ?? "",
+                    ["customer_country"] = payment.Customer?.Country ?? ""
+                }
+            };
+
+            // Evaluate payment rules
+            var paymentRulesResult = await _businessRuleEngine.EvaluatePaymentRulesAsync(paymentContext);
+            if (!paymentRulesResult.IsAllowed)
+            {
+                _logger.LogWarning("Payment rule validation failed for PaymentId: {PaymentId}, Rule: {RuleName}, Message: {Message}",
+                    payment.PaymentId, paymentRulesResult.RuleName, paymentRulesResult.Message);
+                
                 return new OperationResult
                 {
                     Success = false,
-                    ErrorMessage = "Payment amount must be greater than zero"
+                    ErrorMessage = paymentRulesResult.Message
                 };
             }
 
-            if (payment.Amount > 1000000) // Basic amount limit
+            // Create team rule context for additional validation
+            var teamContext = new TeamRuleContext
             {
+                TeamId = payment.TeamId,
+                TeamSlug = $"team-{payment.TeamId}",
+                IsActive = true,
+                LastPaymentDate = DateTime.UtcNow
+            };
+
+            // Evaluate team rules
+            var teamRulesResult = await _businessRuleEngine.EvaluateTeamRulesAsync(teamContext);
+            if (!teamRulesResult.IsAllowed)
+            {
+                _logger.LogWarning("Team rule validation failed for PaymentId: {PaymentId}, Rule: {RuleName}, Message: {Message}",
+                    payment.PaymentId, teamRulesResult.RuleName, teamRulesResult.Message);
+                
                 return new OperationResult
                 {
                     Success = false,
-                    ErrorMessage = "Payment amount exceeds maximum limit"
+                    ErrorMessage = teamRulesResult.Message
                 };
             }
 
+            // If customer exists, validate customer-specific rules
+            if (payment.Customer != null)
+            {
+                var customerContext = new CustomerRuleContext
+                {
+                    CustomerId = payment.Customer.Id,
+                    TeamId = payment.TeamId,
+                    CustomerEmail = payment.Customer.Email,
+                    CustomerCountry = payment.Customer.Country ?? "",
+                    IpAddress = request.ClientIp ?? "",
+                    FirstSeenDate = payment.Customer.CreatedAt,
+                    LastPaymentDate = DateTime.UtcNow,
+                    TotalPaymentCount = 1, // This should be calculated from payment history
+                    TotalPaymentAmount = payment.Amount,
+                    FailedPaymentCount = 0,
+                    FraudScore = 0.0,
+                    IsVip = false,
+                    IsBlacklisted = false
+                };
+
+                var customerRulesResult = await _businessRuleEngine.EvaluateCustomerRulesAsync(customerContext);
+                if (!customerRulesResult.IsAllowed)
+                {
+                    _logger.LogWarning("Customer rule validation failed for PaymentId: {PaymentId}, Rule: {RuleName}, Message: {Message}",
+                        payment.PaymentId, customerRulesResult.RuleName, customerRulesResult.Message);
+                    
+                    return new OperationResult
+                    {
+                        Success = false,
+                        ErrorMessage = customerRulesResult.Message
+                    };
+                }
+            }
+
+            _logger.LogDebug("Business rule validation passed for PaymentId: {PaymentId}", payment.PaymentId);
             return new OperationResult { Success = true };
         }
         catch (Exception ex)
@@ -491,7 +566,7 @@ public class PaymentFormLifecycleIntegrationService
             return new OperationResult
             {
                 Success = false,
-                ErrorMessage = "Business rule validation failed"
+                ErrorMessage = "Business rule validation failed due to system error"
             };
         }
     }

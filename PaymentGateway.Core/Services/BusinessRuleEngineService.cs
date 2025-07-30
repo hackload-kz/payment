@@ -22,6 +22,7 @@ public interface IBusinessRuleEngineService
     Task<RuleEvaluationResult> EvaluateAmountRulesAsync(AmountRuleContext context, CancellationToken cancellationToken = default);
     Task<RuleEvaluationResult> EvaluateCurrencyRulesAsync(CurrencyRuleContext context, CancellationToken cancellationToken = default);
     Task<RuleEvaluationResult> EvaluateTeamRulesAsync(TeamRuleContext context, CancellationToken cancellationToken = default);
+    Task<RuleEvaluationResult> EvaluateCustomerRulesAsync(CustomerRuleContext context, CancellationToken cancellationToken = default);
     Task<BusinessRule> CreateRuleAsync(BusinessRule rule, CancellationToken cancellationToken = default);
     Task<BusinessRule> UpdateRuleAsync(BusinessRule rule, CancellationToken cancellationToken = default);
     Task<bool> DeleteRuleAsync(string ruleId, CancellationToken cancellationToken = default);
@@ -33,7 +34,7 @@ public interface IBusinessRuleEngineService
 
 public class PaymentRuleContext
 {
-    public long PaymentId { get; set; }
+    public Guid PaymentId { get; set; }
     public Guid TeamId { get; set; }
     public string TeamSlug { get; set; } = string.Empty;
     public decimal Amount { get; set; }
@@ -90,6 +91,48 @@ public class TeamRuleContext
     public Dictionary<string, object> Metadata { get; set; } = new();
 }
 
+public class TransactionRuleContext
+{
+    public string TransactionId { get; set; } = string.Empty;
+    public Guid TeamId { get; set; }
+    public Guid PaymentId { get; set; }
+    public string TransactionType { get; set; } = string.Empty; // PAYMENT, REFUND, CAPTURE, etc.
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTime TransactionDate { get; set; }
+    public string PaymentMethod { get; set; } = string.Empty;
+    public string ProcessorResponse { get; set; } = string.Empty;
+    public string MerchantReference { get; set; } = string.Empty;
+    public bool IsTestTransaction { get; set; }
+    public double RiskScore { get; set; }
+    public Dictionary<string, object> ProcessorData { get; set; } = new();
+    public Dictionary<string, object> Metadata { get; set; } = new();
+}
+
+public class CustomerRuleContext
+{
+    public Guid CustomerId { get; set; }
+    public Guid TeamId { get; set; }
+    public string CustomerEmail { get; set; } = string.Empty;
+    public string CustomerCountry { get; set; } = string.Empty;
+    public string CustomerRegion { get; set; } = string.Empty;
+    public string CustomerCity { get; set; } = string.Empty;
+    public string IpAddress { get; set; } = string.Empty;
+    public string UserAgent { get; set; } = string.Empty;
+    public DateTime FirstSeenDate { get; set; }
+    public DateTime LastPaymentDate { get; set; }
+    public int TotalPaymentCount { get; set; }
+    public decimal TotalPaymentAmount { get; set; }
+    public int FailedPaymentCount { get; set; }
+    public double FraudScore { get; set; }
+    public bool IsVip { get; set; }
+    public bool IsBlacklisted { get; set; }
+    public List<string> PaymentMethods { get; set; } = new();
+    public Dictionary<string, object> CustomerProfile { get; set; } = new();
+    public Dictionary<string, object> Metadata { get; set; } = new();
+}
+
 public class RuleEvaluationResult
 {
     public bool IsAllowed { get; set; }
@@ -127,7 +170,8 @@ public enum RuleType
     PAYMENT_METHOD_RESTRICTION = 7,
     FRAUD_PREVENTION = 8,
     COMPLIANCE_CHECK = 9,
-    CUSTOM_VALIDATION = 10
+    CUSTOM_VALIDATION = 10,
+    CUSTOMER_RESTRICTION = 11
 }
 
 public enum RuleAction
@@ -473,6 +517,93 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
                 IsAllowed = false,
                 RuleType = RuleType.TEAM_RESTRICTION,
                 Message = "Team validation error",
+                EvaluationDuration = DateTime.UtcNow - startTime
+            };
+        }
+    }
+
+    public async Task<RuleEvaluationResult> EvaluateCustomerRulesAsync(CustomerRuleContext context, CancellationToken cancellationToken = default)
+    {
+        var startTime = DateTime.UtcNow;
+        
+        try
+        {
+            _logger.LogDebug("Evaluating customer rules for CustomerId: {CustomerId}, TeamId: {TeamId}", 
+                context.CustomerId, context.TeamId);
+
+            var result = new RuleEvaluationResult
+            {
+                IsAllowed = true,
+                RuleType = RuleType.CUSTOMER_RESTRICTION,
+                Message = "Customer validation passed"
+            };
+
+            // Basic customer validation rules
+            if (context.IsBlacklisted)
+            {
+                result.IsAllowed = false;
+                result.Message = "Customer is blacklisted";
+                result.RuleName = "Customer Blacklist Check";
+                result.RuleId = "CUSTOMER_BLACKLIST";
+                return result;
+            }
+
+            // Fraud score validation
+            if (context.FraudScore > 80.0)
+            {
+                result.IsAllowed = false;
+                result.Message = $"Customer fraud score too high: {context.FraudScore}";
+                result.RuleName = "Customer Fraud Score Check";
+                result.RuleId = "CUSTOMER_FRAUD_SCORE";
+                return result;
+            }
+
+            // Failed payment count validation
+            if (context.FailedPaymentCount > 5)
+            {
+                result.IsAllowed = false;
+                result.Message = $"Too many failed payments: {context.FailedPaymentCount}";
+                result.RuleName = "Customer Failed Payment Check";
+                result.RuleId = "CUSTOMER_FAILED_PAYMENTS";
+                return result;
+            }
+
+            // Email validation
+            if (string.IsNullOrEmpty(context.CustomerEmail) || !context.CustomerEmail.Contains('@'))
+            {
+                result.IsAllowed = false;
+                result.Message = "Invalid customer email";
+                result.RuleName = "Customer Email Validation";
+                result.RuleId = "CUSTOMER_EMAIL";
+                return result;
+            }
+
+            // Country validation (basic example)
+            if (string.IsNullOrEmpty(context.CustomerCountry))
+            {
+                result.IsWarning = true;
+                result.Message = "Customer country not specified";
+                result.RuleName = "Customer Country Check";
+                result.RuleId = "CUSTOMER_COUNTRY";
+            }
+
+            result.EvaluationDuration = DateTime.UtcNow - startTime;
+            
+            RuleEvaluationOperations.WithLabels(context.TeamId.ToString(), "customer", result.IsAllowed ? "allowed" : "denied").Inc();
+            
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Customer rule evaluation failed: CustomerId: {CustomerId}, TeamId: {TeamId}", 
+                context.CustomerId, context.TeamId);
+            RuleEvaluationOperations.WithLabels(context.TeamId.ToString(), "customer", "error").Inc();
+            
+            return new RuleEvaluationResult
+            {
+                IsAllowed = false,
+                RuleType = RuleType.CUSTOMER_RESTRICTION,
+                Message = "Customer validation error",
                 EvaluationDuration = DateTime.UtcNow - startTime
             };
         }
@@ -1034,7 +1165,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
     {
         return new PaymentRuleContext
         {
-            PaymentId = testData.TryGetValue("payment_id", out var paymentId) ? Convert.ToInt64(paymentId) : 1,
+            PaymentId = testData.TryGetValue("payment_id", out var paymentId) ? Guid.Parse(paymentId.ToString()!) : Guid.NewGuid(),
             TeamId = testData.TryGetValue("team_id", out var teamId) ? Guid.Parse(teamId.ToString()!) : Guid.NewGuid(),
             Amount = testData.TryGetValue("amount", out var amount) ? Convert.ToDecimal(amount) : 1000m,
             Currency = testData.TryGetValue("currency", out var currency) ? currency.ToString() ?? "RUB" : "RUB",

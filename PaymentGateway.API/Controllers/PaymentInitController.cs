@@ -250,7 +250,7 @@ public class PaymentInitController : ControllerBase
             // 4. Business rule evaluation
             var businessRuleContext = new PaymentGateway.Core.Services.PaymentRuleContext
             {
-                PaymentId = 0, // Will be set after payment creation
+                PaymentId = Guid.Empty, // Will be set after payment creation
                 TeamId = teamId,
                 TeamSlug = teamSlug,
                 Amount = request.Amount,
