@@ -32,9 +32,8 @@ public class AuthenticationServiceTests : BaseTest
 
         _authenticationService = new AuthenticationService(
             GetService<ILogger<AuthenticationService>>(),
-            MockConfiguration.Object,
-            _mockMemoryCache.Object,
-            _mockTeamRepository.Object
+            AddMockService<ITokenGenerationService>().Object,
+            Microsoft.Extensions.Options.Options.Create(new AuthenticationOptions())
         );
     }
 

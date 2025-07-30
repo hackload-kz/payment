@@ -59,10 +59,10 @@ public class TestDataBuilder
             Status = status ?? PaymentStatus.NEW,
             Description = _fixture.Create<string>(),
             CustomerEmail = _fixture.CreateValidEmail(),
-            CustomerPhone = _fixture.CreateValidPhone(),
+            // CustomerPhone property removed from Payment entity
             SuccessUrl = _fixture.CreateValidUrl(),
             FailUrl = _fixture.CreateValidUrl(),
-            NotificationUrl = _fixture.CreateValidUrl(),
+            // NotificationUrl property removed from Payment entity
             ErrorCode = null, // New property - typically null for successful payments
             ErrorMessage = null, // New property - typically null for successful payments  
             Receipt = null, // New property - typically null until payment is completed
@@ -87,14 +87,14 @@ public class TestDataBuilder
         {
             Id = Guid.NewGuid(),
             TeamSlug = teamSlug ?? $"team_{_fixture.Create<string>().ToLower().Substring(0, 8)}",
-            Name = name ?? _fixture.Create<string>(),
+            TeamName = name ?? _fixture.Create<string>(),
             IsActive = isActive ?? true,
-            Password = _fixture.Create<string>(),
-            ApiKey = Convert.ToBase64String(_fixture.CreateMany<byte>(32).ToArray()),
-            CallbackUrl = _fixture.CreateValidUrl(),
-            DailyLimit = _fixture.CreateDecimalBetween(10000m, 1000000m),
-            TransactionLimit = _fixture.CreateDecimalBetween(1000m, 100000m),
-            SupportedCurrencies = "RUB,USD,EUR",
+            PasswordHash = _fixture.Create<string>(),
+            SecretKey = Convert.ToBase64String(_fixture.CreateMany<byte>(32).ToArray()),
+            // CallbackUrl property removed from Team entity
+            // DailyLimit property removed from Team entity
+            // TransactionLimit property removed from Team entity
+            SupportedCurrencies = new List<string> { "RUB", "USD", "EUR" },
             CreatedAt = DateTime.UtcNow.AddDays(-_fixture.Create<int>() % 30),
             UpdatedAt = DateTime.UtcNow,
             IsDeleted = false
@@ -113,12 +113,13 @@ public class TestDataBuilder
         {
             Id = Guid.NewGuid(),
             CustomerId = customerId ?? $"CUST_{Guid.NewGuid():N}",
-            TeamId = teamId ?? Guid.NewGuid(),
+            TeamId = teamId?.GetHashCode() ?? Guid.NewGuid().GetHashCode(),
             Email = email ?? _fixture.CreateValidEmail(),
             Phone = _fixture.CreateValidPhone(),
-            Name = _fixture.Create<string>(),
+            FirstName = _fixture.Create<string>(),
+            LastName = _fixture.Create<string>(),
             IsActive = true,
-            RiskScore = _fixture.Create<decimal>() % 100,
+            RiskScore = (int)(_fixture.Create<decimal>() % 100),
             CreatedAt = DateTime.UtcNow.AddDays(-_fixture.Create<int>() % 30),
             UpdatedAt = DateTime.UtcNow,
             IsDeleted = false
@@ -137,16 +138,16 @@ public class TestDataBuilder
         {
             Id = Guid.NewGuid(),
             TransactionId = $"TXN_{Guid.NewGuid():N}",
-            PaymentId = paymentId ?? Guid.NewGuid(),
+            PaymentId = paymentId?.GetHashCode() ?? Guid.NewGuid().GetHashCode(),
             Type = type ?? TransactionType.AUTHORIZATION,
             Status = status ?? TransactionStatus.PENDING,
             Amount = _fixture.CreateDecimalBetween(10m, 100000m),
             Currency = "RUB",
-            ProcessingCode = _fixture.Create<string>().Substring(0, 10),
-            BankResponseCode = "00",
-            BankResponseMessage = "Success",
+            // ProcessingCode property removed from Transaction entity
+            // BankResponseCode property removed from Transaction entity
+            // BankResponseMessage property removed from Transaction entity
             CreatedAt = DateTime.UtcNow,
-            ProcessedAt = DateTime.UtcNow,
+            // ProcessedAt property replaced with UpdatedAt in BaseEntity
             IsDeleted = false
         };
     }
@@ -168,10 +169,10 @@ public class TestDataBuilder
             Currency = currency ?? "RUB",
             Description = _fixture.Create<string>(),
             CustomerEmail = _fixture.CreateValidEmail(),
-            CustomerPhone = _fixture.CreateValidPhone(),
+            // CustomerPhone property removed from Payment entity
             SuccessUrl = _fixture.CreateValidUrl(),
             FailUrl = _fixture.CreateValidUrl(),
-            NotificationUrl = _fixture.CreateValidUrl(),
+            // NotificationUrl property removed from Payment entity
             Language = "ru",
             Data = new Dictionary<string, object>
             {

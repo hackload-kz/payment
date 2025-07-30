@@ -45,12 +45,13 @@ public class PaymentFormTestingFramework
     private readonly object _resultsLock = new object();
     
     // Metrics
+    private static readonly System.Diagnostics.Metrics.Meter _meter = new("PaymentGateway.Tests.PaymentForm");
     private static readonly System.Diagnostics.Metrics.Counter<long> _testsExecutedCounter = 
-        System.Diagnostics.Metrics.Meter.CreateCounter<long>("payment_form_tests_executed_total");
+        _meter.CreateCounter<long>("payment_form_tests_executed_total");
     private static readonly System.Diagnostics.Metrics.Counter<long> _testFailuresCounter = 
-        System.Diagnostics.Metrics.Meter.CreateCounter<long>("payment_form_test_failures_total");
+        _meter.CreateCounter<long>("payment_form_test_failures_total");
     private static readonly System.Diagnostics.Metrics.Histogram<double> _testExecutionDuration = 
-        System.Diagnostics.Metrics.Meter.CreateHistogram<double>("payment_form_test_execution_duration_seconds");
+        _meter.CreateHistogram<double>("payment_form_test_execution_duration_seconds");
 
     public PaymentFormTestingFramework(
         ILogger<PaymentFormTestingFramework> logger,

@@ -2,6 +2,9 @@
 // Copyright (c) 2025 HackLoad Payment Gateway
 
 using FluentAssertions;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Caching.Memory;
+using PaymentGateway.Core.Entities;
 using PaymentGateway.Tests.TestHelpers;
 
 namespace PaymentGateway.Tests.UnitTests;
@@ -29,7 +32,7 @@ public class TestFrameworkValidationTests : BaseTest
     public void TestDataBuilder_ShouldCreateMultipleUniqueItems()
     {
         // Act
-        var payments = TestDataBuilder.CreateMany(() => TestDataBuilder.CreatePayment(), 5).ToList();
+        var payments = TestDataBuilder.CreateMany<Payment>(() => TestDataBuilder.CreatePayment(), 5).ToList();
 
         // Assert
         payments.Should().HaveCount(5);
@@ -42,7 +45,8 @@ public class TestFrameworkValidationTests : BaseTest
     {
         // Act
         var connectionString = MockConfiguration.Object["ConnectionStrings:DefaultConnection"];
-        var minAmount = MockConfiguration.Object.GetValue<decimal>("Payment:MinAmount", 0);
+        var minAmount = MockConfiguration.Object["Payment:MinAmount"] != null ? 
+            decimal.Parse(MockConfiguration.Object["Payment:MinAmount"]!) : 0m;
 
         // Assert
         connectionString.Should().NotBeNullOrEmpty();
@@ -57,7 +61,9 @@ public class TestFrameworkValidationTests : BaseTest
         var value = "test_value";
 
         // Act
-        MockMemoryCache.Object.Set(key, value, TimeSpan.FromMinutes(5));
+        using var entry = MockMemoryCache.Object.CreateEntry(key);
+        entry.Value = value;
+        entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
         var retrievedValue = MockMemoryCache.Object.TryGetValue(key, out var result) ? result : null;
 
         // Assert

@@ -33,12 +33,12 @@ public class PaymentInitializationServiceTests : BaseTest
         _mockBusinessRuleEngine = AddMockService<BusinessRuleEngineService>();
 
         _paymentInitializationService = new PaymentInitializationService(
-            GetService<ILogger<PaymentInitializationService>>(),
-            MockConfiguration.Object,
-            GetService<IMemoryCache>(),
             _mockPaymentRepository.Object,
             _mockTeamRepository.Object,
-            _mockBusinessRuleEngine.Object
+            AddMockRepository<ICustomerRepository>().Object,
+            GetService<ILogger<PaymentInitializationService>>(),
+            AddMockService<IMetricsService>().Object,
+            AddMockService<IComprehensiveAuditService>().Object
         );
     }
 
