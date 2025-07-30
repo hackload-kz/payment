@@ -348,15 +348,55 @@ public class PaymentFormIntegrationService
                 };
             }
 
-            // Process card payment through integration
+            // Validate and sanitize card data
+            var cardValidationResult = ValidateAndSanitizeCardData(request);
+            if (!cardValidationResult.IsValid)
+            {
+                context.ProcessingStage = PaymentFormProcessingStage.Failed;
+                context.LastError = string.Join("; ", cardValidationResult.ValidationErrors);
+
+                _formIntegrationCounter.Add(1, new KeyValuePair<string, object?>("result", "invalid_card_data"));
+                
+                await NotifyStatusUpdateAsync(request.PaymentId, Enums.PaymentStatus.FAILED, context.LastError);
+
+                return new PaymentFormProcessingResult
+                {
+                    Success = false,
+                    ErrorMessage = context.LastError,
+                    ErrorCode = "INVALID_CARD_DATA",
+                    PaymentId = request.PaymentId
+                };
+            }
+
+            // Parse and validate expiry date
+            var expiryParseResult = ParseExpiryDate(request.ExpiryDate);
+            if (!expiryParseResult.IsValid)
+            {
+                context.ProcessingStage = PaymentFormProcessingStage.Failed;
+                context.LastError = expiryParseResult.ErrorMessage;
+
+                _formIntegrationCounter.Add(1, new KeyValuePair<string, object?>("result", "invalid_expiry_date"));
+                
+                await NotifyStatusUpdateAsync(request.PaymentId, Enums.PaymentStatus.FAILED, expiryParseResult.ErrorMessage);
+
+                return new PaymentFormProcessingResult
+                {
+                    Success = false,
+                    ErrorMessage = expiryParseResult.ErrorMessage,
+                    ErrorCode = "INVALID_EXPIRY_DATE",
+                    PaymentId = request.PaymentId
+                };
+            }
+
+            // Process card payment through integration using sanitized data
             var cardProcessingResult = await _cardProcessingService.ProcessCardPaymentAsync(new CardPaymentRequest
             {
                 PaymentId = payment.Id,
                 TeamId = payment.TeamId,
                 OrderId = payment.OrderId,
-                CardNumber = request.CardNumber!,
-                ExpiryMonth = request.ExpiryDate!.Split('/')[0], // TODO: Parse expiry date properly
-                ExpiryYear = request.ExpiryDate!.Split('/')[1],
+                CardNumber = cardValidationResult.SanitizedCardNumber!,
+                ExpiryMonth = expiryParseResult.Month.ToString("D2"),
+                ExpiryYear = expiryParseResult.Year.ToString(),
                 CVV = request.Cvv!,
                 CardholderName = request.CardholderName!,
                 Amount = payment.Amount,
@@ -376,8 +416,9 @@ public class PaymentFormIntegrationService
                 return new PaymentFormProcessingResult
                 {
                     Success = false,
-                    ErrorMessage = cardProcessingResult.ProcessingErrors.FirstOrDefault() ?? "Card processing failed",
-                    ErrorCode = cardProcessingResult.IsSuccess ? "0" : "1" // TODO: CardProcessingResult doesn't have ErrorCode
+                    ErrorMessage = cardProcessingResult.ErrorMessage ?? "Card processing failed",
+                    ErrorCode = cardProcessingResult.ErrorCode ?? "CARD_PROCESSING_FAILED",
+                    PaymentId = request.PaymentId
                 };
             }
 
@@ -670,6 +711,375 @@ public class PaymentFormIntegrationService
         Enums.PaymentStatus.REFUNDED => "Payment refunded",
         _ => status.ToString()
     };
+
+    /// <summary>
+    /// Parse and validate expiry date in various international formats
+    /// Supports MM/YY, MM/YYYY, MM-YY, MM-YYYY, MMYY, MMYYYY formats
+    /// </summary>
+    private ExpiryDateParseResult ParseExpiryDate(string? expiryDate)
+    {
+        if (string.IsNullOrWhiteSpace(expiryDate))
+        {
+            return new ExpiryDateParseResult
+            {
+                IsValid = false,
+                ErrorMessage = "Expiry date is required"
+            };
+        }
+
+        var cleaned = expiryDate.Trim().Replace(" ", "");
+        
+        try
+        {
+            int month, year;
+            
+            // Try different formats
+            if (cleaned.Contains('/'))
+            {
+                var parts = cleaned.Split('/');
+                if (parts.Length != 2 || !int.TryParse(parts[0], out month) || !int.TryParse(parts[1], out year))
+                {
+                    return new ExpiryDateParseResult
+                    {
+                        IsValid = false,
+                        ErrorMessage = "Invalid expiry date format. Use MM/YY or MM/YYYY"
+                    };
+                }
+            }
+            else if (cleaned.Contains('-'))
+            {
+                var parts = cleaned.Split('-');
+                if (parts.Length != 2 || !int.TryParse(parts[0], out month) || !int.TryParse(parts[1], out year))
+                {
+                    return new ExpiryDateParseResult
+                    {
+                        IsValid = false,
+                        ErrorMessage = "Invalid expiry date format. Use MM-YY or MM-YYYY"
+                    };
+                }
+            }
+            else if (cleaned.Length == 4) // MMYY
+            {
+                if (!int.TryParse(cleaned.Substring(0, 2), out month) || !int.TryParse(cleaned.Substring(2, 2), out year))
+                {
+                    return new ExpiryDateParseResult
+                    {
+                        IsValid = false,
+                        ErrorMessage = "Invalid expiry date format. Use MMYY"
+                    };
+                }
+            }
+            else if (cleaned.Length == 6) // MMYYYY
+            {
+                if (!int.TryParse(cleaned.Substring(0, 2), out month) || !int.TryParse(cleaned.Substring(2, 4), out year))
+                {
+                    return new ExpiryDateParseResult
+                    {
+                        IsValid = false,
+                        ErrorMessage = "Invalid expiry date format. Use MMYYYY"
+                    };
+                }
+            }
+            else
+            {
+                return new ExpiryDateParseResult
+                {
+                    IsValid = false,
+                    ErrorMessage = "Invalid expiry date format. Supported formats: MM/YY, MM/YYYY, MM-YY, MM-YYYY, MMYY, MMYYYY"
+                };
+            }
+
+            // Convert 2-digit year to 4-digit year
+            if (year < 100)
+            {
+                var currentYear = DateTime.UtcNow.Year;
+                var currentCentury = (currentYear / 100) * 100;
+                year = currentCentury + year;
+                
+                // If the year is more than 10 years in the past, assume it's next century
+                if (year < currentYear - 10)
+                {
+                    year += 100;
+                }
+            }
+
+            // Validate month
+            if (month < 1 || month > 12)
+            {
+                return new ExpiryDateParseResult
+                {
+                    IsValid = false,
+                    ErrorMessage = "Invalid month. Month must be between 01 and 12"
+                };
+            }
+
+            // Validate year (not too far in the past or future)
+            var currentYearValidation = DateTime.UtcNow.Year;
+            if (year < currentYearValidation || year > currentYearValidation + 20)
+            {
+                return new ExpiryDateParseResult
+                {
+                    IsValid = false,
+                    ErrorMessage = $"Invalid year. Year must be between {currentYearValidation} and {currentYearValidation + 20}"
+                };
+            }
+
+            // Check if the card has already expired
+            var expiryEndDate = new DateTime(year, month, DateTime.DaysInMonth(year, month));
+            if (expiryEndDate < DateTime.UtcNow.Date)
+            {
+                return new ExpiryDateParseResult
+                {
+                    IsValid = false,
+                    ErrorMessage = "Card has expired"
+                };
+            }
+
+            return new ExpiryDateParseResult
+            {
+                IsValid = true,
+                Month = month,
+                Year = year,
+                ExpiryDate = expiryEndDate
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error parsing expiry date: {ExpiryDate}", expiryDate);
+            return new ExpiryDateParseResult
+            {
+                IsValid = false,
+                ErrorMessage = "Failed to parse expiry date"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Validate and sanitize card data for security compliance
+    /// </summary>
+    private CardDataValidationResult ValidateAndSanitizeCardData(PaymentFormProcessingRequest request)
+    {
+        var result = new CardDataValidationResult { IsValid = true };
+        var errors = new List<string>();
+
+        // Validate card number
+        if (string.IsNullOrWhiteSpace(request.CardNumber))
+        {
+            errors.Add("Card number is required");
+        }
+        else
+        {
+            var cardNumber = request.CardNumber.Replace(" ", "").Replace("-", "");
+            if (!IsValidCardNumber(cardNumber))
+            {
+                errors.Add("Invalid card number");
+            }
+            else
+            {
+                result.SanitizedCardNumber = cardNumber;
+                result.MaskedCardNumber = MaskCardNumber(cardNumber);
+                result.CardType = DetectCardType(cardNumber);
+            }
+        }
+
+        // Validate CVV
+        if (string.IsNullOrWhiteSpace(request.Cvv))
+        {
+            errors.Add("CVV is required");
+        }
+        else if (!IsValidCvv(request.Cvv, result.CardType))
+        {
+            errors.Add("Invalid CVV format");
+        }
+
+        // Validate cardholder name
+        if (string.IsNullOrWhiteSpace(request.CardholderName))
+        {
+            errors.Add("Cardholder name is required");
+        }
+        else if (request.CardholderName.Length < 2 || request.CardholderName.Length > 50)
+        {
+            errors.Add("Cardholder name must be between 2 and 50 characters");
+        }
+
+        // Validate email if provided
+        if (!string.IsNullOrWhiteSpace(request.Email) && !IsValidEmail(request.Email))
+        {
+            errors.Add("Invalid email format");
+        }
+
+        if (errors.Any())
+        {
+            result.IsValid = false;
+            result.ValidationErrors = errors;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Validate card number using Luhn algorithm and international formats
+    /// </summary>
+    private bool IsValidCardNumber(string cardNumber)
+    {
+        if (string.IsNullOrWhiteSpace(cardNumber))
+            return false;
+
+        // Remove any non-digit characters
+        cardNumber = new string(cardNumber.Where(char.IsDigit).ToArray());
+
+        // Check length (13-19 digits for most card types)
+        if (cardNumber.Length < 13 || cardNumber.Length > 19)
+            return false;
+
+        // Luhn algorithm validation
+        return IsValidLuhn(cardNumber);
+    }
+
+    /// <summary>
+    /// Luhn algorithm implementation for card number validation
+    /// </summary>
+    private bool IsValidLuhn(string cardNumber)
+    {
+        int sum = 0;
+        bool alternate = false;
+
+        for (int i = cardNumber.Length - 1; i >= 0; i--)
+        {
+            if (!char.IsDigit(cardNumber[i]))
+                return false;
+
+            int digit = cardNumber[i] - '0';
+
+            if (alternate)
+            {
+                digit *= 2;
+                if (digit > 9)
+                    digit = (digit % 10) + 1;
+            }
+
+            sum += digit;
+            alternate = !alternate;
+        }
+
+        return sum % 10 == 0;
+    }
+
+    /// <summary>
+    /// Detect card type for international card brands
+    /// </summary>
+    private CardType DetectCardType(string cardNumber)
+    {
+        if (string.IsNullOrWhiteSpace(cardNumber))
+            return CardType.Unknown;
+
+        cardNumber = new string(cardNumber.Where(char.IsDigit).ToArray());
+
+        // Visa: starts with 4
+        if (cardNumber.StartsWith("4"))
+            return CardType.Visa;
+
+        // Mastercard: starts with 5 or 2221-2720
+        if (cardNumber.StartsWith("5") || 
+            (cardNumber.Length >= 4 && int.TryParse(cardNumber.Substring(0, 4), out int first4) && first4 >= 2221 && first4 <= 2720))
+            return CardType.MasterCard;
+
+        // American Express: starts with 34 or 37
+        if (cardNumber.StartsWith("34") || cardNumber.StartsWith("37"))
+            return CardType.AmericanExpress;
+
+        // Discover: starts with 6011, 622126-622925, 644-649, or 65
+        if (cardNumber.StartsWith("6011") || cardNumber.StartsWith("65"))
+            return CardType.Discover;
+
+        if (cardNumber.Length >= 6)
+        {
+            int first6 = int.Parse(cardNumber.Substring(0, 6));
+            if (first6 >= 622126 && first6 <= 622925)
+                return CardType.Discover;
+        }
+
+        if (cardNumber.Length >= 3)
+        {
+            int first3 = int.Parse(cardNumber.Substring(0, 3));
+            if (first3 >= 644 && first3 <= 649)
+                return CardType.Discover;
+        }
+
+        // JCB: 3528-3589
+        if (cardNumber.Length >= 4)
+        {
+            int jcbFirst4 = int.Parse(cardNumber.Substring(0, 4));
+            if (jcbFirst4 >= 3528 && jcbFirst4 <= 3589)
+                return CardType.JCB;
+        }
+
+        // Diners Club: 300-305, 36, 38
+        if (cardNumber.Length >= 3)
+        {
+            int first3 = int.Parse(cardNumber.Substring(0, 3));
+            if ((first3 >= 300 && first3 <= 305) || first3 == 36 || first3 == 38)
+                return CardType.DinersClub;
+        }
+
+        // UnionPay: starts with 62
+        if (cardNumber.StartsWith("62"))
+            return CardType.UnionPay;
+
+        return CardType.Unknown;
+    }
+
+    /// <summary>
+    /// Validate CVV based on card type and international standards
+    /// </summary>
+    private bool IsValidCvv(string cvv, CardType cardType)
+    {
+        if (string.IsNullOrWhiteSpace(cvv) || !cvv.All(char.IsDigit))
+            return false;
+
+        return cardType switch
+        {
+            CardType.AmericanExpress => cvv.Length == 4, // AMEX uses 4-digit CVV
+            CardType.Visa or CardType.MasterCard or CardType.Discover or CardType.JCB or CardType.DinersClub or CardType.UnionPay => cvv.Length == 3,
+            _ => cvv.Length == 3 || cvv.Length == 4 // Default: accept both 3 and 4 digits
+        };
+    }
+
+    /// <summary>
+    /// Mask card number for secure logging and display
+    /// </summary>
+    private string MaskCardNumber(string cardNumber)
+    {
+        if (string.IsNullOrWhiteSpace(cardNumber) || cardNumber.Length < 4)
+            return "****";
+
+        // Show first 4 and last 4 digits, mask the middle
+        if (cardNumber.Length <= 8)
+        {
+            return cardNumber.Substring(0, 4) + new string('*', cardNumber.Length - 4);
+        }
+
+        return cardNumber.Substring(0, 4) + new string('*', cardNumber.Length - 8) + cardNumber.Substring(cardNumber.Length - 4);
+    }
+
+    /// <summary>
+    /// Validate email format
+    /// </summary>
+    private bool IsValidEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }
 
 // Supporting classes and enums
@@ -788,4 +1198,29 @@ public class PaymentFormStatusResult
     public string? ErrorMessage { get; set; }
     public Dictionary<string, object> AdditionalData { get; set; } = new();
 }
+
+/// <summary>
+/// Result of expiry date parsing operation
+/// </summary>
+public class ExpiryDateParseResult
+{
+    public bool IsValid { get; set; }
+    public string? ErrorMessage { get; set; }
+    public int Month { get; set; }
+    public int Year { get; set; }
+    public DateTime ExpiryDate { get; set; }
+}
+
+/// <summary>
+/// Result of card data validation and sanitization
+/// </summary>
+public class CardDataValidationResult
+{
+    public bool IsValid { get; set; }
+    public List<string> ValidationErrors { get; set; } = new();
+    public string? SanitizedCardNumber { get; set; }
+    public string? MaskedCardNumber { get; set; }
+    public CardType CardType { get; set; }
+}
+
 
