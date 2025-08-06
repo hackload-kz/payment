@@ -6,7 +6,7 @@ namespace PaymentGateway.Tests;
 public class MinimalTests
 {
     [Test]
-    public void BasicTest_ShouldPass()
+    public void TC_MIN_001_BasicTest_ShouldPass()
     {
         // Arrange
         var expected = "PaymentGateway.API";
@@ -19,7 +19,7 @@ public class MinimalTests
     }
 
     [Test]
-    public void PaymentIdValidation_ShouldWork()
+    public void TC_MIN_002_PaymentIdValidation_ShouldWork()
     {
         // Arrange
         var validId = "pay_123456789";
@@ -31,7 +31,7 @@ public class MinimalTests
     }
 
     [Test]
-    public void AmountValidation_ShouldWork()
+    public void TC_MIN_003_AmountValidation_ShouldWork()
     {
         // Arrange & Act & Assert
         IsValidAmount(150000m).Should().BeTrue();
@@ -40,7 +40,7 @@ public class MinimalTests
     }
 
     [Test]
-    public void CurrencyValidation_ShouldWork()
+    public void TC_MIN_004_CurrencyValidation_ShouldWork()
     {  
         // Arrange & Act & Assert
         IsValidCurrency("RUB").Should().BeTrue();

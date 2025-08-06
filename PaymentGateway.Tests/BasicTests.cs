@@ -6,7 +6,7 @@ namespace PaymentGateway.Tests;
 public class BasicTests
 {
     [Test]
-    public void BasicTest_ShouldPass()
+    public void TC_BASIC_001_BasicTest_ShouldPass()
     {
         // Arrange
         var expected = "test";
@@ -19,7 +19,7 @@ public class BasicTests
     }
 
     [Test]
-    public void PaymentIdValidation_WithValidId_ShouldReturnTrue()
+    public void TC_BASIC_002_PaymentIdValidation_WithValidId_ShouldReturnTrue()
     {
         // Arrange
         var validPaymentId = "pay_123456789";
@@ -32,7 +32,7 @@ public class BasicTests
     }
 
     [Test]
-    public void PaymentIdValidation_WithInvalidId_ShouldReturnFalse()
+    public void TC_BASIC_003_PaymentIdValidation_WithInvalidId_ShouldReturnFalse()
     {
         // Arrange
         var invalidPaymentId = "invalid-payment-id";
@@ -45,7 +45,7 @@ public class BasicTests
     }
 
     [Test]
-    public void AmountValidation_WithValidAmount_ShouldReturnTrue()
+    public void TC_BASIC_004_AmountValidation_WithValidAmount_ShouldReturnTrue()
     {
         // Arrange
         var validAmount = 150000m;
@@ -58,7 +58,7 @@ public class BasicTests
     }
 
     [Test]
-    public void AmountValidation_WithNegativeAmount_ShouldReturnFalse()
+    public void TC_BASIC_005_AmountValidation_WithNegativeAmount_ShouldReturnFalse()
     {
         // Arrange
         var invalidAmount = -1000m;
@@ -71,7 +71,7 @@ public class BasicTests
     }
 
     [Test]
-    public void CurrencyValidation_WithValidCurrency_ShouldReturnTrue()
+    public void TC_BASIC_006_CurrencyValidation_WithValidCurrency_ShouldReturnTrue()
     {
         // Arrange
         var validCurrencies = new[] { "RUB", "USD", "EUR" };
@@ -84,7 +84,7 @@ public class BasicTests
     }
 
     [Test]
-    public void CurrencyValidation_WithInvalidCurrency_ShouldReturnFalse()
+    public void TC_BASIC_007_CurrencyValidation_WithInvalidCurrency_ShouldReturnFalse()
     {
         // Arrange
         var invalidCurrencies = new[] { "JPY", "GBP", "BTC", "" };
@@ -97,15 +97,15 @@ public class BasicTests
     }
 
     // Helper methods for validation
-    private bool IsValidPaymentId(string paymentId) =>
+    private static bool IsValidPaymentId(string paymentId) =>
         !string.IsNullOrWhiteSpace(paymentId) && 
         paymentId.Length <= 50 && 
         System.Text.RegularExpressions.Regex.IsMatch(paymentId, @"^pay_[a-zA-Z0-9]+$");
 
-    private bool IsValidAmount(decimal amount) =>
+    private static bool IsValidAmount(decimal amount) =>
         amount > 0 && amount <= 100000000;
 
-    private bool IsValidCurrency(string currency)
+    private static bool IsValidCurrency(string currency)
     {
         var allowedCurrencies = new[] { "RUB", "USD", "EUR" };
         return allowedCurrencies.Contains(currency?.ToUpper());

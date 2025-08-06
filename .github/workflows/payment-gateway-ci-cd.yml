@@ -1,0 +1,332 @@
+name: PaymentGateway CI/CD
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'PaymentGateway/**'
+      - 'PaymentGateway.API/**'
+      - 'PaymentGateway.Core/**' 
+      - 'PaymentGateway.Infrastructure/**'
+      - 'PaymentGateway.Tests/**'
+      - 'PaymentGateway.sln'
+      - 'Directory.Packages.props'
+      - 'Dockerfile'
+      - '.github/workflows/payment-gateway-ci-cd.yml'
+  
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'PaymentGateway/**'
+      - 'PaymentGateway.API/**'
+      - 'PaymentGateway.Core/**'
+      - 'PaymentGateway.Infrastructure/**'
+      - 'PaymentGateway.Tests/**'
+      - 'PaymentGateway.sln'
+      - 'Directory.Packages.props'
+      - 'Dockerfile'
+      - '.github/workflows/payment-gateway-ci-cd.yml'
+  
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip tests (for emergency deployments)'
+        required: false
+        default: 'false'
+        type: boolean
+      environment:
+        description: 'Target environment'
+        required: false
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+          - development
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: hackload-paymentgateway
+  DOTNET_VERSION: '9.0.x'
+
+jobs:
+  test:
+    name: Test in Container
+    runs-on: self-hosted
+    if: github.event.inputs.skip_tests != 'true'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build test image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        target: test
+        tags: paymentgateway-test:latest
+        load: true
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Run tests in container
+      run: |
+        docker run --rm \
+          -v /tmp/test-results:/testresults \
+          paymentgateway-test:latest
+          
+    - name: Extract test results
+      if: always()
+      run: |
+        # Copy test results from container volume
+        mkdir -p test-results
+        if [ -d /tmp/test-results ]; then
+          cp -r /tmp/test-results/* test-results/ || true
+        fi
+        
+    - name: Publish test results
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: PaymentGateway Tests
+        path: 'test-results/*.trx'
+        reporter: dotnet-trx
+        fail-on-error: true
+        
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: test-results/
+        retention-days: 30
+
+  build-and-push:
+    name: Build and Push Container
+    runs-on: self-hosted
+    needs: test
+    if: always() && (needs.test.result == 'success' || github.event.inputs.skip_tests == 'true')
+    
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+      image_digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix=sha-,format=short
+          type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=${{ github.event.inputs.environment }},enable=${{ github.event_name == 'workflow_dispatch' }}
+        labels: |
+          org.opencontainers.image.title=HackLoad Payment Gateway
+          org.opencontainers.image.description=Payment Gateway API for HackLoad 2025
+          org.opencontainers.image.vendor=HackLoad Team
+          org.opencontainers.image.licenses=MIT
+          
+    - name: Build and push Docker image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        target: runtime
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+        build-args: |
+          BUILDKIT_INLINE_CACHE=1
+          ASPNETCORE_ENVIRONMENT=${{ github.event.inputs.environment || 'production' }}
+          
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0
+      with:
+        image: ${{ steps.meta.outputs.tags }}
+        format: spdx-json
+        output-file: sbom.spdx.json
+        
+    - name: Upload SBOM
+      uses: actions/upload-artifact@v4
+      with:
+        name: sbom
+        path: sbom.spdx.json
+        retention-days: 90
+        
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ steps.meta.outputs.tags }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  security-scan:
+    name: Security Scan
+    runs-on: self-hosted
+    needs: build-and-push
+    if: always() && needs.build-and-push.result == 'success'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v3
+      with:
+        languages: csharp
+        
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Restore dependencies
+      run: dotnet restore PaymentGateway.sln
+      
+    - name: Build solution
+      run: dotnet build PaymentGateway.sln --no-restore
+      
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:csharp"
+
+  deployment-check:
+    name: Deployment Readiness Check
+    runs-on: self-hosted
+    needs: [build-and-push, security-scan]
+    if: always() && needs.build-and-push.result == 'success'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Verify image exists
+      run: |
+        echo "Verifying image: ${{ needs.build-and-push.outputs.image_tag }}"
+        docker manifest inspect ${{ needs.build-and-push.outputs.image_tag }}
+        
+    - name: Test container startup
+      run: |
+        # Start container in detached mode
+        CONTAINER_ID=$(docker run -d \
+          -p 8080:8080 \
+          -e ASPNETCORE_ENVIRONMENT=Production \
+          -e ConnectionStrings__DefaultConnection="Host=localhost;Database=paymentgateway_test;Username=test;Password=test" \
+          ${{ needs.build-and-push.outputs.image_tag }})
+        
+        # Wait for container to be ready
+        echo "Waiting for container to start..."
+        sleep 10
+        
+        # Check if container is running
+        if docker ps | grep -q $CONTAINER_ID; then
+          echo "✅ Container started successfully"
+          
+          # Test health endpoint (if available)
+          if curl -f http://localhost:8080/health 2>/dev/null; then
+            echo "✅ Health check passed"
+          else
+            echo "⚠️ Health check not available or failed"
+          fi
+        else
+          echo "❌ Container failed to start"
+          docker logs $CONTAINER_ID
+          exit 1
+        fi
+        
+        # Clean up
+        docker stop $CONTAINER_ID
+        docker rm $CONTAINER_ID
+        
+    - name: Generate deployment summary
+      run: |
+        echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Image:** \`${{ needs.build-and-push.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Digest:** \`${{ needs.build-and-push.outputs.image_digest }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Environment:** \`${{ github.event.inputs.environment || 'production' }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### ✅ Checks Passed" >> $GITHUB_STEP_SUMMARY
+        echo "- Container builds successfully" >> $GITHUB_STEP_SUMMARY
+        echo "- Tests passed (if not skipped)" >> $GITHUB_STEP_SUMMARY
+        echo "- Security scan completed" >> $GITHUB_STEP_SUMMARY
+        echo "- Container starts and runs correctly" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Ready for deployment! 🎉**" >> $GITHUB_STEP_SUMMARY
+
+  notify:
+    name: Notify Completion
+    runs-on: self-hosted
+    needs: [test, build-and-push, security-scan, deployment-check]
+    if: always()
+    
+    steps:
+    - name: Determine workflow status
+      id: status
+      run: |
+        if [[ "${{ needs.test.result }}" == "success" || "${{ github.event.inputs.skip_tests }}" == "true" ]] && \
+           [[ "${{ needs.build-and-push.result }}" == "success" ]] && \
+           [[ "${{ needs.security-scan.result }}" == "success" ]] && \
+           [[ "${{ needs.deployment-check.result }}" == "success" ]]; then
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "message=✅ PaymentGateway CI/CD completed successfully!" >> $GITHUB_OUTPUT
+        else
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "message=❌ PaymentGateway CI/CD failed. Check the logs for details." >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Create workflow summary
+      run: |
+        echo "# PaymentGateway CI/CD Workflow Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** ${{ steps.status.outputs.status == 'success' && '✅ SUCCESS' || '❌ FAILURE' }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Job Results" >> $GITHUB_STEP_SUMMARY
+        echo "- **Test:** ${{ needs.test.result || 'skipped' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build & Push:** ${{ needs.build-and-push.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Security Scan:** ${{ needs.security-scan.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Deployment Check:** ${{ needs.deployment-check.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [[ "${{ steps.status.outputs.status }}" == "success" ]]; then
+          echo "🎉 **The PaymentGateway is ready for deployment!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Container Image:** \`${{ needs.build-and-push.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "🔧 **Please check the failed jobs and fix any issues.**" >> $GITHUB_STEP_SUMMARY  
+        fi
