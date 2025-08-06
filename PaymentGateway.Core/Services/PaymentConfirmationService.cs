@@ -232,7 +232,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             // Perform confirmation through lifecycle service
             try
             {
-                var confirmedPayment = await _lifecycleService.ConfirmPaymentAsync(payment.Id, cancellationToken);
+                var confirmedPayment = await _lifecycleService.ConfirmPaymentAsync(payment.Id.ToString(), cancellationToken);
                 
                 result.IsSuccess = true;
                 result.CurrentStatus = confirmedPayment.Status;

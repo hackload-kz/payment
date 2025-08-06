@@ -296,13 +296,13 @@ public class PaymentCancellationService : IPaymentCancellationService
                 switch (operationType)
                 {
                     case CancellationType.FULL_CANCELLATION:
-                        cancelledPayment = await _lifecycleService.CancelPaymentAsync(paymentId, request.CancellationReason ?? "Payment cancellation", cancellationToken);
+                        cancelledPayment = await _lifecycleService.CancelPaymentAsync(paymentId.ToString(), request.CancellationReason ?? "Payment cancellation", cancellationToken);
                         break;
                     case CancellationType.FULL_REVERSAL:
-                        cancelledPayment = await _lifecycleService.CancelPaymentAsync(paymentId, request.CancellationReason ?? "Payment reversal", cancellationToken); // Reversal handled as cancellation
+                        cancelledPayment = await _lifecycleService.CancelPaymentAsync(paymentId.ToString(), request.CancellationReason ?? "Payment reversal", cancellationToken); // Reversal handled as cancellation
                         break;
                     case CancellationType.FULL_REFUND:
-                        cancelledPayment = await _lifecycleService.RefundPaymentAsync(paymentId, payment.Amount, request.CancellationReason ?? "Payment refund", cancellationToken);
+                        cancelledPayment = await _lifecycleService.RefundPaymentAsync(paymentId.ToString(), payment.Amount, request.CancellationReason ?? "Payment refund", cancellationToken);
                         break;
                     default:
                         throw new InvalidOperationException($"Unsupported cancellation type: {operationType}");
