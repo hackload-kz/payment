@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PaymentGateway.Infrastructure.Data;
@@ -12,9 +13,11 @@ using PaymentGateway.Infrastructure.Data;
 namespace PaymentGateway.Infrastructure.Migrations
 {
     [DbContext(typeof(PaymentGatewayDbContext))]
-    partial class PaymentGatewayDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250806223844_FixArrayColumnsWithValueComparers")]
+    partial class FixArrayColumnsWithValueComparers
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

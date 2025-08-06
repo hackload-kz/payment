@@ -8,7 +8,7 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
 {
     public void Configure(EntityTypeBuilder<Transaction> builder)
     {
-        builder.ToTable("Transactions");
+        builder.ToTable("transactions", "payment");
         
         // Primary key
         builder.HasKey(t => t.Id);
@@ -93,7 +93,6 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
         builder.HasOne(t => t.Payment)
             .WithMany(p => p.Transactions)
             .HasForeignKey(t => t.PaymentId)
-            .HasPrincipalKey(p => p.PaymentId)
             .OnDelete(DeleteBehavior.Cascade);
             
         // JSON column for additional data

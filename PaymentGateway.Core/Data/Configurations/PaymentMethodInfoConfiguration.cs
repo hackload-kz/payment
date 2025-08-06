@@ -8,7 +8,7 @@ public class PaymentMethodInfoConfiguration : IEntityTypeConfiguration<PaymentMe
 {
     public void Configure(EntityTypeBuilder<PaymentMethodInfo> builder)
     {
-        builder.ToTable("PaymentMethods");
+        builder.ToTable("payment_methods", "payment");
         
         // Primary key
         builder.HasKey(pm => pm.Id);

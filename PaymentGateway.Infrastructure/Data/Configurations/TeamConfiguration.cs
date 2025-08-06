@@ -76,6 +76,29 @@ public class TeamConfiguration : IEntityTypeConfiguration<Team>
         builder.HasIndex(t => t.IsActive)
             .HasDatabaseName("ix_teams_is_active");
 
+        // PostgreSQL array columns
+        builder.Property(t => t.SupportedCurrencies)
+            .HasConversion(
+                v => v.ToArray(), 
+                v => v.ToList(),
+                new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<string>>(
+                    (c1, c2) => c1!.SequenceEqual(c2!),
+                    c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                    c => c.ToList()))
+            .HasColumnType("text[]")
+            .HasColumnName("supported_currencies");
+            
+        builder.Property(t => t.SupportedPaymentMethods)
+            .HasConversion(
+                v => v.Select(e => e.ToString()).ToArray(),
+                v => v.Select(s => Enum.Parse<PaymentGateway.Core.Enums.PaymentMethod>(s)).ToList(),
+                new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<PaymentGateway.Core.Enums.PaymentMethod>>(
+                    (c1, c2) => c1!.SequenceEqual(c2!),
+                    c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                    c => c.ToList()))
+            .HasColumnType("text[]")
+            .HasColumnName("supported_payment_methods");
+
         // Navigation properties
         builder.HasMany(t => t.Payments)
             .WithOne()

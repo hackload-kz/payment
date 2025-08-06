@@ -33,6 +33,9 @@ public static class PaymentServiceExtensions
         services.AddScoped<IPaymentCancellationService, PaymentCancellationService>();
         services.AddScoped<IPaymentStatusCheckService, PaymentStatusCheckService>();
 
+        // Register team management services
+        services.AddScoped<ITeamRegistrationService, TeamRegistrationService>();
+
         return services;
     }
 
@@ -52,6 +55,7 @@ public static class PaymentServiceExtensions
         services.AddScoped<IPaymentConfirmationService, PaymentConfirmationService>();
         services.AddScoped<IPaymentCancellationService, PaymentCancellationService>();
         services.AddScoped<IPaymentStatusCheckService, PaymentStatusCheckService>();
+        services.AddScoped<ITeamRegistrationService, TeamRegistrationService>();
 
         return services;
     }

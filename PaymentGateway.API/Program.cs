@@ -44,6 +44,7 @@ try
     builder.Services.AddRequestResponseLogging();
     builder.Services.AddGlobalExceptionHandling();
     builder.Services.AddRequestValidation();
+    builder.Services.AddAdminAuthentication(builder.Configuration);
     builder.Services.AddPaymentGatewaySecurityHeaders();
 
     // Add CORS configuration
@@ -86,6 +87,9 @@ try
     
     // Add request validation (before authentication)
     app.UseRequestValidation();
+    
+    // Add admin authentication (before other auth)
+    app.UseAdminAuthentication();
     
     // Add authentication and rate limiting
     app.UseAuthenticationRateLimit();

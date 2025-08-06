@@ -24,6 +24,14 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddAdminAuthentication(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<AdminAuthenticationOptions>(
+            configuration.GetSection(AdminAuthenticationOptions.SectionName));
+        
+        return services;
+    }
+
 
     public static IServiceCollection AddVersionedSwagger(this IServiceCollection services)
     {

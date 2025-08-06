@@ -62,12 +62,57 @@ public class PaymentGatewayDbContext : DbContext
 
     private static void ConfigurePostgreSqlFeatures(ModelBuilder modelBuilder)
     {
-        // Configure PostgreSQL-specific data types and features
+        // Configure PostgreSQL schema
+        modelBuilder.HasDefaultSchema("payment");
         
-        // Use PostgreSQL arrays for currency lists
-        modelBuilder.Entity<Team>()
-            .Property(t => t.SupportedCurrencies)
-            .HasColumnType("text[]");
+        // Configure naming conventions (snake_case for PostgreSQL)
+        foreach (var entity in modelBuilder.Model.GetEntityTypes())
+        {
+            // Convert table names to snake_case
+            if (entity.GetTableName() != null)
+            {
+                entity.SetTableName(entity.GetTableName()!.ToSnakeCase());
+            }
+
+            // Convert column names to snake_case
+            foreach (var property in entity.GetProperties())
+            {
+                if (property.GetColumnName() != null)
+                {
+                    property.SetColumnName(property.GetColumnName().ToSnakeCase());
+                }
+            }
+
+            // Convert key names to snake_case
+            foreach (var key in entity.GetKeys())
+            {
+                if (key.GetName() != null)
+                {
+                    key.SetName(key.GetName()!.ToSnakeCase());
+                }
+            }
+
+            // Convert foreign key names to snake_case
+            foreach (var foreignKey in entity.GetForeignKeys())
+            {
+                if (foreignKey.GetConstraintName() != null)
+                {
+                    foreignKey.SetConstraintName(foreignKey.GetConstraintName()!.ToSnakeCase());
+                }
+            }
+
+            // Convert index names to snake_case
+            foreach (var index in entity.GetIndexes())
+            {
+                if (index.GetDatabaseName() != null)
+                {
+                    index.SetDatabaseName(index.GetDatabaseName()!.ToSnakeCase());
+                }
+            }
+        }
+        
+        // Configure PostgreSQL-specific data types and features
+        // (Array configuration is handled in individual entity configurations)
             
         // Configure JSONB columns for better performance
         modelBuilder.Entity<Payment>()
@@ -274,4 +319,28 @@ public record ChangeTrackingInfo
     public int UnchangedEntries { get; init; }
     public int DetachedEntries { get; init; }
     public bool HasChanges { get; init; }
+}
+
+// Extension method for snake_case conversion
+public static class StringExtensions
+{
+    public static string ToSnakeCase(this string input)
+    {
+        if (string.IsNullOrEmpty(input)) return input;
+
+        var result = new System.Text.StringBuilder();
+        var isFirst = true;
+
+        foreach (var c in input)
+        {
+            if (char.IsUpper(c) && !isFirst)
+            {
+                result.Append('_');
+            }
+            result.Append(char.ToLower(c));
+            isFirst = false;
+        }
+
+        return result.ToString();
+    }
 }

@@ -85,9 +85,113 @@ request_data["Token"] = token
 - `demo-team`: `d3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791`
 - `test-team`: `ecd71870d1963316a97e3ac3408c9835ad8cf0f3c1bc703527c30265534f75ae`
 
+## Team Registration API Endpoints
+
+**⚠️ Admin Authentication Required**: All team registration endpoints require admin authentication via the `X-Admin-Token` header.
+
+```bash
+# Add this header to all team registration requests
+-H "X-Admin-Token: admin_token_2025_hackload_payment_gateway_secure_key_dev_only"
+```
+
+### 1. Register Team
+
+Creates a new team/merchant account for payment processing.
+
+**Endpoint**: `POST /api/v1/TeamRegistration/register`
+
+```bash
+curl -X POST "${BASE_URL}/api/v1/TeamRegistration/register" \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Token: admin_token_2025_hackload_payment_gateway_secure_key_dev_only" \
+  -d '{
+    "teamSlug": "my-online-store",
+    "password": "SecurePassword123!",
+    "teamName": "My Online Store",
+    "email": "merchant@mystore.com",
+    "phone": "+1234567890",
+    "successURL": "https://mystore.com/payment/success",
+    "failURL": "https://mystore.com/payment/fail",
+    "notificationURL": "https://mystore.com/payment/webhook",
+    "supportedCurrencies": "RUB,USD,EUR",
+    "businessInfo": {
+      "businessType": "ecommerce",
+      "website": "https://mystore.com"
+    },
+    "acceptTerms": true
+  }'
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Team registered successfully",
+  "teamSlug": "my-online-store",
+  "teamId": "123e4567-e89b-12d3-a456-426614174000",
+  "passwordHashPreview": "d3ad9315...",
+  "createdAt": "2025-08-06T10:30:00Z",
+  "status": "ACTIVE",
+  "apiEndpoint": "https://gateway.hackload.com/api/v1",
+  "details": {
+    "teamName": "My Online Store",
+    "email": "merchant@mystore.com",
+    "supportedCurrencies": ["RUB", "USD", "EUR"],
+    "nextSteps": [
+      "Test payment initialization using your credentials",
+      "Configure webhook endpoint for notifications",
+      "Review API documentation for integration"
+    ]
+  }
+}
+```
+
+### 2. Check Team Slug Availability
+
+Checks if a team slug is available for registration.
+
+**Endpoint**: `GET /api/v1/TeamRegistration/check-availability/{teamSlug}`
+
+```bash
+curl -X GET "${BASE_URL}/api/v1/TeamRegistration/check-availability/my-store" \
+  -H "X-Admin-Token: admin_token_2025_hackload_payment_gateway_secure_key_dev_only"
+```
+
+**Response**:
+```json
+{
+  "teamSlug": "my-store",
+  "available": true,
+  "reason": "Available"
+}
+```
+
+### 3. Get Team Status
+
+Retrieves team registration status and details.
+
+**Endpoint**: `GET /api/v1/TeamRegistration/status/{teamSlug}`
+
+```bash
+curl -X GET "${BASE_URL}/api/v1/TeamRegistration/status/my-store" \
+  -H "X-Admin-Token: admin_token_2025_hackload_payment_gateway_secure_key_dev_only"
+```
+
+**Response**:
+```json
+{
+  "teamSlug": "my-store",
+  "teamName": "My Store",
+  "status": "ACTIVE",
+  "createdAt": "2025-08-06T10:30:00Z",
+  "email": "merchant@mystore.com",
+  "supportedCurrencies": ["RUB", "USD", "EUR"]
+}
+```
+
 ## Core Payment API Endpoints
 
-### 1. Initialize Payment
+### 4. Initialize Payment
 
 Creates a new payment transaction and returns payment URL.
 
@@ -382,6 +486,15 @@ All API endpoints return standardized error responses:
 
 ### Common Error Codes
 
+#### Team Registration Error Codes
+- `2001` - Invalid request data or validation failed
+- `2002` - Team slug already exists
+- `2003` - Email already registered
+- `2004` - Terms of service not accepted
+- `2404` - Team not found
+- `2429` - Registration rate limit exceeded
+
+#### Payment Processing Error Codes
 - `TEAM_SLUG_MISSING` - TeamSlug parameter is required
 - `TOKEN_MISSING` - Token parameter is required  
 - `INVALID_TOKEN` - Token validation failed
@@ -389,6 +502,9 @@ All API endpoints return standardized error responses:
 - `INSUFFICIENT_FUNDS` - Not enough funds
 - `PAYMENT_EXPIRED` - Payment session expired
 - `INVALID_CARD` - Card validation failed
+
+#### General Error Codes
+- `9999` - Internal server error
 
 ## Payment Status Values
 
@@ -405,11 +521,45 @@ All API endpoints return standardized error responses:
 
 ## Summary
 
-To use this API you need to:
+To use this API you can either:
 
+### Option 1: Use Existing Test Data
 1. **Use seeded test data**: `demo-team` or `test-team` with their respective passwords
 2. **Implement token generation**: SHA-256 hash of sorted parameters + password hash
 3. **Include authentication**: `TeamSlug` and `Token` in every request body
 4. **Handle responses**: Check `success` field and `errorCode` for status
+
+### Option 2: Register Your Own Team
+1. **Register a new team**: Use `POST /api/v1/TeamRegistration/register` endpoint
+2. **Get your credentials**: Receive `teamSlug` and password hash from registration
+3. **Implement token generation**: SHA-256 hash of sorted parameters + password hash
+4. **Include authentication**: `TeamSlug` and `Token` in every request body
+5. **Handle responses**: Check `success` field and `errorCode` for status
+
+## Registration Workflow
+
+```bash
+# 1. Check if team slug is available
+curl -X GET "${BASE_URL}/api/v1/TeamRegistration/check-availability/my-store" \
+  -H "X-Admin-Token: admin_token_2025_hackload_payment_gateway_secure_key_dev_only"
+
+# 2. Register your team
+curl -X POST "${BASE_URL}/api/v1/TeamRegistration/register" \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Token: admin_token_2025_hackload_payment_gateway_secure_key_dev_only" \
+  -d '{
+    "teamSlug": "my-store",
+    "password": "MySecurePass123!",
+    "teamName": "My Store",
+    "email": "admin@mystore.com",
+    "successURL": "https://mystore.com/success",
+    "failURL": "https://mystore.com/fail",
+    "supportedCurrencies": "RUB,USD",
+    "acceptTerms": true
+  }'
+
+# 3. Use your team credentials for payments
+# (Generate token using teamSlug and password hash from registration response)
+```
 
 The key difference from typical APIs is the custom token-based authentication rather than standard Basic Auth or Bearer tokens.

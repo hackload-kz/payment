@@ -19,6 +19,11 @@ public static class ApplicationBuilderExtensions
 
 
 
+    public static IApplicationBuilder UseAdminAuthentication(this IApplicationBuilder app)
+    {
+        return app.UseMiddleware<AdminAuthenticationMiddleware>();
+    }
+
     public static IApplicationBuilder UseRequestLogging(this IApplicationBuilder app)
     {
         return app.UseSerilogRequestLogging(options =>

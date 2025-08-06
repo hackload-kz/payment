@@ -9,7 +9,7 @@ public class TeamConfiguration : IEntityTypeConfiguration<Team>
 {
     public void Configure(EntityTypeBuilder<Team> builder)
     {
-        builder.ToTable("Teams");
+        builder.ToTable("teams", "payment");
         
         // Primary key
         builder.HasKey(t => t.Id);
@@ -17,21 +17,21 @@ public class TeamConfiguration : IEntityTypeConfiguration<Team>
         // Indexes for high-performance queries
         builder.HasIndex(t => t.TeamSlug)
             .IsUnique()
-            .HasDatabaseName("IX_Teams_TeamSlug");
+            .HasDatabaseName("ix_teams_team_slug");
             
         builder.HasIndex(t => t.TeamName)
-            .HasDatabaseName("IX_Teams_TeamName");
+            .HasDatabaseName("ix_teams_team_name");
             
         builder.HasIndex(t => t.IsActive)
-            .HasDatabaseName("IX_Teams_IsActive");
+            .HasDatabaseName("ix_teams_is_active");
             
         builder.HasIndex(t => t.CreatedAt)
-            .HasDatabaseName("IX_Teams_CreatedAt");
+            .HasDatabaseName("ix_teams_created_at");
             
         builder.HasIndex(t => new { t.IsActive, t.CreatedAt })
-            .HasDatabaseName("IX_Teams_IsActive_CreatedAt");
+            .HasDatabaseName("ix_teams_is_active_created_at");
         
-        // Properties configuration
+        // Properties configuration (snake_case column names handled automatically)
         builder.Property(t => t.TeamSlug)
             .IsRequired()
             .HasMaxLength(100);
@@ -69,7 +69,7 @@ public class TeamConfiguration : IEntityTypeConfiguration<Team>
             .IsRowVersion();
             
         // Check constraints using modern syntax
-        builder.ToTable(t =>
+        builder.ToTable("teams", "payment", t =>
         {
             t.HasCheckConstraint("CK_Teams_MinPaymentAmount", "MinPaymentAmount >= 0");
             t.HasCheckConstraint("CK_Teams_MaxPaymentAmount", "MaxPaymentAmount >= 0");
@@ -80,24 +80,29 @@ public class TeamConfiguration : IEntityTypeConfiguration<Team>
             t.HasCheckConstraint("CK_Teams_DailyMonthly_PaymentLimit", "DailyPaymentLimit IS NULL OR MonthlyPaymentLimit IS NULL OR DailyPaymentLimit <= MonthlyPaymentLimit");
         });
         
-        // JSON columns for collections
+        // PostgreSQL array columns  
         builder.Property(t => t.SupportedCurrencies)
             .HasConversion(
-                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions)null),
-                v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions)null) ?? new List<string>()
-            );
+                v => v.ToArray(), 
+                v => v.ToList(),
+                new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<string>>(
+                    (c1, c2) => c1!.SequenceEqual(c2!),
+                    c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                    c => c.ToList()))
+            .HasColumnType("text[]");
             
         builder.Property(t => t.SupportedPaymentMethods)
             .HasConversion(
-                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions)null),
-                v => System.Text.Json.JsonSerializer.Deserialize<List<PaymentMethod>>(v, (System.Text.Json.JsonSerializerOptions)null) ?? new List<PaymentMethod>()
-            );
+                v => v.Select(e => e.ToString()).ToArray(),
+                v => v.Select(s => Enum.Parse<PaymentMethod>(s)).ToList(),
+                new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<PaymentMethod>>(
+                    (c1, c2) => c1!.SequenceEqual(c2!),
+                    c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                    c => c.ToList()))
+            .HasColumnType("text[]");
             
         builder.Property(t => t.BusinessInfo)
-            .HasConversion(
-                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions)null),
-                v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions)null) ?? new Dictionary<string, string>()
-            );
+            .HasColumnType("jsonb");
             
         // Soft delete filter
         builder.HasQueryFilter(t => !t.IsDeleted);
