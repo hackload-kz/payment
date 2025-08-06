@@ -57,33 +57,8 @@ public class PaymentGatewayDbContext : DbContext
         ConfigurePostgreSqlFeatures(modelBuilder);
     }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        if (!optionsBuilder.IsConfigured)
-        {
-            optionsBuilder.UseNpgsql("Host=localhost;Database=PaymentGateway;Username=postgres;Password=password");
-        }
-
-        // Performance optimizations
-        optionsBuilder.EnableServiceProviderCaching();
-        optionsBuilder.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
-        
-        // Configure lazy loading (disabled by default for performance)
-        optionsBuilder.UseLazyLoadingProxies(false);
-        
-        // Enable batch operations
-        optionsBuilder.UseNpgsql(options =>
-        {
-            options.EnableRetryOnFailure(
-                maxRetryCount: 3,
-                maxRetryDelay: TimeSpan.FromSeconds(5),
-                errorCodesToAdd: null);
-            
-            // Enable batch operations
-            options.MaxBatchSize(100);
-            options.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
-        });
-    }
+    // OnConfiguring removed - conflicts with DbContext pooling
+    // Configuration is handled in DatabaseConfiguration.AddDatabase()
 
     private static void ConfigurePostgreSqlFeatures(ModelBuilder modelBuilder)
     {

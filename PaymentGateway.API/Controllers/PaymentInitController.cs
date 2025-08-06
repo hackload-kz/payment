@@ -4,6 +4,7 @@ using PaymentGateway.Core.DTOs.PaymentInit;
 using PaymentGateway.Core.Services;
 using PaymentGateway.Core.Validation.Simplified;
 using PaymentGateway.API.Middleware;
+using PaymentGateway.Core.Models;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using Prometheus;
@@ -513,7 +514,7 @@ public class PaymentInitController : ControllerBase
         }
     }
 
-    private async Task<RateLimitResult> CheckRateLimitAsync(string teamSlug, CancellationToken cancellationToken)
+    private async Task<PaymentGateway.Core.Services.RateLimitResult> CheckRateLimitAsync(string teamSlug, CancellationToken cancellationToken)
     {
         try
         {
@@ -525,22 +526,12 @@ public class PaymentInitController : ControllerBase
             // For now, always allow (simplified)
             await Task.CompletedTask;
             
-            return new RateLimitResult
-            {
-                IsAllowed = true,
-                RemainingRequests = 100,
-                ResetTime = DateTime.UtcNow.AddHours(1)
-            };
+            return new PaymentGateway.Core.Services.RateLimitResult(true, 100, TimeSpan.FromHours(1));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error checking rate limit for TeamSlug: {TeamSlug}", teamSlug);
-            return new RateLimitResult
-            {
-                IsAllowed = false,
-                RemainingRequests = 0,
-                ResetTime = DateTime.UtcNow.AddHours(1)
-            };
+            return new PaymentGateway.Core.Services.RateLimitResult(false, 0, TimeSpan.FromHours(1), "Rate limit service error");
         }
     }
 
@@ -721,17 +712,3 @@ public class AuthenticationContext
 
 // PaymentRuleContext is now imported from PaymentGateway.Core.Services
 
-// Supporting classes for API controller
-public class AuthenticationResult
-{
-    public bool IsAuthenticated { get; set; }
-    public string? TeamSlug { get; set; }
-    public string? FailureReason { get; set; }
-}
-
-public class RateLimitResult
-{
-    public bool IsAllowed { get; set; }
-    public int RemainingRequests { get; set; }
-    public DateTime ResetTime { get; set; }
-}

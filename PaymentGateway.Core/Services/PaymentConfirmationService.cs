@@ -232,13 +232,16 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             // Perform confirmation through lifecycle service
             try
             {
-                var confirmedPayment = await _lifecycleService.ConfirmPaymentAsync(payment.Id.ToString(), cancellationToken);
+                await _lifecycleService.ConfirmPaymentAsync(payment.Id.ToString());
+                
+                // Reload payment to get updated status
+                var confirmedPayment = await _paymentRepository.GetByIdAsync(payment.Id, cancellationToken);
                 
                 result.IsSuccess = true;
-                result.CurrentStatus = confirmedPayment.Status;
+                result.CurrentStatus = confirmedPayment?.Status ?? payment.Status;
                 result.ConfirmedAt = DateTime.UtcNow;
                 result.ProcessingDuration = DateTime.UtcNow - startTime;
-                result.ResultMetadata["confirmed_amount"] = confirmedPayment.Amount;
+                result.ResultMetadata["confirmed_amount"] = confirmedPayment?.Amount ?? payment.Amount;
                 result.ResultMetadata["confirmation_reason"] = request.ConfirmationReason ?? "Payment confirmation";
 
                 // Cache for idempotency

@@ -17,10 +17,10 @@ public static class DatabaseConfiguration
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Database connection string 'DefaultConnection' not found.");
 
-        // Register database interceptors
-        services.AddScoped<DatabaseMetricsInterceptor>();
-        services.AddScoped<PerformanceInterceptor>();
-        services.AddScoped<ConcurrencyInterceptor>();
+        // Register database interceptors as singletons to avoid scoping issues
+        services.AddSingleton<DatabaseMetricsInterceptor>();
+        services.AddSingleton<PerformanceInterceptor>();
+        services.AddSingleton<ConcurrencyInterceptor>();
 
         // Configure connection pooling options
         var connectionPoolOptions = configuration.GetSection("Database:ConnectionPool");
@@ -44,7 +44,7 @@ public static class DatabaseConfiguration
         
         var optimizedConnectionString = builder.ToString();
 
-        // Use DbContextPool for better performance with high concurrency
+        // Register the Infrastructure DbContext for migrations and data access
         services.AddDbContextPool<PaymentGatewayDbContext>((serviceProvider, options) =>
         {
             options.UseNpgsql(optimizedConnectionString, npgsqlOptions =>
@@ -89,6 +89,36 @@ public static class DatabaseConfiguration
             
             // Configure tracking behavior for better performance
             options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+            
+            // Suppress pending model changes warning for dynamic seeding
+            options.ConfigureWarnings(warnings =>
+                warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+        }, poolSize: maxPoolSize);
+
+        // Also register the Core DbContext with the same configuration for repositories
+        services.AddDbContextPool<PaymentGateway.Core.Data.PaymentGatewayDbContext>((serviceProvider, options) =>
+        {
+            options.UseNpgsql(optimizedConnectionString, npgsqlOptions =>
+            {
+                npgsqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 3,
+                    maxRetryDelay: TimeSpan.FromSeconds(30),
+                    errorCodesToAdd: null);
+                npgsqlOptions.CommandTimeout(30);
+            });
+
+            if (environment.IsDevelopment())
+            {
+                options.EnableSensitiveDataLogging();
+                options.EnableDetailedErrors();
+            }
+
+            options.EnableServiceProviderCaching();
+            options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+            
+            // Suppress pending model changes warning for dynamic seeding
+            options.ConfigureWarnings(warnings =>
+                warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
         }, poolSize: maxPoolSize);
 
         // Register database health checks
@@ -103,9 +133,9 @@ public static class DatabaseConfiguration
         services.AddScoped<IDatabaseMigrationService, DatabaseMigrationService>();
         services.AddScoped<IBatchOperationsService, BatchOperationsService>();
         
-        // Register migration services
-        services.AddScoped<Migrations.MigrationRunner>();
-        services.AddHostedService<Migrations.MigrationMonitoringService>();
+        // Register migration services - commented out as services don't exist
+        // services.AddScoped<Migrations.MigrationRunner>();
+        // services.AddHostedService<Migrations.MigrationMonitoringService>();
 
         return services;
     }

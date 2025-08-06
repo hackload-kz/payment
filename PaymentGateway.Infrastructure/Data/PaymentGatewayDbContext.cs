@@ -30,27 +30,12 @@ public class PaymentGatewayDbContext : DbContext
         // Configure database-specific settings
         ConfigureDatabase(modelBuilder);
 
-        // Seed initial data
-        SeedData.Seed(modelBuilder);
+        // Seed initial data - temporarily disabled due to dynamic data issues
+        // SeedData.Seed(modelBuilder);
     }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        base.OnConfiguring(optionsBuilder);
-
-        // Enable sensitive data logging in development
-        if (System.Diagnostics.Debugger.IsAttached)
-        {
-            optionsBuilder.EnableSensitiveDataLogging();
-        }
-
-        // Enable detailed errors
-        optionsBuilder.EnableDetailedErrors();
-
-        // Configure connection pooling and resilience
-        optionsBuilder.EnableServiceProviderCaching();
-        optionsBuilder.EnableSensitiveDataLogging(false); // Disable in production
-    }
+    // OnConfiguring removed - conflicts with DbContext pooling
+    // Configuration is handled in DatabaseConfiguration.AddDatabase()
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

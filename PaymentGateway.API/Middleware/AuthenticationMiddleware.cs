@@ -1,5 +1,6 @@
 using PaymentGateway.Core.Services;
 using PaymentGateway.Core.Enums;
+using PaymentGateway.Core.Models;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Text;
@@ -56,7 +57,6 @@ public class AuthenticationMiddleware
             
             var authResult = await authService.AuthenticateAsync(
                 authenticationData.TeamSlug,
-                authenticationData.RequestParameters,
                 authenticationData.Token,
                 context.RequestAborted);
 
@@ -64,10 +64,10 @@ public class AuthenticationMiddleware
 
             if (!authResult.IsSuccessful)
             {
-                _logger.LogWarning("Authentication failed for team {TeamSlug}: {ErrorMessage} (Processing time: {ProcessingTime}ms)",
-                    authenticationData.TeamSlug, authResult.ErrorMessage, stopwatch.ElapsedMilliseconds);
+                _logger.LogWarning("Authentication failed for team {TeamSlug}: {FailureReason} (Processing time: {ProcessingTime}ms)",
+                    authenticationData.TeamSlug, authResult.FailureReason, stopwatch.ElapsedMilliseconds);
 
-                await WriteErrorResponseAsync(context, authResult.ErrorCode, authResult.ErrorMessage);
+                await WriteErrorResponseAsync(context, PaymentErrorCode.AUTHENTICATION_FAILED, authResult.FailureReason ?? "Authentication failed");
                 return;
             }
 

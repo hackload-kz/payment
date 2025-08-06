@@ -31,6 +31,9 @@ try
     // Add database configuration with metrics
     builder.Services.AddDatabase(builder.Configuration, builder.Environment);
 
+    // Add infrastructure services (repositories and data access)
+    builder.Services.AddInfrastructureServices();
+
     // Add core payment services
     builder.Services.AddPaymentServices(builder.Configuration);
 

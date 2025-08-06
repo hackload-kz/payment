@@ -10,11 +10,11 @@ using PaymentGateway.Infrastructure.Data;
 
 #nullable disable
 
-namespace PaymentGateway.Infrastructure.Data.Migrations
+namespace PaymentGateway.Infrastructure.Migrations
 {
     [DbContext(typeof(PaymentGatewayDbContext))]
-    [Migration("20250729122142_AddPerformanceIndexes")]
-    partial class AddPerformanceIndexes
+    [Migration("20250806220652_InitialMigration")]
+    partial class InitialMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -307,6 +307,10 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("first_name");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
                     b.Property<bool>("IsBlacklisted")
                         .HasColumnType("boolean")
                         .HasColumnName("is_blacklisted");
@@ -392,13 +396,9 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasColumnType("bytea")
                         .HasColumnName("row_version");
 
-                    b.Property<int>("TeamId")
-                        .HasColumnType("integer")
-                        .HasColumnName("team_id");
-
-                    b.Property<Guid>("TeamId1")
+                    b.Property<Guid>("TeamId")
                         .HasColumnType("uuid")
-                        .HasColumnName("team_id1");
+                        .HasColumnName("team_id");
 
                     b.Property<decimal>("TotalPaymentAmount")
                         .HasColumnType("numeric")
@@ -419,8 +419,8 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                     b.HasKey("Id")
                         .HasName("p_k_customers");
 
-                    b.HasIndex("TeamId1")
-                        .HasDatabaseName("i_x_customers_team_id1");
+                    b.HasIndex("TeamId")
+                        .HasDatabaseName("i_x_customers_team_id");
 
                     b.ToTable("customers", "payment");
                 });
@@ -477,6 +477,10 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("card_type");
 
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
                     b.Property<DateTime?>("ConfirmedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("confirmed_at");
@@ -507,13 +511,9 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("customer_email");
 
-                    b.Property<int?>("CustomerId")
-                        .HasColumnType("integer")
-                        .HasColumnName("customer_id");
-
-                    b.Property<Guid?>("CustomerId1")
+                    b.Property<Guid?>("CustomerId")
                         .HasColumnType("uuid")
-                        .HasColumnName("customer_id1");
+                        .HasColumnName("customer_id");
 
                     b.Property<string>("CustomerIpAddress")
                         .HasMaxLength(45)
@@ -533,6 +533,16 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("description");
 
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("error_code");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("error_message");
+
                     b.Property<DateTime?>("ExpiredAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expired_at");
@@ -541,10 +551,19 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at");
 
+                    b.Property<string>("FailUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("fail_url");
+
                     b.Property<string>("FailureReason")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("failure_reason");
+
+                    b.Property<DateTime?>("FinishAuthorizeAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finish_authorize_at");
 
                     b.Property<DateTime?>("FormShowedAt")
                         .HasColumnType("timestamp with time zone")
@@ -567,6 +586,10 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasColumnType("hstore")
                         .HasColumnName("metadata");
 
+                    b.Property<DateTime?>("OneChooseVisionAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("one_choose_vision_at");
+
                     b.Property<string>("OrderId")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -587,6 +610,11 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("payment_url");
+
+                    b.Property<string>("Receipt")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("receipt");
 
                     b.Property<int>("RefundCount")
                         .HasColumnType("integer")
@@ -632,13 +660,14 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("status");
 
-                    b.Property<int>("TeamId")
-                        .HasColumnType("integer")
-                        .HasColumnName("team_id");
+                    b.Property<string>("SuccessUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("success_url");
 
-                    b.Property<Guid>("TeamId1")
+                    b.Property<Guid>("TeamId")
                         .HasColumnType("uuid")
-                        .HasColumnName("team_id1");
+                        .HasColumnName("team_id");
 
                     b.Property<string>("TeamSlug")
                         .IsRequired()
@@ -666,8 +695,8 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                     b.HasIndex("CreatedAt")
                         .HasDatabaseName("ix_payments_created_at");
 
-                    b.HasIndex("CustomerId1")
-                        .HasDatabaseName("i_x_payments_customer_id1");
+                    b.HasIndex("CustomerId")
+                        .HasDatabaseName("i_x_payments_customer_id");
 
                     b.HasIndex("OrderId")
                         .HasDatabaseName("ix_payments_order_id");
@@ -679,8 +708,8 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_payments_status");
 
-                    b.HasIndex("TeamId1")
-                        .HasDatabaseName("i_x_payments_team_id1");
+                    b.HasIndex("TeamId")
+                        .HasDatabaseName("i_x_payments_team_id");
 
                     b.HasIndex("TeamSlug")
                         .HasDatabaseName("ix_payments_team_slug");
@@ -765,13 +794,9 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("created_by");
 
-                    b.Property<int?>("CustomerId")
-                        .HasColumnType("integer")
-                        .HasColumnName("customer_id");
-
-                    b.Property<Guid?>("CustomerId1")
+                    b.Property<Guid?>("CustomerId")
                         .HasColumnType("uuid")
-                        .HasColumnName("customer_id1");
+                        .HasColumnName("customer_id");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
@@ -852,13 +877,9 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("successful_transactions");
 
-                    b.Property<int>("TeamId")
-                        .HasColumnType("integer")
-                        .HasColumnName("team_id");
-
-                    b.Property<Guid>("TeamId1")
+                    b.Property<Guid>("TeamId")
                         .HasColumnType("uuid")
-                        .HasColumnName("team_id1");
+                        .HasColumnName("team_id");
 
                     b.Property<string>("Token")
                         .HasMaxLength(200)
@@ -916,11 +937,11 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                     b.HasKey("Id")
                         .HasName("p_k_payment_methods");
 
-                    b.HasIndex("CustomerId1")
-                        .HasDatabaseName("i_x_payment_methods_customer_id1");
+                    b.HasIndex("CustomerId")
+                        .HasDatabaseName("i_x_payment_methods_customer_id");
 
-                    b.HasIndex("TeamId1")
-                        .HasDatabaseName("i_x_payment_methods_team_id1");
+                    b.HasIndex("TeamId")
+                        .HasDatabaseName("i_x_payment_methods_team_id");
 
                     b.ToTable("payment_methods", "payment");
                 });
@@ -946,6 +967,10 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasColumnType("hstore")
                         .HasColumnName("business_info");
+
+                    b.Property<bool>("CanProcessRefunds")
+                        .HasColumnType("boolean")
+                        .HasColumnName("can_process_refunds");
 
                     b.Property<string>("CancelUrl")
                         .HasMaxLength(2048)
@@ -979,6 +1004,10 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                     b.Property<decimal?>("DailyPaymentLimit")
                         .HasColumnType("numeric")
                         .HasColumnName("daily_payment_limit");
+
+                    b.Property<int?>("DailyTransactionLimit")
+                        .HasColumnType("integer")
+                        .HasColumnName("daily_transaction_limit");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1218,85 +1247,6 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasDatabaseName("ix_teams_team_slug");
 
                     b.ToTable("teams", "payment");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
-                            ApiVersion = "v1",
-                            BusinessInfo = new Dictionary<string, string>(),
-                            CreatedAt = new DateTime(2025, 7, 29, 12, 21, 42, 275, DateTimeKind.Utc).AddTicks(8470),
-                            CreatedBy = "SYSTEM",
-                            Enable3DSecure = true,
-                            EnableFraudDetection = true,
-                            EnablePartialRefunds = false,
-                            EnableRecurringPayments = false,
-                            EnableRefunds = true,
-                            EnableReversals = true,
-                            EnableTokenization = true,
-                            EnableWebhooks = true,
-                            FailUrl = "https://demo.example.com/fail",
-                            FailedAuthenticationAttempts = 0,
-                            FeeCurrency = "RUB",
-                            FixedProcessingFee = 0m,
-                            IsActive = true,
-                            IsDeleted = false,
-                            MaxFraudScore = 75,
-                            Metadata = new Dictionary<string, string>(),
-                            NotificationUrl = "https://webhook.site/demo-notifications",
-                            PasswordHash = "d3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791",
-                            ProcessingFeePercentage = 0m,
-                            RequireManualReviewForHighRisk = true,
-                            RowVersion = new byte[0],
-                            SettlementDelayDays = 1,
-                            SuccessUrl = "https://demo.example.com/success",
-                            SupportedCurrencies = new List<string> { "RUB" },
-                            SupportedPaymentMethods = new[] { 0 },
-                            TeamName = "Demo Team",
-                            TeamSlug = "demo-team",
-                            TimeZone = "UTC",
-                            UpdatedAt = new DateTime(2025, 7, 29, 12, 21, 42, 275, DateTimeKind.Utc).AddTicks(8600),
-                            UpdatedBy = "SYSTEM",
-                            WebhookRetryAttempts = 3,
-                            WebhookTimeoutSeconds = 30
-                        },
-                        new
-                        {
-                            Id = new Guid("22222222-2222-2222-2222-222222222222"),
-                            ApiVersion = "v1",
-                            BusinessInfo = new Dictionary<string, string>(),
-                            CreatedAt = new DateTime(2025, 7, 29, 12, 21, 42, 275, DateTimeKind.Utc).AddTicks(8990),
-                            CreatedBy = "SYSTEM",
-                            Enable3DSecure = true,
-                            EnableFraudDetection = true,
-                            EnablePartialRefunds = false,
-                            EnableRecurringPayments = false,
-                            EnableRefunds = true,
-                            EnableReversals = true,
-                            EnableTokenization = true,
-                            EnableWebhooks = true,
-                            FailedAuthenticationAttempts = 0,
-                            FeeCurrency = "RUB",
-                            FixedProcessingFee = 0m,
-                            IsActive = true,
-                            IsDeleted = false,
-                            MaxFraudScore = 75,
-                            Metadata = new Dictionary<string, string>(),
-                            PasswordHash = "ecd71870d1963316a97e3ac3408c9835ad8cf0f3c1bc703527c30265534f75ae",
-                            ProcessingFeePercentage = 0m,
-                            RequireManualReviewForHighRisk = true,
-                            RowVersion = new byte[0],
-                            SettlementDelayDays = 1,
-                            SupportedCurrencies = new List<string> { "RUB" },
-                            SupportedPaymentMethods = new[] { 0 },
-                            TeamName = "Test Team",
-                            TeamSlug = "test-team",
-                            TimeZone = "UTC",
-                            UpdatedAt = new DateTime(2025, 7, 29, 12, 21, 42, 275, DateTimeKind.Utc).AddTicks(9000),
-                            UpdatedBy = "SYSTEM",
-                            WebhookRetryAttempts = 3,
-                            WebhookTimeoutSeconds = 30
-                        });
                 });
 
             modelBuilder.Entity("PaymentGateway.Core.Entities.Transaction", b =>
@@ -1469,13 +1419,9 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("next_retry_at");
 
-                    b.Property<int?>("ParentTransactionId")
-                        .HasColumnType("integer")
-                        .HasColumnName("parent_transaction_id");
-
-                    b.Property<Guid?>("ParentTransactionId1")
+                    b.Property<Guid?>("ParentTransactionId")
                         .HasColumnType("uuid")
-                        .HasColumnName("parent_transaction_id1");
+                        .HasColumnName("parent_transaction_id");
 
                     b.Property<string>("PaymentExternalId")
                         .IsRequired()
@@ -1483,13 +1429,9 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("payment_external_id");
 
-                    b.Property<int>("PaymentId")
-                        .HasColumnType("integer")
-                        .HasColumnName("payment_id");
-
-                    b.Property<Guid>("PaymentId1")
+                    b.Property<Guid>("PaymentId")
                         .HasColumnType("uuid")
-                        .HasColumnName("payment_id1");
+                        .HasColumnName("payment_id");
 
                     b.Property<DateTime?>("ProcessingCompletedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1598,11 +1540,11 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                     b.HasKey("Id")
                         .HasName("p_k_transactions");
 
-                    b.HasIndex("ParentTransactionId1")
-                        .HasDatabaseName("i_x_transactions_parent_transaction_id1");
+                    b.HasIndex("ParentTransactionId")
+                        .HasDatabaseName("i_x_transactions_parent_transaction_id");
 
-                    b.HasIndex("PaymentId1")
-                        .HasDatabaseName("i_x_transactions_payment_id1");
+                    b.HasIndex("PaymentId")
+                        .HasDatabaseName("i_x_transactions_payment_id");
 
                     b.ToTable("transactions", "payment");
                 });
@@ -1630,10 +1572,10 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                 {
                     b.HasOne("PaymentGateway.Core.Entities.Team", "Team")
                         .WithMany("Customers")
-                        .HasForeignKey("TeamId1")
+                        .HasForeignKey("TeamId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("f_k_customers_teams_team_id1");
+                        .HasConstraintName("f_k_customers_teams_team_id");
 
                     b.Navigation("Team");
                 });
@@ -1642,15 +1584,15 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                 {
                     b.HasOne("PaymentGateway.Core.Entities.Customer", "Customer")
                         .WithMany("Payments")
-                        .HasForeignKey("CustomerId1")
-                        .HasConstraintName("f_k_payments_customers_customer_id1");
+                        .HasForeignKey("CustomerId")
+                        .HasConstraintName("f_k_payments_customers_customer_id");
 
                     b.HasOne("PaymentGateway.Core.Entities.Team", "Team")
                         .WithMany()
-                        .HasForeignKey("TeamId1")
+                        .HasForeignKey("TeamId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("f_k_payments_teams_team_id1");
+                        .HasConstraintName("f_k_payments_teams_team_id");
 
                     b.HasOne("PaymentGateway.Core.Entities.Team", null)
                         .WithMany("Payments")
@@ -1669,15 +1611,15 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                 {
                     b.HasOne("PaymentGateway.Core.Entities.Customer", "Customer")
                         .WithMany("PaymentMethods")
-                        .HasForeignKey("CustomerId1")
-                        .HasConstraintName("f_k_payment_methods_customers_customer_id1");
+                        .HasForeignKey("CustomerId")
+                        .HasConstraintName("f_k_payment_methods_customers_customer_id");
 
                     b.HasOne("PaymentGateway.Core.Entities.Team", "Team")
                         .WithMany("PaymentMethods")
-                        .HasForeignKey("TeamId1")
+                        .HasForeignKey("TeamId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("f_k_payment_methods_teams_team_id1");
+                        .HasConstraintName("f_k_payment_methods_teams_team_id");
 
                     b.Navigation("Customer");
 
@@ -1688,15 +1630,15 @@ namespace PaymentGateway.Infrastructure.Data.Migrations
                 {
                     b.HasOne("PaymentGateway.Core.Entities.Transaction", "ParentTransaction")
                         .WithMany("ChildTransactions")
-                        .HasForeignKey("ParentTransactionId1")
-                        .HasConstraintName("f_k_transactions_transactions_parent_transaction_id1");
+                        .HasForeignKey("ParentTransactionId")
+                        .HasConstraintName("f_k_transactions_transactions_parent_transaction_id");
 
                     b.HasOne("PaymentGateway.Core.Entities.Payment", "Payment")
                         .WithMany("Transactions")
-                        .HasForeignKey("PaymentId1")
+                        .HasForeignKey("PaymentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("f_k_transactions_payments_payment_id1");
+                        .HasConstraintName("f_k_transactions_payments_payment_id");
 
                     b.Navigation("ParentTransaction");
 

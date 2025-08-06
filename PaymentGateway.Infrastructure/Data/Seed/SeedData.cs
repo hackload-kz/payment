@@ -22,8 +22,8 @@ public static class SeedData
                 NotificationUrl = "https://webhook.site/demo-notifications",
                 SuccessUrl = "https://demo.example.com/success",
                 FailUrl = "https://demo.example.com/fail",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                 CreatedBy = "SYSTEM",
                 UpdatedBy = "SYSTEM"
             },
@@ -34,8 +34,8 @@ public static class SeedData
                 TeamName = "Test Team",
                 PasswordHash = HashPassword("test123"),
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                 CreatedBy = "SYSTEM",
                 UpdatedBy = "SYSTEM"
             }
