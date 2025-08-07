@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using PaymentGateway.Core.Configuration;
 using PaymentGateway.Core.Data;
 using PaymentGateway.Core.DTOs.TeamRegistration;
 using PaymentGateway.Core.Entities;
@@ -17,15 +19,18 @@ public class TeamRegistrationService : ITeamRegistrationService
     private readonly PaymentGatewayDbContext _context;
     private readonly ILogger<TeamRegistrationService> _logger;
     private readonly IAuditLoggingService _auditLogger;
+    private readonly ApiOptions _apiOptions;
 
     public TeamRegistrationService(
         PaymentGatewayDbContext context,
         ILogger<TeamRegistrationService> logger,
-        IAuditLoggingService auditLogger)
+        IAuditLoggingService auditLogger,
+        IOptions<ApiOptions> apiOptions)
     {
         _context = context;
         _logger = logger;
         _auditLogger = auditLogger;
+        _apiOptions = apiOptions.Value;
     }
 
     public async Task<TeamRegistrationResponseDto> RegisterTeamAsync(TeamRegistrationRequestDto request, CancellationToken cancellationToken = default)
@@ -98,6 +103,7 @@ public class TeamRegistrationService : ITeamRegistrationService
                 NotificationUrl = request.NotificationURL,
                 SupportedCurrencies = currencyArray.ToList(),
                 BusinessInfo = request.BusinessInfo ?? new Dictionary<string, string>(),
+                FailedAuthenticationAttempts = 0, // Explicitly set to avoid NOT NULL constraint issues
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -132,7 +138,7 @@ public class TeamRegistrationService : ITeamRegistrationService
                 PasswordHashPreview = passwordHashPreview,
                 CreatedAt = team.CreatedAt,
                 Status = team.IsActive ? "ACTIVE" : "INACTIVE",
-                ApiEndpoint = "https://gateway.hackload.com/api/v1", // From configuration
+                ApiEndpoint = _apiOptions.GetApiEndpoint(),
                 Details = new TeamRegistrationDetailsDto
                 {
                     TeamName = team.TeamName,

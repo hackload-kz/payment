@@ -234,3 +234,20 @@ public class DatabaseHealthCheckOptions
     [Required]
     public string FailureStatus { get; set; } = "Degraded";
 }
+
+public class ApiOptions
+{
+    public const string SectionName = "Api";
+    
+    [Required]
+    [Url]
+    public string BaseUrl { get; set; } = "https://gateway.hackload.com";
+    
+    [Required]
+    public string Version { get; set; } = "v1";
+    
+    public string GetApiEndpoint()
+    {
+        return $"{BaseUrl.TrimEnd('/')}/api/{Version}";
+    }
+}

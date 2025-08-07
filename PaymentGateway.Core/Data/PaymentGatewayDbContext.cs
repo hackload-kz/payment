@@ -114,25 +114,33 @@ public class PaymentGatewayDbContext : DbContext
         // Configure PostgreSQL-specific data types and features
         // (Array configuration is handled in individual entity configurations)
             
-        // Configure JSONB columns for better performance
+        // Configure JSONB columns with explicit JSON conversion
         modelBuilder.Entity<Payment>()
             .Property(p => p.Metadata)
+            .HasConversion(
+                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, string>())
             .HasColumnType("jsonb");
             
         modelBuilder.Entity<Transaction>()
             .Property(t => t.AdditionalData)
+            .HasConversion(
+                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, string>())
             .HasColumnType("jsonb");
             
         modelBuilder.Entity<Customer>()
             .Property(c => c.Metadata)
+            .HasConversion(
+                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, string>())
             .HasColumnType("jsonb");
             
         modelBuilder.Entity<PaymentMethodInfo>()
             .Property(pm => pm.Metadata)
-            .HasColumnType("jsonb");
-            
-        modelBuilder.Entity<Team>()
-            .Property(t => t.BusinessInfo)
+            .HasConversion(
+                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, string>())
             .HasColumnType("jsonb");
 
         // Configure PostgreSQL sequences for ID generation

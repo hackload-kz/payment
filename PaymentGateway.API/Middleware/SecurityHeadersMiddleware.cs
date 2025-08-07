@@ -43,11 +43,12 @@ public class SecurityHeadersMiddleware
     {
         // Add security headers before processing the request
         AddSecurityHeaders(context);
+        
+        // Add post-processing headers before the request continues
+        // This ensures headers are set before response starts
+        AddPostProcessingHeaders(context);
 
         await _next(context);
-
-        // Add additional headers after processing (if needed)
-        AddPostProcessingHeaders(context);
     }
 
     private void AddSecurityHeaders(HttpContext context)
@@ -291,17 +292,21 @@ public class SecurityHeadersMiddleware
 
     private void AddPostProcessingHeaders(HttpContext context)
     {
-        // Add headers after request processing if needed
+        // Add headers before request processing if needed
         var response = context.Response;
 
-        // Add timing attack protection header
-        SetHeaderIfNotExists(response, "X-Processing-Time", "normalized");
-
-        // Add anti-fingerprinting headers
-        if (_options.EnableAntiFingerprinting)
+        // Only add headers if the response hasn't started
+        if (!response.HasStarted)
         {
-            response.Headers.Remove("ETag");
-            response.Headers.Remove("Last-Modified");
+            // Add timing attack protection header
+            SetHeaderIfNotExists(response, "X-Processing-Time", "normalized");
+
+            // Add anti-fingerprinting headers
+            if (_options.EnableAntiFingerprinting)
+            {
+                response.Headers.Remove("ETag");
+                response.Headers.Remove("Last-Modified");
+            }
         }
     }
 

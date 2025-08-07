@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using PaymentGateway.Core.Configuration;
 using PaymentGateway.Core.Services;
 
 namespace PaymentGateway.Core.Extensions;
@@ -19,6 +20,9 @@ public static class PaymentServiceExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        // Register configuration options
+        services.Configure<ApiOptions>(configuration.GetSection(ApiOptions.SectionName));
+        
         // Register core payment processing services
         services.AddScoped<IBusinessRuleEngineService, BusinessRuleEngineService>();
         services.AddScoped<ICardPaymentProcessingService, CardPaymentProcessingService>();
