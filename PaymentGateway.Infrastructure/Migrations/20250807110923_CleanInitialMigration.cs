@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace PaymentGateway.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialMigration : Migration
+    public partial class CleanInitialMigration : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -86,7 +86,7 @@ namespace PaymentGateway.Infrastructure.Migrations
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     team_slug = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     team_name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    password_hash = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    password = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
                     secret_key = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     last_password_change_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -106,8 +106,8 @@ namespace PaymentGateway.Infrastructure.Migrations
                     daily_payment_limit = table.Column<decimal>(type: "numeric", nullable: true),
                     monthly_payment_limit = table.Column<decimal>(type: "numeric", nullable: true),
                     daily_transaction_limit = table.Column<int>(type: "integer", nullable: true),
-                    supported_currencies = table.Column<List<string>>(type: "text[]", nullable: false),
-                    supported_payment_methods = table.Column<int[]>(type: "integer[]", nullable: false),
+                    supported_currencies = table.Column<string[]>(type: "text[]", nullable: false),
+                    supported_payment_methods = table.Column<string[]>(type: "text[]", nullable: false),
                     can_process_refunds = table.Column<bool>(type: "boolean", nullable: false),
                     legal_name = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     tax_id = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
@@ -140,7 +140,7 @@ namespace PaymentGateway.Infrastructure.Migrations
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     created_by = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     updated_by = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    row_version = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: false),
+                    row_version = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: true),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
                     deleted_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     deleted_by = table.Column<string>(type: "text", nullable: true)
@@ -190,7 +190,7 @@ namespace PaymentGateway.Infrastructure.Migrations
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     created_by = table.Column<string>(type: "text", nullable: true),
                     updated_by = table.Column<string>(type: "text", nullable: true),
-                    row_version = table.Column<byte[]>(type: "bytea", nullable: false),
+                    row_version = table.Column<byte[]>(type: "bytea", nullable: true),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
                     deleted_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     deleted_by = table.Column<string>(type: "text", nullable: true)
@@ -255,7 +255,7 @@ namespace PaymentGateway.Infrastructure.Migrations
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     created_by = table.Column<string>(type: "text", nullable: true),
                     updated_by = table.Column<string>(type: "text", nullable: true),
-                    row_version = table.Column<byte[]>(type: "bytea", nullable: false),
+                    row_version = table.Column<byte[]>(type: "bytea", nullable: true),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
                     deleted_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     deleted_by = table.Column<string>(type: "text", nullable: true)
@@ -336,7 +336,7 @@ namespace PaymentGateway.Infrastructure.Migrations
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     created_by = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     updated_by = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    row_version = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: false),
+                    row_version = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: true),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
                     deleted_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     deleted_by = table.Column<string>(type: "text", nullable: true)
@@ -457,7 +457,7 @@ namespace PaymentGateway.Infrastructure.Migrations
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     created_by = table.Column<string>(type: "text", nullable: true),
                     updated_by = table.Column<string>(type: "text", nullable: true),
-                    row_version = table.Column<byte[]>(type: "bytea", nullable: false),
+                    row_version = table.Column<byte[]>(type: "bytea", nullable: true),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
                     deleted_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     deleted_by = table.Column<string>(type: "text", nullable: true)

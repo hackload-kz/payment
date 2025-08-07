@@ -8,7 +8,7 @@ public class AuditEntryConfiguration : IEntityTypeConfiguration<AuditEntry>
 {
     public void Configure(EntityTypeBuilder<AuditEntry> builder)
     {
-        builder.ToTable("AuditLog", "audit");
+        builder.ToTable("audit_entries", "payment");
         
         // Primary key
         builder.HasKey(ae => ae.Id);

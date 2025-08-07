@@ -13,8 +13,8 @@ using PaymentGateway.Infrastructure.Data;
 namespace PaymentGateway.Infrastructure.Migrations
 {
     [DbContext(typeof(PaymentGatewayDbContext))]
-    [Migration("20250807045516_FixFailedAuthenticationAttemptsDefault")]
-    partial class FixFailedAuthenticationAttemptsDefault
+    [Migration("20250807110923_CleanInitialMigration")]
+    partial class CleanInitialMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -392,7 +392,6 @@ namespace PaymentGateway.Infrastructure.Migrations
                         .HasColumnName("risk_score");
 
                     b.Property<byte[]>("RowVersion")
-                        .IsRequired()
                         .HasColumnType("bytea")
                         .HasColumnName("row_version");
 
@@ -646,7 +645,6 @@ namespace PaymentGateway.Infrastructure.Migrations
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
-                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("bytea")
                         .HasColumnName("row_version");
@@ -855,7 +853,6 @@ namespace PaymentGateway.Infrastructure.Migrations
                         .HasColumnName("requires_verification");
 
                     b.Property<byte[]>("RowVersion")
-                        .IsRequired()
                         .HasColumnType("bytea")
                         .HasColumnName("row_version");
 
@@ -1131,11 +1128,11 @@ namespace PaymentGateway.Infrastructure.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("notification_url");
 
-                    b.Property<string>("PasswordHash")
+                    b.Property<string>("Password")
                         .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("password_hash");
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("password");
 
                     b.Property<decimal>("ProcessingFeePercentage")
                         .HasColumnType("numeric")
@@ -1147,7 +1144,6 @@ namespace PaymentGateway.Infrastructure.Migrations
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
-                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("bytea")
                         .HasColumnName("row_version");
@@ -1479,7 +1475,6 @@ namespace PaymentGateway.Infrastructure.Migrations
                         .HasColumnName("risk_category");
 
                     b.Property<byte[]>("RowVersion")
-                        .IsRequired()
                         .HasColumnType("bytea")
                         .HasColumnName("row_version");
 
