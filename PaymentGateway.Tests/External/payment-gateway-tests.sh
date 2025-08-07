@@ -167,8 +167,14 @@ setup_test_environment() {
 # Test Data
 # ========================
 
+# Generate unique test team for this test run
+TEST_RUN_TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+TEST_RUN_ID=$(date +%s)
+UNIQUE_TEST_TEAM_SLUG="test-run-${TEST_RUN_TIMESTAMP}-${TEST_RUN_ID}"
+UNIQUE_TEST_TEAM_PASSWORD="SecureTestPassword123@"
+
 # Test teams with their actual passwords from user-provided database credentials
-# Prefer using user-provided teams as they are confirmed to be in database
+# Used as fallback for authentication tests if unique team registration fails
 TEST_TEAM_SLUG="payment-test-20250807-124445"
 TEST_TEAM_PASSWORD="SecurePaymentPassword123!"
 
@@ -185,37 +191,127 @@ DEMO_TEAM_PASSWORD="demo123"
 # Test order ID with timestamp
 TEST_ORDER_ID="test-order-$(date +%s)"
 
+# Global variable to track if unique team was successfully registered
+UNIQUE_TEAM_REGISTERED=false
+
+# ========================
+# Team Selection Functions
+# ========================
+
+get_primary_test_team() {
+    # Return the best available team for authentication testing
+    if [[ "$UNIQUE_TEAM_REGISTERED" == "true" ]]; then
+        echo "$UNIQUE_TEST_TEAM_SLUG"
+    else
+        echo "$TEST_TEAM_SLUG"
+    fi
+}
+
+get_primary_test_password() {
+    # Return the password for the best available team
+    if [[ "$UNIQUE_TEAM_REGISTERED" == "true" ]]; then
+        echo "$UNIQUE_TEST_TEAM_PASSWORD"
+    else
+        echo "$TEST_TEAM_PASSWORD"
+    fi
+}
+
 # ========================
 # Team Registration Tests
 # ========================
 
+register_unique_test_team() {
+    log "=== Registering Unique Test Team ==="
+    
+    # Register a completely unique team for this test run
+    # Use proper JSON construction to avoid escaping issues
+    local unique_team_data
+    unique_team_data=$(cat << EOF
+{
+    "teamSlug": "$UNIQUE_TEST_TEAM_SLUG",
+    "password": "$UNIQUE_TEST_TEAM_PASSWORD",
+    "teamName": "Unique Test Team $TEST_RUN_TIMESTAMP",
+    "email": "test-$TEST_RUN_ID@external-test.local",
+    "phone": "+1555${TEST_RUN_ID: -7}",
+    "successURL": "https://test-$TEST_RUN_ID.example.com/success",
+    "failURL": "https://test-$TEST_RUN_ID.example.com/fail",
+    "notificationURL": "https://test-$TEST_RUN_ID.example.com/webhook",
+    "supportedCurrencies": "RUB,USD,EUR",
+    "businessInfo": {
+        "businessType": "ecommerce",
+        "website": "https://test-$TEST_RUN_ID.example.com",
+        "testRun": "$TEST_RUN_TIMESTAMP"
+    },
+    "acceptTerms": true
+}
+EOF
+)
+    
+    log "Attempting to register unique test team: $UNIQUE_TEST_TEAM_SLUG"
+    
+    # Execute team registration
+    local curl_cmd="curl -s -w '%{http_code}' -X POST"
+    curl_cmd="$curl_cmd -H 'Content-Type: application/json'"
+    curl_cmd="$curl_cmd -H 'X-Admin-Token: $ADMIN_TOKEN'"
+    curl_cmd="$curl_cmd -d '$unique_team_data'"
+    curl_cmd="$curl_cmd '$BASE_URL/api/v1/TeamRegistration/register'"
+    
+    local response_with_status
+    response_with_status=$(eval "$curl_cmd")
+    local status_code="${response_with_status: -3}"
+    local response_body="${response_with_status%???}"
+    
+    if [[ "$status_code" == "200" || "$status_code" == "201" ]]; then
+        UNIQUE_TEAM_REGISTERED=true
+        log_success "Unique test team registered successfully: $UNIQUE_TEST_TEAM_SLUG"
+        
+        # Wait a moment for team to be fully available
+        sleep 1
+        
+        return 0
+    else
+        log_warning "Failed to register unique test team (HTTP $status_code): $UNIQUE_TEST_TEAM_SLUG"
+        log "Response: $response_body"
+        log "Will fall back to existing test teams for authentication tests"
+        UNIQUE_TEAM_REGISTERED=false
+        return 1
+    fi
+}
+
 test_team_registration() {
     log "=== Team Registration API Tests ==="
     
-    # Test 1: Register new team (expect conflict since team likely exists)
-    local new_team_slug="test-external-$(date +%s)"
-    local team_data='{
-        "teamSlug": "'$new_team_slug'",
-        "password": "SecureTestPassword123!",
-        "teamName": "External Test Team",
-        "email": "test@example.com",
-        "phone": "+1234567890",
-        "successURL": "https://example.com/success",
-        "failURL": "https://example.com/fail",
-        "notificationURL": "https://example.com/webhook",
-        "supportedCurrencies": "RUB,USD,EUR",
-        "businessInfo": {
-            "businessType": "ecommerce",
-            "website": "https://example.com"
-        },
-        "acceptTerms": true
-    }'
+    # First, try to register our unique test team
+    register_unique_test_team
+    
+    # Test 1: Register another team (expect conflict since similar teams may exist)
+    local conflict_team_slug="test-conflict-$(date +%s)"
+    local conflict_team_data
+    conflict_team_data=$(cat << EOF
+{
+    "teamSlug": "$conflict_team_slug",
+    "password": "SecureTestPassword123@",
+    "teamName": "Conflict Test Team",
+    "email": "test@example.com",
+    "phone": "+1234567890",
+    "successURL": "https://example.com/success",
+    "failURL": "https://example.com/fail",
+    "notificationURL": "https://example.com/webhook",
+    "supportedCurrencies": "RUB,USD,EUR",
+    "businessInfo": {
+        "businessType": "ecommerce",
+        "website": "https://example.com"
+    },
+    "acceptTerms": true
+}
+EOF
+)
     
     # Note: Expecting 409 because test email is likely already registered
-    run_test "Team Registration - Valid Request" "409" "POST" "/api/v1/TeamRegistration/register" \
+    run_test "Team Registration - Duplicate Email Test" "409" "POST" "/api/v1/TeamRegistration/register" \
         "Content-Type: application/json
 X-Admin-Token: $ADMIN_TOKEN" \
-        "$team_data"
+        "$conflict_team_data"
     
     # Test 2: Check team slug availability
     run_test "Check Team Availability - Available Slug" "200" "GET" "/api/v1/TeamRegistration/check-availability/available-slug-$(date +%s)" \
@@ -230,10 +326,17 @@ X-Admin-Token: $ADMIN_TOKEN" \
     # Test 4: Register team without admin token
     run_test "Team Registration - Missing Admin Token" "401" "POST" "/api/v1/TeamRegistration/register" \
         "Content-Type: application/json" \
-        "$team_data"
+        "$conflict_team_data"
     
-    # Test 5: Get team status
-    run_test "Get Team Status - Existing Team" "200" "GET" "/api/v1/TeamRegistration/status/$DEMO_TEAM_SLUG" \
+    # Test 5: Get team status for the unique team if registered
+    if [[ "$UNIQUE_TEAM_REGISTERED" == "true" ]]; then
+        run_test "Get Team Status - Unique Test Team" "200" "GET" "/api/v1/TeamRegistration/status/$UNIQUE_TEST_TEAM_SLUG" \
+            "X-Admin-Token: $ADMIN_TOKEN" \
+            ""
+    fi
+    
+    # Test 6: Get team status for demo team (fallback test)
+    run_test "Get Team Status - Demo Team" "200" "GET" "/api/v1/TeamRegistration/status/$DEMO_TEAM_SLUG" \
         "X-Admin-Token: $ADMIN_TOKEN" \
         ""
 }
@@ -245,14 +348,22 @@ X-Admin-Token: $ADMIN_TOKEN" \
 test_payment_initialization() {
     log "=== Payment Initialization API Tests ==="
     
-    # Test 1: Valid payment initialization with confirmed test team
+    # Get the best available team for testing
+    local primary_team
+    primary_team=$(get_primary_test_team)
+    local primary_password
+    primary_password=$(get_primary_test_password)
+    
+    log "Using team for payment tests: $primary_team"
+    
+    # Test 1: Valid payment initialization with best available test team
     local payment_init_data='{
-        "teamSlug": "'$TEST_TEAM_SLUG'",
+        "teamSlug": "'$primary_team'",
         "amount": 150000,
         "orderId": "'$TEST_ORDER_ID'",
         "currency": "RUB",
         "payType": "O",
-        "description": "Test payment for external testing",
+        "description": "Test payment for external testing (team: '$primary_team')",
         "customerKey": "customer-test-123",
         "email": "customer@example.com",
         "phone": "+79991234567",
@@ -267,7 +378,7 @@ test_payment_initialization() {
     
     # Generate token for the request
     local token
-    token=$(generate_sha256_token "$TEST_TEAM_SLUG" "$TEST_TEAM_PASSWORD" "$payment_init_data")
+    token=$(generate_sha256_token "$primary_team" "$primary_password" "$payment_init_data")
     
     if [[ -n "$token" ]]; then
         # Add token to request data
@@ -381,17 +492,25 @@ print(json.dumps(data))
 test_payment_lifecycle() {
     log "=== Payment Lifecycle Tests ==="
     
+    # Get the best available team for lifecycle testing
+    local lifecycle_team
+    lifecycle_team=$(get_primary_test_team)
+    local lifecycle_password
+    lifecycle_password=$(get_primary_test_password)
+    
+    log "Using team for lifecycle tests: $lifecycle_team"
+    
     # First initialize a payment to test lifecycle
     local payment_data='{
-        "teamSlug": "'$DEMO_TEAM_SLUG'",
+        "teamSlug": "'$lifecycle_team'",
         "amount": 100000,
         "orderId": "lifecycle-test-'$(date +%s)'",
         "currency": "RUB",
-        "description": "Payment lifecycle test"
+        "description": "Payment lifecycle test (team: '$lifecycle_team')"
     }'
     
     local token
-    token=$(generate_sha256_token "$DEMO_TEAM_SLUG" "$DEMO_TEAM_PASSWORD" "$payment_data")
+    token=$(generate_sha256_token "$lifecycle_team" "$lifecycle_password" "$payment_data")
     
     if [[ -n "$token" ]]; then
         local payment_with_token
@@ -432,12 +551,12 @@ except:
             
             # Test payment status check
             local status_check_data='{
-                "teamSlug": "'$DEMO_TEAM_SLUG'",
+                "teamSlug": "'$lifecycle_team'",
                 "paymentId": "'$payment_id'"
             }'
             
             local status_token
-            status_token=$(generate_sha256_token "$DEMO_TEAM_SLUG" "$DEMO_TEAM_PASSWORD" "$status_check_data")
+            status_token=$(generate_sha256_token "$lifecycle_team" "$lifecycle_password" "$status_check_data")
             
             if [[ -n "$status_token" ]]; then
                 local status_check_with_token
@@ -456,13 +575,13 @@ print(json.dumps(data))
             
             # Test payment confirmation
             local confirm_data='{
-                "teamSlug": "'$DEMO_TEAM_SLUG'",
+                "teamSlug": "'$lifecycle_team'",
                 "paymentId": "'$payment_id'",
                 "amount": 100000
             }'
             
             local confirm_token
-            confirm_token=$(generate_sha256_token "$DEMO_TEAM_SLUG" "$DEMO_TEAM_PASSWORD" "$confirm_data")
+            confirm_token=$(generate_sha256_token "$lifecycle_team" "$lifecycle_password" "$confirm_data")
             
             if [[ -n "$confirm_token" ]]; then
                 local confirm_with_token
@@ -481,13 +600,13 @@ print(json.dumps(data))
             
             # Test payment cancellation
             local cancel_data='{
-                "teamSlug": "'$DEMO_TEAM_SLUG'",
+                "teamSlug": "'$lifecycle_team'",
                 "paymentId": "'$payment_id'",
                 "reason": "Customer request"
             }'
             
             local cancel_token
-            cancel_token=$(generate_sha256_token "$DEMO_TEAM_SLUG" "$DEMO_TEAM_PASSWORD" "$cancel_data")
+            cancel_token=$(generate_sha256_token "$lifecycle_team" "$lifecycle_password" "$cancel_data")
             
             if [[ -n "$cancel_token" ]]; then
                 local cancel_with_token
@@ -511,12 +630,12 @@ print(json.dumps(data))
     
     # Test with non-existent payment ID
     local nonexistent_check='{
-        "teamSlug": "'$DEMO_TEAM_SLUG'",
+        "teamSlug": "'$lifecycle_team'",
         "paymentId": "nonexistent-payment-id"
     }'
     
     local nonexistent_token
-    nonexistent_token=$(generate_sha256_token "$DEMO_TEAM_SLUG" "$DEMO_TEAM_PASSWORD" "$nonexistent_check")
+    nonexistent_token=$(generate_sha256_token "$lifecycle_team" "$lifecycle_password" "$nonexistent_check")
     
     if [[ -n "$nonexistent_token" ]]; then
         local nonexistent_with_token
@@ -787,6 +906,23 @@ print_test_summary() {
     echo -e "Total Tests:  ${BLUE}$TOTAL_TESTS${NC}"
     echo -e "Passed:       ${GREEN}$PASSED_TESTS${NC}"
     echo -e "Failed:       ${RED}$FAILED_TESTS${NC}"
+    
+    # Show team usage summary
+    local primary_team
+    primary_team=$(get_primary_test_team)
+    echo ""
+    echo -e "Team Used:    ${BLUE}$primary_team${NC}"
+    if [[ "$UNIQUE_TEAM_REGISTERED" == "true" ]]; then
+        echo -e "Team Status:  ${GREEN}Unique test team created successfully${NC}"
+    else
+        echo -e "Team Status:  ${YELLOW}Using fallback team (unique registration failed)${NC}"
+    fi
+    
+    local success_rate
+    if [[ $TOTAL_TESTS -gt 0 ]]; then
+        success_rate=$(( (PASSED_TESTS * 100) / TOTAL_TESTS ))
+        echo -e "Success Rate: ${BLUE}$success_rate%${NC} ($PASSED_TESTS/$TOTAL_TESTS)"
+    fi
     
     if [[ $FAILED_TESTS -eq 0 ]]; then
         echo -e "Status:       ${GREEN}ALL TESTS PASSED${NC}"

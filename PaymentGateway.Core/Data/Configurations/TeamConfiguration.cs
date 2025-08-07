@@ -102,16 +102,10 @@ public class TeamConfiguration : IEntityTypeConfiguration<Team>
             .HasColumnType("text[]");
             
         builder.Property(t => t.BusinessInfo)
-            .HasConversion(
-                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, string>())
-            .HasColumnType("jsonb");
+            .HasColumnType("hstore");
             
         builder.Property(t => t.Metadata)
-            .HasConversion(
-                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, string>())
-            .HasColumnType("jsonb");
+            .HasColumnType("hstore");
             
         // Soft delete filter
         builder.HasQueryFilter(t => !t.IsDeleted);

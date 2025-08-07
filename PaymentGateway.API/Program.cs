@@ -70,7 +70,7 @@ try
     Log.Information("Starting Payment Gateway application");
 
     // Migrate database on startup
-    // await app.MigrateDatabase(); // Temporarily disabled for testing
+    await app.MigrateDatabase(); 
 
     // Configure the HTTP request pipeline.
     if (app.Environment.IsDevelopment())
