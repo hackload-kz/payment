@@ -40,15 +40,71 @@ print_warning() {
     echo -e "${YELLOW}⚠️  $1${NC}"
 }
 
-# Function to generate HMAC-SHA256 token (simplified version)
-generate_token() {
+# Function to generate SHA-256 token matching the PaymentGateway API expectations
+# Takes a JSON string of parameters and generates the appropriate token
+generate_token_from_params() {
     local team_slug="$1"
-    local password="$2"
-    local params="$3"
+    local password_hash="$2"
+    local json_params="$3"
     
-    # This is a simplified version - in real implementation you'd need the team's secret key
-    # For testing purposes, we'll use a placeholder that matches the expected format
-    echo "placeholder_token_$(date +%s)"
+    # Extract scalar parameters from JSON and build the concatenated string
+    # This needs to match the server-side algorithm exactly
+    
+    # For now, create a simple token based on available parameters
+    # In a real implementation, this would parse JSON and extract scalar values
+    local token_params=""
+    
+    # Add commonly used parameters in alphabetical order + Password
+    # The exact order and parameters will depend on the API call
+    token_params+="Password${password_hash}teamSlug${team_slug}"
+    
+    # Generate SHA-256 hash
+    echo -n "$token_params" | sha256sum | cut -d' ' -f1
+}
+
+# Simplified token generation for payment init (most complex case)
+generate_payment_init_token() {
+    local team_slug="$1"
+    local password_hash="$2"
+    local amount="$3"
+    local order_id="$4"
+    local currency="$5"
+    local pay_type="$6"
+    local description="$7"
+    local customer_key="$8"
+    local email="$9"
+    local phone="${10}"
+    local language="${11}"
+    
+    # Parameters in alphabetical order (matching server algorithm)
+    local concat=""
+    concat+="$amount"           # amount
+    concat+="$currency"         # currency  
+    concat+="$customer_key"     # customerKey
+    concat+="$description"      # description
+    concat+="$email"           # email
+    concat+="$language"        # language
+    concat+="$order_id"        # orderId
+    concat+="$password_hash"   # Password (from PasswordHash)
+    concat+="$pay_type"        # payType
+    concat+="$phone"           # phone  
+    concat+="$team_slug"       # teamSlug
+    
+    echo -n "$concat" | sha256sum | cut -d' ' -f1
+}
+
+# Simple token for basic operations (just teamSlug + paymentId + Password)
+generate_simple_token() {
+    local team_slug="$1"
+    local password_hash="$2"
+    local payment_id="$3"
+    
+    local concat=""
+    concat+="$password_hash"   # Password
+    concat+="$payment_id"      # paymentId
+    concat+="$team_slug"       # teamSlug
+    
+    echo -n "$concat" | sha256sum | cut -d' ' -f1
 }
 
 # Function to make API call and check response
@@ -146,14 +202,17 @@ EOF
         exit 1
     fi
     
-    # Generate a simple token for payment requests
-    PAYMENT_TOKEN=$(generate_token "$TEST_TEAM_SLUG" "SecurePaymentPassword123!" "")
+    # Generate token for payment requests using the password hash (as expected by current API implementation)
+    PASSWORD_HASH="97c4d31296105c122b17e956ba83de0f5ad22941fdf73c4173fcefae76be0f0d"
+    
+    # Generate the payment initialization token
+    PAYMENT_INIT_TOKEN=$(generate_payment_init_token "$TEST_TEAM_SLUG" "$PASSWORD_HASH" "250000" "$PAYMENT_ORDER_ID" "RUB" "O" "Test payment for order $PAYMENT_ORDER_ID" "customer-test-123" "customer@example.com" "+79991234567" "ru")
     
     # Step 2: Initialize Payment
     payment_init_data=$(cat <<EOF
 {
     "teamSlug": "$TEST_TEAM_SLUG",
-    "token": "$PAYMENT_TOKEN",
+    "token": "$PAYMENT_INIT_TOKEN",
     "amount": 250000,
     "orderId": "$PAYMENT_ORDER_ID",
     "currency": "RUB",
@@ -199,10 +258,11 @@ EOF
     fi
     
     # Step 3: Check Payment Status
+    PAYMENT_CHECK_TOKEN=$(generate_simple_token "$TEST_TEAM_SLUG" "$PASSWORD_HASH" "$PAYMENT_ID")
     payment_check_data=$(cat <<EOF
 {
     "teamSlug": "$TEST_TEAM_SLUG",
-    "token": "$PAYMENT_TOKEN",
+    "token": "$PAYMENT_CHECK_TOKEN",
     "paymentId": "$PAYMENT_ID"
 }
 EOF
@@ -225,10 +285,11 @@ EOF
     fi
     
     # Step 5: Simulate Payment Confirmation (if payment was in pending state)
+    PAYMENT_CONFIRM_TOKEN=$(generate_simple_token "$TEST_TEAM_SLUG" "$PASSWORD_HASH" "$PAYMENT_ID")
     payment_confirm_data=$(cat <<EOF
 {
     "teamSlug": "$TEST_TEAM_SLUG",
-    "token": "$PAYMENT_TOKEN",
+    "token": "$PAYMENT_CONFIRM_TOKEN",
     "paymentId": "$PAYMENT_ID",
     "amount": 250000,
     "orderId": "$PAYMENT_ORDER_ID"
@@ -243,11 +304,13 @@ EOF
     fi
     
     # Step 6: Simulate Payment Cancellation (alternative flow)
+    CANCEL_PAYMENT_ID="cancel-demo-$(date +%s)"
+    PAYMENT_CANCEL_TOKEN=$(generate_simple_token "$TEST_TEAM_SLUG" "$PASSWORD_HASH" "$CANCEL_PAYMENT_ID")
     payment_cancel_data=$(cat <<EOF
 {
     "teamSlug": "$TEST_TEAM_SLUG",
-    "token": "$PAYMENT_TOKEN",
-    "paymentId": "cancel-demo-$(date +%s)",
+    "token": "$PAYMENT_CANCEL_TOKEN",
+    "paymentId": "$CANCEL_PAYMENT_ID",
     "orderId": "$PAYMENT_ORDER_ID",
     "reason": "Customer requested cancellation"
 }

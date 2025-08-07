@@ -72,8 +72,8 @@ public class TeamPasswordManagementService : ITeamPasswordManagementService
                 return false;
             }
 
-            // Validate password hash
-            var isPasswordValid = VerifyPasswordHash(password, team.PasswordHash);
+            // Validate password (now using plain text comparison for simplicity)
+            var isPasswordValid = password == team.Password;
 
             if (isPasswordValid)
             {
@@ -148,11 +148,8 @@ public class TeamPasswordManagementService : ITeamPasswordManagementService
                 return false;
             }
 
-            // Generate new password hash
-            var newPasswordHash = GeneratePasswordHash(newPassword);
-
-            // Update team record
-            team.PasswordHash = newPasswordHash;
+            // Update team record with new password (plain text for simplicity)
+            team.Password = newPassword;
             team.LastPasswordChangeAt = DateTime.UtcNow;
             team.FailedAuthenticationAttempts = 0; // Reset failed attempts
             team.LockedUntil = null; // Unlock account
@@ -311,47 +308,6 @@ public class TeamPasswordManagementService : ITeamPasswordManagementService
         return team.LockedUntil.HasValue && team.LockedUntil.Value > DateTime.UtcNow;
     }
 
-    private string GeneratePasswordHash(string password)
-    {
-        // Using SHA-256 for simplicity - in production, use BCrypt or Argon2
-        using var sha256 = SHA256.Create();
-        var salt = GenerateSalt();
-        var saltedPassword = password + salt;
-        var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(saltedPassword));
-        return Convert.ToBase64String(hashBytes) + ":" + salt;
-    }
-
-    private bool VerifyPasswordHash(string password, string storedHash)
-    {
-        try
-        {
-            var parts = storedHash.Split(':');
-            if (parts.Length != 2)
-                return false;
-
-            var hash = parts[0];
-            var salt = parts[1];
-
-            using var sha256 = SHA256.Create();
-            var saltedPassword = password + salt;
-            var computedHashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(saltedPassword));
-            var computedHash = Convert.ToBase64String(computedHashBytes);
-
-            return computedHash == hash;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private string GenerateSalt()
-    {
-        using var rng = RandomNumberGenerator.Create();
-        var saltBytes = new byte[16];
-        rng.GetBytes(saltBytes);
-        return Convert.ToBase64String(saltBytes);
-    }
 
     private bool IsPasswordComplex(string password)
     {

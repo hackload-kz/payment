@@ -17,7 +17,7 @@ public static class SeedData
                 Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
                 TeamSlug = "demo-team",
                 TeamName = "Demo Team",
-                PasswordHash = HashPassword("demo123"),
+                Password = "demo123",
                 IsActive = true,
                 NotificationUrl = "https://webhook.site/demo-notifications",
                 SuccessUrl = "https://demo.example.com/success",
@@ -32,7 +32,7 @@ public static class SeedData
                 Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
                 TeamSlug = "test-team",
                 TeamName = "Test Team",
-                PasswordHash = HashPassword("test123"),
+                Password = "test123",
                 IsActive = true,
                 CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                 UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
@@ -47,10 +47,4 @@ public static class SeedData
         }
     }
 
-    private static string HashPassword(string password)
-    {
-        using var sha256 = SHA256.Create();
-        var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-        return Convert.ToHexString(hashedBytes).ToLower();
-    }
 }

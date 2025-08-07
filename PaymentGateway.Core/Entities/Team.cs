@@ -18,8 +18,8 @@ public class Team : BaseEntity, IAuditableEntity
     public string Name => TeamName;
     
     [Required]
-    [StringLength(500)]
-    public string PasswordHash { get; set; } = string.Empty;
+    [StringLength(128)]
+    public string Password { get; set; } = string.Empty;
     
     public bool IsActive { get; set; } = true;
     
@@ -232,8 +232,8 @@ public class Team : BaseEntity, IAuditableEntity
         if (string.IsNullOrWhiteSpace(TeamSlug))
             errors.Add("Team slug is required");
             
-        if (string.IsNullOrWhiteSpace(PasswordHash))
-            errors.Add("Password hash is required");
+        if (string.IsNullOrWhiteSpace(Password))
+            errors.Add("Password is required");
             
         if (DailyPaymentLimit.HasValue && DailyPaymentLimit <= 0)
             errors.Add("Daily payment limit must be greater than zero");

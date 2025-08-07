@@ -40,9 +40,9 @@ public class TeamConfiguration : IEntityTypeConfiguration<Team>
             .IsRequired()
             .HasMaxLength(200);
             
-        builder.Property(t => t.PasswordHash)
+        builder.Property(t => t.Password)
             .IsRequired()
-            .HasMaxLength(500);
+            .HasMaxLength(128);
             
         builder.Property(t => t.IsActive)
             .IsRequired()

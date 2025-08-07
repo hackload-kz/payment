@@ -38,6 +38,12 @@ public class TeamRegistrationResponseDto
     public string? PasswordHashPreview { get; set; }
 
     /// <summary>
+    /// Full password hash for token generation (development/testing only)
+    /// WARNING: This should not be exposed in production
+    /// </summary>
+    public string? PasswordHashFull { get; set; }
+
+    /// <summary>
     /// Team creation timestamp
     /// </summary>
     public DateTime? CreatedAt { get; set; }

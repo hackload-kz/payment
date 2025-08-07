@@ -40,7 +40,6 @@ public class TeamRepository : Repository<Team>, ITeamRepository
         try
         {
             return await _dbSet
-                .Include(t => t.Payments)
                 .FirstOrDefaultAsync(t => t.TeamSlug == teamSlug, cancellationToken);
         }
         catch (Exception ex)

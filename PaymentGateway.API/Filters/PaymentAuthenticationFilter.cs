@@ -111,15 +111,12 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
             var requestObject = context.ActionArguments.Values.FirstOrDefault(v => v != null);
             if (requestObject != null)
             {
-                // Use reflection to get all properties from the request object
-                var properties = requestObject.GetType().GetProperties();
-                foreach (var property in properties)
+                // CRITICAL FIX: Extract only parameters that were actually provided in the original JSON request
+                // This implements the payment-authentication.md specification: "Collect only root-level parameters from the request body"
+                var extractedParameters = ExtractFromDtoWithDefaults(requestObject);
+                foreach (var kvp in extractedParameters)
                 {
-                    var value = property.GetValue(requestObject);
-                    if (value != null)
-                    {
-                        parameters[property.Name] = value;
-                    }
+                    parameters[kvp.Key] = kvp.Value;
                 }
             }
 
@@ -148,5 +145,237 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
             _logger.LogError(ex, "Failed to extract request parameters");
             return null;
         }
+    }
+
+    /// <summary>
+    /// Extract only root-level scalar parameters that were actually provided in the JSON request.
+    /// This prevents including DTO default values in token generation, per payment-authentication.md spec.
+    /// </summary>
+    private Dictionary<string, object> ExtractRootLevelScalarParametersFromRequest(ActionExecutingContext context, object requestObject)
+    {
+        var parameters = new Dictionary<string, object>();
+
+        try
+        {
+            // Get the original request body as string to parse what was actually provided
+            context.HttpContext.Request.Body.Position = 0;
+            using var reader = new StreamReader(context.HttpContext.Request.Body, leaveOpen: true);
+            var requestBody = reader.ReadToEnd();
+            context.HttpContext.Request.Body.Position = 0;
+
+            if (string.IsNullOrEmpty(requestBody))
+            {
+                // Fallback to DTO-based extraction if we can't read the original body
+                return ExtractFromDtoWithDefaults(requestObject);
+            }
+
+            // Parse JSON to see what fields were actually provided
+            using var jsonDoc = JsonDocument.Parse(requestBody);
+            var root = jsonDoc.RootElement;
+
+            // Always include required fields (these must be present)
+            if (root.TryGetProperty("teamSlug", out var teamSlug) && teamSlug.ValueKind == JsonValueKind.String)
+                parameters["TeamSlug"] = teamSlug.GetString()!;
+            
+            if (root.TryGetProperty("token", out var token) && token.ValueKind == JsonValueKind.String)
+                parameters["Token"] = token.GetString()!;
+            
+            if (root.TryGetProperty("amount", out var amount) && amount.ValueKind == JsonValueKind.Number)
+                parameters["Amount"] = amount.GetDecimal().ToString();
+            
+            if (root.TryGetProperty("orderId", out var orderId) && orderId.ValueKind == JsonValueKind.String)
+                parameters["OrderId"] = orderId.GetString()!;
+            
+            if (root.TryGetProperty("currency", out var currency) && currency.ValueKind == JsonValueKind.String)
+                parameters["Currency"] = currency.GetString()!;
+
+            // Include optional fields only if they were explicitly provided in JSON
+            if (root.TryGetProperty("description", out var desc) && desc.ValueKind == JsonValueKind.String)
+                parameters["Description"] = desc.GetString()!;
+            
+            if (root.TryGetProperty("customerKey", out var custKey) && custKey.ValueKind == JsonValueKind.String)
+                parameters["CustomerKey"] = custKey.GetString()!;
+            
+            if (root.TryGetProperty("email", out var email) && email.ValueKind == JsonValueKind.String)
+                parameters["Email"] = email.GetString()!;
+            
+            if (root.TryGetProperty("phone", out var phone) && phone.ValueKind == JsonValueKind.String)
+                parameters["Phone"] = phone.GetString()!;
+            
+            if (root.TryGetProperty("language", out var lang) && lang.ValueKind == JsonValueKind.String)
+                parameters["Language"] = lang.GetString()!;
+            
+            if (root.TryGetProperty("paymentExpiry", out var payExp) && payExp.ValueKind == JsonValueKind.Number)
+                parameters["PaymentExpiry"] = payExp.GetInt32().ToString();
+            
+            if (root.TryGetProperty("successURL", out var succUrl) && succUrl.ValueKind == JsonValueKind.String)
+                parameters["SuccessURL"] = succUrl.GetString()!;
+            
+            if (root.TryGetProperty("failURL", out var failUrl) && failUrl.ValueKind == JsonValueKind.String)
+                parameters["FailURL"] = failUrl.GetString()!;
+            
+            if (root.TryGetProperty("notificationURL", out var notifUrl) && notifUrl.ValueKind == JsonValueKind.String)
+                parameters["NotificationURL"] = notifUrl.GetString()!;
+            
+            if (root.TryGetProperty("redirectMethod", out var redirMethod) && redirMethod.ValueKind == JsonValueKind.String)
+                parameters["RedirectMethod"] = redirMethod.GetString()!;
+            
+            if (root.TryGetProperty("version", out var vers) && vers.ValueKind == JsonValueKind.String)
+                parameters["Version"] = vers.GetString()!;
+            
+            if (root.TryGetProperty("payType", out var payType) && payType.ValueKind == JsonValueKind.String)
+                parameters["PayType"] = payType.GetString()!;
+
+            // CRITICAL: Do NOT include server-generated fields like Timestamp, CorrelationId, etc.
+            // These have default values in BaseRequestDto but were NOT provided by the client
+            // Exclude nested objects like Items, Receipt, Data per specification
+
+            _logger.LogInformation("FILTER DEBUG: Extracted {Count} parameters from JSON request", parameters.Count);
+            foreach (var kvp in parameters.OrderBy(x => x.Key))
+            {
+                _logger.LogInformation("FILTER DEBUG: Parameter {Key} = {Value}", kvp.Key, kvp.Value);
+            }
+
+            return parameters;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse request JSON, falling back to DTO extraction");
+            return ExtractFromDtoWithDefaults(requestObject);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in request parameter extraction");
+            return ExtractFromDtoWithDefaults(requestObject);
+        }
+    }
+
+    /// <summary>
+    /// Fallback method when JSON parsing fails - extract from DTO but exclude known defaults
+    /// </summary>
+    private Dictionary<string, object> ExtractFromDtoWithDefaults(object requestObject)
+    {
+        var parameters = new Dictionary<string, object>();
+        
+        // Use reflection but be smart about excluding default values
+        var properties = requestObject.GetType().GetProperties();
+        
+        _logger.LogInformation("FILTER DEBUG: Processing {Count} DTO properties", properties.Length);
+        
+        foreach (var property in properties)
+        {
+            var value = property.GetValue(requestObject);
+            if (value == null) continue;
+
+            _logger.LogInformation("FILTER DEBUG: Property {Name} = {Value} (Type: {Type})", 
+                property.Name, value, value.GetType().Name);
+
+            // Include based on property name and exclude known defaults
+            switch (property.Name)
+            {
+                case "TeamSlug":
+                case "Token":
+                case "Amount":
+                case "OrderId":
+                case "Currency":
+                    parameters[property.Name] = value;
+                    _logger.LogInformation("FILTER DEBUG: INCLUDED {Name} = {Value}", property.Name, value);
+                    break;
+
+                case "Description":
+                case "CustomerKey":
+                case "Email":
+                case "Phone":
+                case "SuccessURL":
+                case "FailURL":
+                case "NotificationURL":
+                case "PayType":
+                    if (!string.IsNullOrEmpty(value.ToString()))
+                    {
+                        parameters[property.Name] = value;
+                        _logger.LogInformation("FILTER DEBUG: INCLUDED {Name} = {Value}", property.Name, value);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("FILTER DEBUG: EXCLUDED {Name} (empty string)", property.Name);
+                    }
+                    break;
+
+                case "Language":
+                    if (!string.IsNullOrEmpty(value.ToString()) && !value.ToString().Equals("ru"))
+                    {
+                        parameters[property.Name] = value;
+                        _logger.LogInformation("FILTER DEBUG: INCLUDED {Name} = {Value}", property.Name, value);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("FILTER DEBUG: EXCLUDED {Name} = {Value} (default)", property.Name, value);
+                    }
+                    break;
+
+                case "PaymentExpiry":
+                    if (!value.Equals(30)) // Only include if not the default
+                    {
+                        parameters[property.Name] = value.ToString()!;
+                        _logger.LogInformation("FILTER DEBUG: INCLUDED {Name} = {Value}", property.Name, value);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("FILTER DEBUG: EXCLUDED {Name} = {Value} (default)", property.Name, value);
+                    }
+                    break;
+
+                case "RedirectMethod":
+                    if (!string.IsNullOrEmpty(value.ToString()) && !value.ToString().Equals("POST"))
+                    {
+                        parameters[property.Name] = value;
+                        _logger.LogInformation("FILTER DEBUG: INCLUDED {Name} = {Value}", property.Name, value);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("FILTER DEBUG: EXCLUDED {Name} = {Value} (default)", property.Name, value);
+                    }
+                    break;
+
+                case "Version":
+                    if (!string.IsNullOrEmpty(value.ToString()) && !value.ToString().Equals("1.0"))
+                    {
+                        parameters[property.Name] = value;
+                        _logger.LogInformation("FILTER DEBUG: INCLUDED {Name} = {Value}", property.Name, value);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("FILTER DEBUG: EXCLUDED {Name} = {Value} (default)", property.Name, value);
+                    }
+                    break;
+
+                // CRITICAL: Exclude server-generated fields
+                case "Timestamp":
+                case "CorrelationId":
+                    // Do NOT include these - they are server-generated defaults
+                    _logger.LogInformation("FILTER DEBUG: EXCLUDED {Name} = {Value} (server-generated)", property.Name, value);
+                    break;
+
+                // Exclude complex objects
+                case "Items":
+                case "Receipt":
+                case "Data":
+                    // Do NOT include nested objects per specification
+                    _logger.LogInformation("FILTER DEBUG: EXCLUDED {Name} (complex object)", property.Name);
+                    break;
+
+                default:
+                    _logger.LogInformation("FILTER DEBUG: EXCLUDED {Name} = {Value} (unknown property)", property.Name, value);
+                    break;
+            }
+        }
+
+        _logger.LogInformation("FILTER DEBUG: Final parameter count: {Count}", parameters.Count);
+        foreach (var kvp in parameters.OrderBy(x => x.Key))
+        {
+            _logger.LogInformation("FILTER DEBUG: Final parameter {Key} = {Value}", kvp.Key, kvp.Value);
+        }
+
+        return parameters;
     }
 }

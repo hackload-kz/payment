@@ -77,15 +77,22 @@ public class PaymentAuthenticationService : IPaymentAuthenticationService
 
             _logger.LogDebug("Starting authentication for TeamSlug: {TeamSlug}", teamSlug);
 
-            // Validate the token
+            // Validate the token using the raw password from database
             var isTokenValid = await ValidateTokenAsync(teamSlug, providedToken, requestParameters, cancellationToken);
             
             if (!isTokenValid)
             {
-                await _auditService.LogSystemEventAsync(
-                    AuditAction.AuthenticationFailed,
-                    "PaymentAuthentication",
-                    $"Token validation failed for TeamSlug: {teamSlug}");
+                try
+                {
+                    await _auditService.LogSystemEventAsync(
+                        AuditAction.AuthenticationFailed,
+                        "PaymentAuthentication",
+                        $"Token validation failed for TeamSlug: {teamSlug}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to log audit event for token validation failure");
+                }
 
                 await RecordAuthenticationMetricsAsync(teamSlug, false, DateTime.UtcNow - authStartTime);
                 return CreateFailureResult("TOKEN_INVALID", "Token validation failed");
@@ -100,10 +107,17 @@ public class PaymentAuthenticationService : IPaymentAuthenticationService
             }
 
             // Log successful authentication
-            await _auditService.LogSystemEventAsync(
-                AuditAction.AuthenticationSucceeded,
-                "PaymentAuthentication",
-                $"Successful authentication for TeamSlug: {teamSlug}");
+            try
+            {
+                await _auditService.LogSystemEventAsync(
+                    AuditAction.AuthenticationSucceeded,
+                    "PaymentAuthentication",
+                    $"Successful authentication for TeamSlug: {teamSlug}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to log audit event for successful authentication");
+            }
 
             await RecordAuthenticationMetricsAsync(teamSlug, true, DateTime.UtcNow - authStartTime);
 
@@ -132,6 +146,14 @@ public class PaymentAuthenticationService : IPaymentAuthenticationService
         {
             _logger.LogDebug("Generating token for TeamSlug: {TeamSlug}", teamSlug);
 
+            // DEBUG: Log received parameters from filter
+            _logger.LogInformation("SERVICE DEBUG: Received {Count} parameters from filter", requestParameters.Count);
+            foreach (var kvp in requestParameters.OrderBy(x => x.Key))
+            {
+                _logger.LogInformation("SERVICE DEBUG: Received parameter {Key} = {Value} (Type: {Type})", 
+                    kvp.Key, kvp.Value, kvp.Value?.GetType().Name ?? "null");
+            }
+
             // Get team's password from database
             var team = await GetTeamBySlugAsync(teamSlug, cancellationToken);
             if (team == null)
@@ -145,29 +167,48 @@ public class PaymentAuthenticationService : IPaymentAuthenticationService
             {
                 // Skip token parameter itself if present
                 if (kvp.Key.Equals("token", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation("SERVICE DEBUG: Skipping token parameter");
                     continue;
+                }
 
                 // Only include scalar values (not objects or arrays)
                 if (kvp.Value != null && !IsComplexType(kvp.Value))
                 {
                     tokenParams[kvp.Key] = kvp.Value.ToString()!;
+                    _logger.LogInformation("SERVICE DEBUG: Including parameter {Key} = {Value}", kvp.Key, kvp.Value);
+                }
+                else
+                {
+                    _logger.LogInformation("SERVICE DEBUG: Excluding parameter {Key} = {Value} (complex type or null)", kvp.Key, kvp.Value);
                 }
             }
 
-            // Step 2: Add password
-            tokenParams["Password"] = team.PasswordHash; // Using PasswordHash as the secret key
+            // Step 2: Add password (now using raw password for simplicity)
+            tokenParams["Password"] = team.Password;
 
             // Step 3: Sort alphabetically by key
             var sortedKeys = tokenParams.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
 
+            // DEBUG: Log all parameters being used for token generation
+            _logger.LogInformation("DEBUG: Token generation for TeamSlug {TeamSlug}", teamSlug);
+            _logger.LogInformation("DEBUG: Parameters count: {Count}", tokenParams.Count);
+            foreach (var key in sortedKeys)
+            {
+                _logger.LogInformation("DEBUG: Parameter {Key} = {Value}", key, tokenParams[key]);
+            }
+
             // Step 4: Concatenate values in sorted order
             var concatenatedValues = string.Join("", sortedKeys.Select(key => tokenParams[key]));
+
+            _logger.LogInformation("DEBUG: Final concatenated string: {ConcatenatedString}", concatenatedValues);
 
             // Step 5: Generate SHA-256 hash
             using var sha256 = SHA256.Create();
             var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(concatenatedValues));
             var token = Convert.ToHexString(hashBytes).ToLowerInvariant();
 
+            _logger.LogInformation("DEBUG: Generated token: {Token}", token);
             _logger.LogDebug("Token generated successfully for TeamSlug: {TeamSlug}", teamSlug);
             return token;
         }
@@ -185,7 +226,7 @@ public class PaymentAuthenticationService : IPaymentAuthenticationService
             if (string.IsNullOrEmpty(providedToken))
                 return false;
 
-            // Generate expected token
+            // Generate expected token using raw password from database
             var expectedToken = await GenerateTokenAsync(teamSlug, requestParameters, cancellationToken);
             
             // Perform secure token comparison (constant-time to prevent timing attacks)
@@ -263,8 +304,13 @@ public class PaymentAuthenticationService : IPaymentAuthenticationService
         // Check if the value is a complex type (object or array) that should be excluded from token generation
         var valueType = value.GetType();
         
-        // Exclude arrays and collections
-        if (valueType.IsArray || value is System.Collections.IEnumerable)
+        // CRITICAL FIX: Exclude arrays and collections but NOT strings
+        // String implements IEnumerable<char> but should not be considered complex
+        if (valueType.IsArray)
+            return true;
+            
+        // Exclude collections but not strings
+        if (value is System.Collections.IEnumerable && valueType != typeof(string))
             return true;
 
         // Exclude custom objects (not primitive types or strings)

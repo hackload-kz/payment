@@ -79,9 +79,9 @@ public class TeamRegistrationService : ITeamRegistrationService
                 };
             }
 
-            // 3. Hash password
-            var passwordHash = HashPassword(request.Password);
-            var passwordHashPreview = passwordHash.Substring(0, 8);
+            // 3. Use raw password (for simplicity in hackathon project)
+            var password = request.Password;
+            var passwordPreview = password.Length > 8 ? password.Substring(0, 8) : password;
 
             // 4. Parse supported currencies
             var currencyArray = request.SupportedCurrencies
@@ -97,7 +97,7 @@ public class TeamRegistrationService : ITeamRegistrationService
                 TeamName = request.TeamName,
                 ContactEmail = request.Email,
                 ContactPhone = request.Phone,
-                PasswordHash = passwordHash,
+                Password = password,
                 SuccessUrl = request.SuccessURL,
                 FailUrl = request.FailURL,
                 NotificationUrl = request.NotificationURL,
@@ -135,7 +135,8 @@ public class TeamRegistrationService : ITeamRegistrationService
                 Message = "Team registered successfully",
                 TeamSlug = team.TeamSlug,
                 TeamId = team.Id,
-                PasswordHashPreview = passwordHashPreview,
+                PasswordHashPreview = passwordPreview,
+                PasswordHashFull = password, // Raw password for development/testing only
                 CreatedAt = team.CreatedAt,
                 Status = team.IsActive ? "ACTIVE" : "INACTIVE",
                 ApiEndpoint = _apiOptions.GetApiEndpoint(),
@@ -325,15 +326,4 @@ public class TeamRegistrationService : ITeamRegistrationService
         }
     }
 
-    /// <summary>
-    /// Hash password using SHA-256
-    /// </summary>
-    /// <param name="password">Plain text password</param>
-    /// <returns>Hashed password</returns>
-    private static string HashPassword(string password)
-    {
-        using var sha256 = SHA256.Create();
-        var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-        return Convert.ToHexString(hashedBytes).ToLower();
-    }
 }

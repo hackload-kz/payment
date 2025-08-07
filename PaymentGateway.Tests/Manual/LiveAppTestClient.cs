@@ -9,7 +9,7 @@ namespace PaymentGateway.Tests.Manual;
 /// Test client for testing against a live running PaymentGateway application
 /// Run this against your actual running app for end-to-end testing
 /// </summary>
-public class LiveAppTestClient
+public class LiveAppTestClient : IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly string _baseUrl;

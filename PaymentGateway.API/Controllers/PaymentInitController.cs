@@ -222,20 +222,15 @@ public class PaymentInitController : ControllerBase
                 Description = request.Description
             };
             
-            var authParameters = new Dictionary<string, object>
+            // Extract only root-level scalar parameters from the request according to payment-authentication.md spec
+            var authParameters = ExtractRootLevelScalarParameters(request);
+            
+            // DEBUG: Log extracted parameters
+            _logger.LogInformation("CONTROLLER DEBUG: Extracted {Count} parameters for authentication", authParameters.Count);
+            foreach (var kvp in authParameters.OrderBy(x => x.Key))
             {
-                { "TeamSlug", authContext.TeamSlug },
-                { "Token", authContext.Token },
-                { "RequestId", authContext.RequestId },
-                { "Amount", authContext.Amount },
-                { "OrderId", authContext.OrderId },
-                { "Currency", authContext.Currency },
-                { "Description", authContext.Description ?? "" },
-                { "ClientIp", authContext.ClientIp },
-                { "UserAgent", authContext.UserAgent },
-                { "RequestPath", authContext.RequestPath },
-                { "Timestamp", authContext.Timestamp }
-            };
+                _logger.LogInformation("CONTROLLER DEBUG: Parameter {Key} = {Value}", kvp.Key, kvp.Value);
+            }
             
             var authResult = await _authenticationService.AuthenticateAsync(authParameters, cancellationToken);
             if (!authResult.IsAuthenticated)
@@ -683,6 +678,74 @@ public class PaymentInitController : ControllerBase
         }
 
         return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    }
+
+    /// <summary>
+    /// Extract only root-level scalar parameters from the request according to payment-authentication.md specification.
+    /// This method implements Step 1 of the token generation algorithm: "Collect only root-level parameters from the request body"
+    /// IMPORTANT: Only includes parameters that were actually present in the original JSON request, ignoring DTO default values.
+    /// </summary>
+    private Dictionary<string, object> ExtractRootLevelScalarParameters(PaymentInitRequestDto request)
+    {
+        var parameters = new Dictionary<string, object>();
+        
+        // Always include required fields that must be present
+        parameters["TeamSlug"] = request.TeamSlug;
+        parameters["Token"] = request.Token;
+        parameters["Amount"] = request.Amount.ToString();
+        parameters["OrderId"] = request.OrderId;
+        parameters["Currency"] = request.Currency;
+        
+        // Include optional fields only if they differ from default values (best effort approach)
+        // This prevents including server-generated defaults in token calculation
+        if (!string.IsNullOrEmpty(request.Description))
+            parameters["Description"] = request.Description;
+            
+        if (!string.IsNullOrEmpty(request.CustomerKey))
+            parameters["CustomerKey"] = request.CustomerKey;
+            
+        if (!string.IsNullOrEmpty(request.Email))
+            parameters["Email"] = request.Email;
+            
+        if (!string.IsNullOrEmpty(request.Phone))
+            parameters["Phone"] = request.Phone;
+            
+        // Only include language if it's not the default "ru"
+        if (!string.IsNullOrEmpty(request.Language) && request.Language != "ru")
+            parameters["Language"] = request.Language;
+            
+        // Only include PaymentExpiry if it's not the default 30
+        if (request.PaymentExpiry != 30)
+            parameters["PaymentExpiry"] = request.PaymentExpiry.ToString();
+            
+        if (!string.IsNullOrEmpty(request.SuccessURL))
+            parameters["SuccessURL"] = request.SuccessURL;
+            
+        if (!string.IsNullOrEmpty(request.FailURL))
+            parameters["FailURL"] = request.FailURL;
+            
+        if (!string.IsNullOrEmpty(request.NotificationURL))
+            parameters["NotificationURL"] = request.NotificationURL;
+            
+        // Only include RedirectMethod if it's not the default "POST"
+        if (!string.IsNullOrEmpty(request.RedirectMethod) && request.RedirectMethod != "POST")
+            parameters["RedirectMethod"] = request.RedirectMethod;
+            
+        // Only include Version if it's not the default "1.0"
+        if (!string.IsNullOrEmpty(request.Version) && request.Version != "1.0")
+            parameters["Version"] = request.Version;
+            
+        if (!string.IsNullOrEmpty(request.PayType))
+            parameters["PayType"] = request.PayType;
+        
+        // CRITICAL: Exclude server-generated fields like Timestamp (which has DateTime.UtcNow default in BaseRequestDto)
+        // According to payment-authentication.md spec: "Collect only root-level parameters from the request body"
+        // - Timestamp is set server-side to DateTime.UtcNow, not provided by client
+        // - Do NOT include Timestamp, CorrelationId, or other server-generated fields
+        
+        // Note: Exclude nested objects like Items, Receipt, Data arrays/objects as per spec
+        
+        return parameters;
     }
 }
 

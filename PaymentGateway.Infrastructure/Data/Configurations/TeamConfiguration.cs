@@ -22,10 +22,10 @@ public class TeamConfiguration : IEntityTypeConfiguration<Team>
             .HasMaxLength(200)
             .HasColumnName("team_name");
 
-        builder.Property(t => t.PasswordHash)
+        builder.Property(t => t.Password)
             .IsRequired()
-            .HasMaxLength(255)
-            .HasColumnName("password_hash");
+            .HasMaxLength(128)
+            .HasColumnName("password");
 
         builder.Property(t => t.IsActive)
             .IsRequired()
