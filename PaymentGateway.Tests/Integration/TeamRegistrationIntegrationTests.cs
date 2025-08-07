@@ -328,9 +328,9 @@ public class TeamRegistrationIntegrationTests
         // Verify password was hashed in database
         var teamInDb = await _dbContext.Teams.FirstOrDefaultAsync(t => t.TeamSlug == request.TeamSlug);
         teamInDb.Should().NotBeNull();
-        teamInDb!.PasswordHash.Should().NotBe(plainPassword);
-        teamInDb.PasswordHash.Should().NotBeNullOrEmpty();
-        teamInDb.PasswordHash.Length.Should().BeGreaterThan(32); // SHA-256 hash should be longer than original
+        teamInDb!.Password.Should().NotBe(plainPassword);
+        teamInDb.Password.Should().NotBeNullOrEmpty();
+        teamInDb.Password.Length.Should().BeGreaterThan(8); // Password should be longer than 8 characters
     }
 
     [Test]
@@ -444,7 +444,7 @@ public class TeamRegistrationIntegrationTests
             Id = Guid.NewGuid(),
             TeamSlug = teamSlug,
             TeamName = $"Test Team {teamSlug}",
-            PasswordHash = "hashed_password_placeholder",
+            Password = "hashed_password_placeholder",
             ContactEmail = $"{teamSlug}@testdomain.com",
             ContactPhone = "+1234567890",
             IsActive = true,

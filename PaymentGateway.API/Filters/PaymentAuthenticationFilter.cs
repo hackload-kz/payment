@@ -129,14 +129,15 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
                 }
             }
 
-            // Check route values as well
-            foreach (var routeValue in context.RouteData.Values)
-            {
-                if (routeValue.Value != null)
-                {
-                    parameters[routeValue.Key] = routeValue.Value;
-                }
-            }
+            // CRITICAL FIX: Do NOT include route values (action, controller) in token generation
+            // Token generation should only be based on request body parameters as per specification
+            // foreach (var routeValue in context.RouteData.Values)
+            // {
+            //     if (routeValue.Value != null)
+            //     {
+            //         parameters[routeValue.Key] = routeValue.Value;
+            //     }
+            // }
 
             return parameters.Count > 0 ? parameters : null;
         }

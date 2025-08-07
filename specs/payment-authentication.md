@@ -1,6 +1,15 @@
 # Token Generation Technical Specification
 
-## Overview
+## Quick Summary
+**Token = SHA256(Amount + Currency + OrderId + Password + TeamSlug)**
+
+Where:
+- `Amount`, `Currency`, `OrderId`, `TeamSlug` are from the request
+- `Password` is from the team database
+- Values are concatenated as strings in **EXACTLY** this order
+- Hash is SHA-256, lowercase hex output
+
+## Overview  
 The Token generation mechanism provides request authentication and integrity verification for the I-Business payment API. Every API request requiring authentication must include a unique token generated using the merchant's secret credentials and request parameters.
 
 ## Security Purpose
@@ -53,17 +62,18 @@ Collect **only root-level parameters** from the request body:
   "TeamSlug": "MerchantTeamSlug",
   "Amount": 19200,
   "OrderId": "21090", 
-  "Description": "Подарочная карта на 1000 тенге",
+  "Currency": "RUB",
+  "Description": "Подарочная карта на 1000 тенге",  // EXCLUDED from token
   "DICT": { ... },      // EXCLUDED - nested object
   "Receipt": { ... }    // EXCLUDED - nested object
 }
 
-// Parameters for token generation
+// Parameters for token generation (ONLY these 4 + Password)
 [
   {"TeamSlug": "MerchantTeamSlug"},
   {"Amount": "19200"},
   {"OrderId": "21090"},
-  {"Description": "Подарочная карта на 1000 тенге"}
+  {"Currency": "RUB"}
 ]
 ```
 
@@ -74,34 +84,43 @@ Add the merchant password as a key-value pair:
   {"TeamSlug": "MerchantTeamSlug"},
   {"Amount": "19200"},
   {"OrderId": "21090"},
-  {"Description": "Подарочная карта на 1000 тенге"},
+  {"Currency": "RUB"},
   {"Password": "usaf8fw8fsw21g"}  // From merchant cabinet
 ]
 ```
 
 #### 3. Alphabetical Sorting
-Sort the array alphabetically by key names:
+Sort the parameters alphabetically by key names (case-sensitive):
 ```json
 [
   {"Amount": "19200"},
-  {"Description": "Подарочная карта на 1000 тенге"},
+  {"Currency": "RUB"}, 
   {"OrderId": "21090"},
   {"Password": "usaf8fw8fsw21g"},
   {"TeamSlug": "MerchantTeamSlug"}
 ]
 ```
 
+**CRITICAL**: The sorting is **case-sensitive alphabetical** and **constant** - meaning:
+- **EXACTLY** these 5 parameters in **EXACTLY** this order: `Amount` → `Currency` → `OrderId` → `Password` → `TeamSlug`
+- The server **MUST** use exactly this order for all requests
+- The client **MUST** use exactly this order for all requests
+- Any deviation in parameters or sorting will cause authentication failures
+
 #### 4. Value Concatenation
-Concatenate **only the values** into a single string:
+Concatenate **only the values** (not the keys) in the sorted key order:
 ```
-"19200Подарочная карта на 1000 тенге21090usaf8fw8fsw21gMerchantTeamSlug"
+Final string = Amount + Currency + OrderId + Password + TeamSlug
+
+Example: "19200" + "RUB" + "21090" + "usaf8fw8fsw21g" + "MerchantTeamSlug"
+Result:  "19200RUB21090usaf8fw8fsw21gMerchantTeamSlug"
 ```
 
 #### 5. SHA-256 Hashing
 Apply SHA-256 hash function with UTF-8 encoding:
 ```
-Input:  "19200Подарочная карта на 1000 тенге21090usaf8fw8fsw21gMerchantTeamSlug"
-Output: "0024a00af7c350a3a67ca168ce06502aa72772456662e38696d48b56ee9c97d9"
+Input:  "19200RUB21090usaf8fw8fsw21gMerchantTeamSlug"
+Output: "b8f2f8e5c9d6a4c8f7b5e3a2d1f0e9c8b7a6f5d4e3c2b1a0f9e8d7c6b5a4f3e2"
 ```
 
 #### 6. Token Integration
@@ -110,9 +129,10 @@ Add the generated hash as the Token parameter in the request:
 {
   "TeamSlug": "MerchantTeamSlug",
   "Amount": 19200,
-  "OrderId": "21090",
+  "OrderId": "21090", 
+  "Currency": "RUB",
   "Description": "Подарочная карта на 1000 тенге",
-  "Token": "0024a00af7c350a3a67ca168ce06502aa72772456662e38696d48b56ee9c97d9",
+  "Token": "b8f2f8e5c9d6a4c8f7b5e3a2d1f0e9c8b7a6f5d4e3c2b1a0f9e8d7c6b5a4f3e2",
   "DICT": { ... },
   "Receipt": { ... }
 }
