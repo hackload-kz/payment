@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using PaymentGateway.Core.DTOs.PaymentInit;
 using PaymentGateway.Core.Services;
 using PaymentGateway.Core.Validation.Simplified;
+using PaymentGateway.API.Filters;
 using PaymentGateway.API.Middleware;
 using PaymentGateway.Core.Models;
 using System.ComponentModel.DataAnnotations;
@@ -18,8 +19,7 @@ namespace PaymentGateway.API.Controllers;
 [Route("api/v1/[controller]")]
 [Produces("application/json")]
 [Tags("Payment Initialization")]
-[ServiceFilter(typeof(PaymentAuthenticationMiddleware))]
-[ServiceFilter(typeof(AuthenticationRateLimitingMiddleware))]
+[ServiceFilter(typeof(PaymentAuthenticationFilter))]
 public class PaymentInitController : ControllerBase
 {
     private readonly IPaymentInitializationService _paymentInitializationService;

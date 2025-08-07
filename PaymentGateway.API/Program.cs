@@ -20,7 +20,13 @@ try
     builder.Host.UseSerilog();
 
     // Add services to the container.
-    builder.Services.AddControllers();
+    builder.Services.AddControllers()
+        .AddJsonOptions(options =>
+        {
+            // Configure case-insensitive property matching
+            options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+            options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        });
 
     // Add logging services
     builder.Services.AddLoggingServices(builder.Configuration);
@@ -45,6 +51,7 @@ try
     builder.Services.AddGlobalExceptionHandling();
     builder.Services.AddRequestValidation();
     builder.Services.AddAdminAuthentication(builder.Configuration);
+    builder.Services.AddPaymentAuthentication();
     builder.Services.AddPaymentGatewaySecurityHeaders();
 
     // Add CORS configuration

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using PaymentGateway.Core.DTOs.PaymentCancel;
 using PaymentGateway.Core.Services;
+using PaymentGateway.API.Filters;
 using PaymentGateway.API.Middleware;
 using Microsoft.Extensions.Caching.Memory;
 using System.ComponentModel.DataAnnotations;
@@ -51,8 +52,7 @@ namespace PaymentGateway.API.Controllers;
 [Route("api/v1/[controller]")]
 [Produces("application/json")]
 [Tags("Payment Cancellation")]
-[ServiceFilter(typeof(PaymentAuthenticationMiddleware))]
-[ServiceFilter(typeof(AuthenticationRateLimitingMiddleware))]
+[ServiceFilter(typeof(PaymentAuthenticationFilter))]
 public class PaymentCancelController : ControllerBase
 {
     private readonly IPaymentCancellationService _cancellationService;

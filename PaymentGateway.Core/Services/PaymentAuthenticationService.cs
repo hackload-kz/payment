@@ -59,17 +59,17 @@ public class PaymentAuthenticationService : IPaymentAuthenticationService
         
         try
         {
-            // Extract TeamSlug and Token from request parameters
-            if (!requestParameters.TryGetValue("TeamSlug", out var teamSlugObj) || teamSlugObj == null)
+            // Extract teamSlug and token from request parameters (case-insensitive)
+            if (!requestParameters.TryGetValue("teamSlug", out var teamSlugObj) || teamSlugObj == null)
             {
                 await RecordAuthenticationMetricsAsync("unknown", false, DateTime.UtcNow - authStartTime);
-                return CreateFailureResult("TEAM_SLUG_MISSING", "TeamSlug parameter is required");
+                return CreateFailureResult("TEAM_SLUG_MISSING", "teamSlug parameter is required");
             }
 
-            if (!requestParameters.TryGetValue("Token", out var tokenObj) || tokenObj == null)
+            if (!requestParameters.TryGetValue("token", out var tokenObj) || tokenObj == null)
             {
                 await RecordAuthenticationMetricsAsync(teamSlugObj.ToString()!, false, DateTime.UtcNow - authStartTime);
-                return CreateFailureResult("TOKEN_MISSING", "Token parameter is required");
+                return CreateFailureResult("TOKEN_MISSING", "token parameter is required");
             }
 
             var teamSlug = teamSlugObj.ToString()!;
@@ -143,8 +143,8 @@ public class PaymentAuthenticationService : IPaymentAuthenticationService
             var tokenParams = new Dictionary<string, string>();
             foreach (var kvp in requestParameters)
             {
-                // Skip Token parameter itself if present
-                if (kvp.Key.Equals("Token", StringComparison.OrdinalIgnoreCase))
+                // Skip token parameter itself if present
+                if (kvp.Key.Equals("token", StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 // Only include scalar values (not objects or arrays)

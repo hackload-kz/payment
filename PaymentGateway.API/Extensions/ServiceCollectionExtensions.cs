@@ -1,4 +1,5 @@
 using PaymentGateway.API.Middleware;
+using PaymentGateway.API.Filters;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
 
@@ -28,6 +29,14 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<AdminAuthenticationOptions>(
             configuration.GetSection(AdminAuthenticationOptions.SectionName));
+        
+        return services;
+    }
+
+    public static IServiceCollection AddPaymentAuthentication(this IServiceCollection services)
+    {
+        // Register PaymentAuthenticationFilter as a service for ServiceFilter usage
+        services.AddScoped<PaymentAuthenticationFilter>();
         
         return services;
     }

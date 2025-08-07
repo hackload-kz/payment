@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PaymentGateway.Core.Configuration;
 using PaymentGateway.Core.Services;
+using PaymentGateway.Core.Validation.Simplified;
 
 namespace PaymentGateway.Core.Extensions;
 
@@ -22,6 +23,9 @@ public static class PaymentServiceExtensions
     {
         // Register configuration options
         services.Configure<ApiOptions>(configuration.GetSection(ApiOptions.SectionName));
+        
+        // Register validation framework
+        services.AddScoped<IValidationFramework, SimplifiedValidationFramework>();
         
         // Register core payment processing services
         services.AddScoped<IBusinessRuleEngineService, BusinessRuleEngineService>();
