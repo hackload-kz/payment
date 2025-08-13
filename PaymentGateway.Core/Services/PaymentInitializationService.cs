@@ -4,6 +4,7 @@ using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Enums;
 using PaymentGateway.Core.Repositories;
 using PaymentGateway.Core.Interfaces;
+using PaymentGateway.Core.Services;
 using System.Text.Json;
 
 namespace PaymentGateway.Core.Services;
@@ -31,6 +32,7 @@ public class PaymentInitializationService : IPaymentInitializationService
     private readonly ILogger<PaymentInitializationService> _logger;
     private readonly IMetricsService _metricsService;
     private readonly IComprehensiveAuditService _auditService;
+    private readonly IPaymentStateManager _paymentStateManager;
 
     public PaymentInitializationService(
         IPaymentRepository paymentRepository,
@@ -38,7 +40,8 @@ public class PaymentInitializationService : IPaymentInitializationService
         ICustomerRepository customerRepository,
         ILogger<PaymentInitializationService> logger,
         IMetricsService metricsService,
-        IComprehensiveAuditService auditService)
+        IComprehensiveAuditService auditService,
+        IPaymentStateManager paymentStateManager)
     {
         _paymentRepository = paymentRepository;
         _teamRepository = teamRepository;
@@ -46,6 +49,7 @@ public class PaymentInitializationService : IPaymentInitializationService
         _logger = logger;
         _metricsService = metricsService;
         _auditService = auditService;
+        _paymentStateManager = paymentStateManager;
     }
 
     public async Task<PaymentInitResponseDto> InitializePaymentAsync(PaymentInitRequestDto request, CancellationToken cancellationToken = default)
@@ -114,22 +118,25 @@ public class PaymentInitializationService : IPaymentInitializationService
             // 7. Save payment to database
             await _paymentRepository.AddAsync(payment, cancellationToken);
 
-            // 8. Generate PaymentURL for hosted payment pages
+            // 8. Synchronize state with PaymentStateManager
+            await _paymentStateManager.SynchronizePaymentStateAsync(payment.PaymentId, payment.Status);
+
+            // 9. Generate PaymentURL for hosted payment pages
             var paymentUrl = await GeneratePaymentUrlAsync(payment.PaymentId, cancellationToken);
 
-            // 9. Create payment session
+            // 10. Create payment session
             var paymentSession = await CreatePaymentSessionAsync(payment, request, cancellationToken);
 
-            // 10. Create successful response
+            // 11. Create successful response
             var response = CreateSuccessResponse(payment, paymentUrl);
 
-            // 11. Audit logging
+            // 12. Audit logging
             await _auditService.LogSystemEventAsync(
                 AuditAction.PaymentInitialized,
                 "Payment",
                 $"Payment {payment.PaymentId} initialized successfully - OrderId: {request.OrderId}, TeamSlug: {request.TeamSlug}, Amount: {request.Amount}");
 
-            // 12. Record metrics
+            // 13. Record metrics
             await RecordInitializationMetricsAsync(request.TeamSlug, true, DateTime.UtcNow - initializationStartTime);
 
             _logger.LogInformation("Payment initialization completed successfully. PaymentId: {PaymentId}, OrderId: {OrderId}", 
@@ -338,14 +345,20 @@ public class PaymentInitializationService : IPaymentInitializationService
             Currency = request.Currency,
             Status = Enums.PaymentStatus.INIT,
             Description = request.Description,
-            Team = team,
-            TeamId = team.Id,
-            Customer = customer,
-            CustomerId = customer?.Id,
+            TeamId = team.Id, // Only set the foreign key, not the navigation property
+            CustomerId = customer?.Id, // Only set the foreign key, not the navigation property
             CustomerEmail = request.Email ?? customer?.Email,
             ExpiresAt = expiryTime,
             CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            UpdatedAt = DateTime.UtcNow,
+            // Explicitly set default values to avoid NOT NULL constraint violations
+            RefundedAmount = 0.00m,
+            RefundCount = 0,
+            AuthorizationAttempts = 0,
+            // Initialize other required fields that might cause NOT NULL issues
+            TeamSlug = team.TeamSlug ?? "",
+            PaymentMethod = 0,
+            MaxAllowedAttempts = 3
         };
 
         // Process DICT data (additional parameters)

@@ -60,7 +60,12 @@ public static class InfrastructureServiceExtensions
         // Register auditing and logging services
         services.AddScoped<IAuditLoggingService, AuditLoggingService>();
         services.AddScoped<IComprehensiveAuditService, ComprehensiveAuditService>();
-        services.AddScoped<INotificationWebhookService, NotificationWebhookService>();
+        // Register HTTP client for webhook services
+        services.AddHttpClient<INotificationWebhookService, NotificationWebhookService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.Add("User-Agent", "PaymentGateway-Webhook/1.0");
+        });
         
         // Register metrics and monitoring services
         services.AddSingleton<IMetricsService, MetricsService>();

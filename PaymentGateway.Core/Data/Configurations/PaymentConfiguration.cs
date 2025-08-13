@@ -77,6 +77,11 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.Property(p => p.RefundCount)
             .HasDefaultValue(0);
             
+        // Explicitly map PaymentURL to avoid snake_case conversion issues
+        builder.Property(p => p.PaymentURL)
+            .HasColumnName("payment_url")
+            .HasMaxLength(500);
+            
         // Audit properties
         builder.Property(p => p.RowVersion)
             .IsRowVersion();
@@ -102,12 +107,9 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
             .HasForeignKey(p => p.CustomerId)
             .OnDelete(DeleteBehavior.SetNull);
             
-        // JSON column for metadata
+        // HSTORE column for metadata
         builder.Property(p => p.Metadata)
-            .HasConversion(
-                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions)null),
-                v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions)null) ?? new Dictionary<string, string>()
-            );
+            .HasColumnType("hstore");
             
         // Soft delete filter
         builder.HasQueryFilter(p => !p.IsDeleted);

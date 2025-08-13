@@ -27,6 +27,8 @@ class PaymentFormController {
         this.setupAccessibilityFeatures();
         
         console.log('Payment form controller initialized');
+        console.log('Payment data:', window.paymentData);
+        console.log('Test card numbers: 4111111111111111 (Visa), 5555555555554444 (MasterCard)');
     }
 
     bindFormEvents() {
@@ -121,6 +123,9 @@ class PaymentFormController {
         inputs.forEach(input => {
             this.validationStates[input.name] = false;
         });
+
+        // Ensure form is not in loading state initially
+        this.setFormLoadingState(false);
 
         // Set initial submit button state
         this.updateSubmitButtonState();
@@ -293,10 +298,8 @@ class PaymentFormController {
     }
 
     validateFieldRealTime(input) {
-        // Only show errors after the user has started typing and moved away
-        if (input.value.length > 0) {
-            this.validateField(input);
-        }
+        // Only update submit button state, don't show errors until blur
+        this.updateSubmitButtonState();
     }
 
     updateFieldValidation(input, result) {
@@ -405,23 +408,47 @@ class PaymentFormController {
     }
 
     updateSubmitButtonState() {
-        const allValid = Object.values(this.validationStates).every(state => state === true);
+        // Simplified validation - only check required fields have values
+        const cardNumber = document.getElementById('card_number').value;
+        const expiryDate = document.getElementById('expiry_date').value;
+        const cvv = document.getElementById('cvv').value;
+        const cardholderName = document.getElementById('cardholder_name').value;
+        const email = document.getElementById('email').value;
         const termsAccepted = document.getElementById('terms_agreement').checked;
         
-        this.submitButton.disabled = !(allValid && termsAccepted);
+        const hasRequiredFields = cardNumber.trim() && 
+                                 expiryDate.trim() && 
+                                 cvv.trim() && 
+                                 cardholderName.trim() && 
+                                 email.trim() && 
+                                 termsAccepted;
+        
+        this.submitButton.disabled = !hasRequiredFields;
     }
 
     async handleFormSubmit(event) {
         event.preventDefault();
         
-        // Validate all fields
+        // Get form data
         const formData = new FormData(this.form);
-        const formObject = Object.fromEntries(formData.entries());
         
-        const validationResults = this.validator.validateForm(formObject);
-        
-        if (!validationResults.isFormValid) {
-            this.showValidationErrors(validationResults);
+        // Create the payload with correct field names for backend
+        const submitData = {
+            PaymentId: window.paymentData?.paymentId || formData.get('payment_token') || '',
+            CardNumber: formData.get('card_number') || '',
+            ExpiryDate: formData.get('expiry_date') || '',
+            Cvv: formData.get('cvv') || '',
+            CardholderName: formData.get('cardholder_name') || '',
+            Email: formData.get('email') || '',
+            Phone: formData.get('phone') || '',
+            SaveCard: formData.get('save_card') === 'on',
+            TermsAgreement: formData.get('terms_agreement') === 'on',
+            CsrfToken: formData.get('csrf_token') || ''
+        };
+
+        // Basic validation
+        if (!submitData.PaymentId) {
+            this.showErrorMessage('Payment ID is missing. Please refresh the page and try again.');
             return;
         }
 
@@ -429,15 +456,11 @@ class PaymentFormController {
         this.setFormLoadingState(true);
 
         try {
-            // Simulate form submission
-            await this.submitPaymentForm(formObject);
-            
-            // Show success message
-            this.showSuccessMessage('Payment processed successfully!');
+            await this.submitPaymentForm(submitData);
             
         } catch (error) {
             console.error('Payment submission error:', error);
-            this.showErrorMessage('Payment processing failed. Please try again.');
+            this.showErrorMessage(error.message || 'Payment processing failed. Please try again.');
         } finally {
             this.setFormLoadingState(false);
         }
@@ -452,17 +475,36 @@ class PaymentFormController {
         
         console.log('Submitting payment form:', sanitizedData);
         
-        // In a real implementation, this would submit to your payment API
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-                // Simulate random success/failure for demo
-                if (Math.random() > 0.1) {
-                    resolve({ success: true, transactionId: 'TXN-' + Date.now() });
-                } else {
-                    reject(new Error('Simulated payment processing error'));
-                }
-            }, 2000);
-        });
+        try {
+            // Submit to the actual payment form endpoint
+            const response = await fetch('/api/v1/paymentform/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams(formData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            // Check if response is HTML (success page) or JSON (error)
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('text/html')) {
+                // Success - redirect to result page
+                window.location.href = response.url;
+                return { success: true };
+            } else {
+                // JSON response
+                const result = await response.json();
+                return result;
+            }
+        } catch (error) {
+            console.error('Payment submission error:', error);
+            throw error;
+        }
     }
 
     showValidationErrors(validationResults) {

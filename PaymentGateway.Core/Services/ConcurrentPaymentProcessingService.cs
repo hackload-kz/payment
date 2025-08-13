@@ -87,7 +87,7 @@ public class ConcurrentPaymentProcessingService : IConcurrentPaymentProcessingSe
             _logger.LogInformation("Initializing payment {PaymentId} for team {TeamSlug} with amount {Amount} {Currency}", 
                 paymentId, request.TeamSlug, request.Amount, request.Currency);
 
-            if (!await _stateManager.TryTransitionStateAsync(paymentId, PaymentStatus.INIT, PaymentStatus.NEW, cancellationToken))
+            if (!await _stateManager.TryTransitionStateAsync(paymentId, PaymentStatus.INIT, PaymentStatus.NEW, request.TeamSlug, cancellationToken))
             {
                 _logger.LogError("Failed to transition payment {PaymentId} from INIT to NEW", paymentId);
                 return new PaymentProcessingResult(false, paymentId, PaymentStatus.INIT, "STATE_TRANSITION_ERROR", "Failed to initialize payment state");

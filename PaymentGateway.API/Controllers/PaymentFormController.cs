@@ -38,11 +38,12 @@ public class PaymentFormController : ControllerBase
     private readonly IMemoryCache _memoryCache;
     private readonly IPaymentRepository _paymentRepository;
     private readonly ITeamRepository _teamRepository;
-    private readonly CardPaymentProcessingService _cardProcessingService;
-    private readonly PaymentInitializationService _paymentInitService;
-    private readonly PaymentLifecycleManagementService _lifecycleService;
+    private readonly ICardPaymentProcessingService _cardProcessingService;
+    private readonly IPaymentInitializationService _paymentInitService;
+    private readonly IPaymentLifecycleManagementService _lifecycleService;
     private readonly IMetricsService _metricsService;
     private readonly IConfiguration _configuration;
+    private readonly IPaymentStateManager _paymentStateManager;
 
     // Metrics
     private static readonly System.Diagnostics.Metrics.Meter _meter = new("PaymentGateway.API.PaymentForm");
@@ -60,11 +61,12 @@ public class PaymentFormController : ControllerBase
         IMemoryCache memoryCache,
         IPaymentRepository paymentRepository,
         ITeamRepository teamRepository,
-        CardPaymentProcessingService cardProcessingService,
-        PaymentInitializationService paymentInitService,
-        PaymentLifecycleManagementService lifecycleService,
+        ICardPaymentProcessingService cardProcessingService,
+        IPaymentInitializationService paymentInitService,
+        IPaymentLifecycleManagementService lifecycleService,
         IMetricsService metricsService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IPaymentStateManager paymentStateManager)
     {
         _logger = logger;
         _memoryCache = memoryCache;
@@ -75,6 +77,7 @@ public class PaymentFormController : ControllerBase
         _lifecycleService = lifecycleService;
         _metricsService = metricsService;
         _configuration = configuration;
+        _paymentStateManager = paymentStateManager;
     }
 
     /// <summary>
@@ -109,8 +112,12 @@ public class PaymentFormController : ControllerBase
                 return NotFound(new { error = "Payment not found" });
             }
 
-            // Check payment status - only allow form rendering for NEW payments
-            if (payment.Status != PaymentGateway.Core.Enums.PaymentStatus.NEW)
+            // Synchronize payment state with state manager
+            await _paymentStateManager.SynchronizePaymentStateAsync(payment.PaymentId, payment.Status);
+
+            // Check payment status - allow form rendering for INIT and NEW payments
+            if (payment.Status != PaymentGateway.Core.Enums.PaymentStatus.NEW && 
+                payment.Status != PaymentGateway.Core.Enums.PaymentStatus.INIT)
             {
                 _logger.LogWarning("Payment form cannot be rendered for payment in status: {Status}, PaymentId: {PaymentId}",
                     payment.Status, paymentId);
@@ -229,7 +236,11 @@ public class PaymentFormController : ControllerBase
                 return NotFound(new { error = "Payment not found" });
             }
 
-            if (payment.Status != PaymentGateway.Core.Enums.PaymentStatus.NEW)
+            // Synchronize payment state with state manager
+            await _paymentStateManager.SynchronizePaymentStateAsync(payment.PaymentId, payment.Status);
+
+            if (payment.Status != PaymentGateway.Core.Enums.PaymentStatus.NEW && 
+                payment.Status != PaymentGateway.Core.Enums.PaymentStatus.INIT)
             {
                 _logger.LogWarning("Payment form submitted for payment in invalid status: {Status}, PaymentId: {PaymentId}",
                     payment.Status, submission.PaymentId);
@@ -238,6 +249,42 @@ public class PaymentFormController : ControllerBase
                     error = $"Payment is in {payment.Status} status and cannot be processed",
                     currentStatus = payment.Status.ToString()
                 });
+            }
+
+            // First transition: INIT/NEW → FORM_SHOWED (customer engaged with form)
+            bool formShowedTransition = false;
+            
+            // Try transitioning from NEW state first
+            if (payment.Status == PaymentGateway.Core.Enums.PaymentStatus.NEW)
+            {
+                formShowedTransition = await _paymentStateManager.TryTransitionStateAsync(
+                    submission.PaymentId, 
+                    PaymentGateway.Core.Enums.PaymentStatus.NEW, 
+                    PaymentGateway.Core.Enums.PaymentStatus.FORM_SHOWED, 
+                    payment.TeamSlug);
+            }
+            // Fallback: handle INIT state transition (in case payment is still in INIT)
+            else if (payment.Status == PaymentGateway.Core.Enums.PaymentStatus.INIT)
+            {
+                _logger.LogWarning("Payment {PaymentId} is still in INIT state, transitioning to FORM_SHOWED directly", submission.PaymentId);
+                formShowedTransition = await _paymentStateManager.TryTransitionStateAsync(
+                    submission.PaymentId, 
+                    PaymentGateway.Core.Enums.PaymentStatus.INIT, 
+                    PaymentGateway.Core.Enums.PaymentStatus.FORM_SHOWED, 
+                    payment.TeamSlug);
+            }
+            else
+            {
+                _logger.LogError("Payment {PaymentId} is in unexpected state {Status} for form submission", 
+                    submission.PaymentId, payment.Status);
+                return BadRequest(new { error = $"Payment is in {payment.Status} status and cannot be processed" });
+            }
+
+            if (!formShowedTransition)
+            {
+                _logger.LogError("Failed to transition payment {PaymentId} from {CurrentStatus} to FORM_SHOWED", 
+                    submission.PaymentId, payment.Status);
+                return BadRequest(new { error = "Payment state transition failed" });
             }
 
             // Process card payment securely
@@ -250,17 +297,36 @@ public class PaymentFormController : ControllerBase
                 _formSubmissionCounter.Add(1, new KeyValuePair<string, object?>("result", "card_processing_failed"),
                     new KeyValuePair<string, object?>("error_reason", cardProcessingResult.ErrorCode));
 
+                // On card processing failure, transition to REJECTED
+                await _paymentStateManager.TryTransitionStateAsync(
+                    submission.PaymentId,
+                    PaymentGateway.Core.Enums.PaymentStatus.FORM_SHOWED,
+                    PaymentGateway.Core.Enums.PaymentStatus.REJECTED,
+                    payment.TeamSlug);
+
                 return await RenderPaymentResult(submission.PaymentId, false, cardProcessingResult.ErrorMessage);
             }
 
-            // Update payment status to AUTHORIZED
-            payment.Status = PaymentGateway.Core.Enums.PaymentStatus.AUTHORIZED;
+            // Second transition: FORM_SHOWED → AUTHORIZED (card processing successful)
+            var authorizedTransition = await _paymentStateManager.TryTransitionStateAsync(
+                submission.PaymentId,
+                PaymentGateway.Core.Enums.PaymentStatus.FORM_SHOWED,
+                PaymentGateway.Core.Enums.PaymentStatus.AUTHORIZED,
+                payment.TeamSlug);
+
+            if (!authorizedTransition)
+            {
+                _logger.LogError("Failed to transition payment {PaymentId} from FORM_SHOWED to AUTHORIZED", submission.PaymentId);
+                return BadRequest(new { error = "Payment authorization state transition failed" });
+            }
+
+            // Update payment metadata (card mask, timestamp)
             payment.UpdatedAt = DateTime.UtcNow;
             payment.CardMask = cardProcessingResult.CardInfo;
             
             await _paymentRepository.UpdateAsync(payment);
 
-            _logger.LogInformation("Payment form processed successfully for PaymentId: {PaymentId}, Duration: {Duration}ms",
+            _logger.LogInformation("Payment form processed successfully for PaymentId: {PaymentId}, Status: AUTHORIZED, Duration: {Duration}ms",
                 submission.PaymentId, stopwatch.ElapsedMilliseconds);
 
             _formSubmissionCounter.Add(1, new KeyValuePair<string, object?>("result", "success"),

@@ -113,12 +113,9 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
             .HasForeignKey(c => c.TeamId)
             .OnDelete(DeleteBehavior.Restrict);
             
-        // JSON column for metadata
+        // HSTORE column for metadata
         builder.Property(c => c.Metadata)
-            .HasConversion(
-                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions)null),
-                v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions)null) ?? new Dictionary<string, string>()
-            );
+            .HasColumnType("hstore");
             
         // Soft delete filter
         builder.HasQueryFilter(c => !c.IsDeleted);

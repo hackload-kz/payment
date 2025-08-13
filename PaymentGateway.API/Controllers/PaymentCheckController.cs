@@ -265,17 +265,19 @@ public class PaymentCheckController : ControllerBase
                 Timestamp = DateTime.UtcNow
             };
 
+            // SIMPLIFIED TOKEN FORMULA for PaymentCheck: PaymentId OR OrderId + TeamSlug + Password  
             var authParameters = new Dictionary<string, object>
             {
-                { "TeamSlug", authContext.TeamSlug },
-                { "Token", authContext.Token },
-                { "RequestId", authContext.RequestId },
-                { "PaymentId", authContext.PaymentId ?? "" },
-                { "OrderId", authContext.OrderId ?? "" },
-                { "ClientIp", authContext.ClientIp },
-                { "UserAgent", authContext.UserAgent },
-                { "Timestamp", authContext.Timestamp }
+                { "TeamSlug", authContext.TeamSlug }
+                // Note: Password will be added by the authentication service
+                // Token is not included in the calculation (it's the result)
             };
+            
+            // Include either PaymentId or OrderId (whichever is provided)
+            if (!string.IsNullOrEmpty(authContext.PaymentId))
+                authParameters["PaymentId"] = authContext.PaymentId;
+            else if (!string.IsNullOrEmpty(authContext.OrderId))
+                authParameters["OrderId"] = authContext.OrderId;
             
             var authResult = await _authenticationService.AuthenticateAsync(authParameters, cancellationToken);
             if (!authResult.IsAuthenticated)

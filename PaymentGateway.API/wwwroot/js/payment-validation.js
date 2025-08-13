@@ -8,56 +8,56 @@ class PaymentValidator {
     constructor() {
         this.cardTypes = {
             visa: {
-                pattern: /^4[0-9]{12}(?:[0-9]{3})?$/,
+                pattern: /^4/,
                 lengths: [13, 16, 19],
                 cvvLength: 3,
                 name: 'Visa',
                 icon: '/images/cards/visa.svg'
             },
             mastercard: {
-                pattern: /^5[1-5][0-9]{14}$/,
+                pattern: /^5[1-5]|^2[2-7]/,
                 lengths: [16],
                 cvvLength: 3,
                 name: 'MasterCard',
                 icon: '/images/cards/mastercard.svg'
             },
             amex: {
-                pattern: /^3[47][0-9]{13}$/,
+                pattern: /^3[47]/,
                 lengths: [15],
                 cvvLength: 4,
                 name: 'American Express',
                 icon: '/images/cards/amex.svg'
             },
             discover: {
-                pattern: /^6(?:011|5[0-9]{2})[0-9]{12}$/,
+                pattern: /^6(?:011|5)/,
                 lengths: [16],
                 cvvLength: 3,
                 name: 'Discover',
                 icon: '/images/cards/discover.svg'
             },
             jcb: {
-                pattern: /^(?:2131|1800|35\d{3})\d{11}$/,
+                pattern: /^(?:2131|1800|35)/,
                 lengths: [16],
                 cvvLength: 3,
                 name: 'JCB',
                 icon: '/images/cards/jcb.svg'
             },
             dinersclub: {
-                pattern: /^3[0689][0-9]{12}$/,
+                pattern: /^3[0689]/,
                 lengths: [14],
                 cvvLength: 3,
                 name: 'Diners Club',
                 icon: '/images/cards/dinersclub.svg'
             },
             unionpay: {
-                pattern: /^(62|88)\d{14,17}$/,
+                pattern: /^(62|88)/,
                 lengths: [16, 17, 18, 19],
                 cvvLength: 3,
                 name: 'UnionPay',
                 icon: '/images/cards/unionpay.svg'
             },
             mir: {
-                pattern: /^220[0-4]\d{12}$/,
+                pattern: /^220[0-4]/,
                 lengths: [16],
                 cvvLength: 3,
                 name: 'Mir',
@@ -157,7 +157,7 @@ class PaymentValidator {
     }
 
     /**
-     * Validate card number using Luhn algorithm
+     * Validate card number using Luhn algorithm (simplified)
      * @param {string} value - Card number
      * @returns {ValidationResult} Validation result
      */
@@ -177,25 +177,19 @@ class PaymentValidator {
             return result;
         }
 
-        // Detect card type
-        const cardType = this.detectCardType(digits);
-        if (!cardType) {
-            result.errors.push(this.getMessage('unsupported_card'));
-            return result;
-        }
-
-        result.cardType = cardType;
-        const cardConfig = this.cardTypes[cardType];
-
-        // Validate length
-        if (!cardConfig.lengths.includes(digits.length)) {
+        // Basic length check (13-19 digits)
+        if (digits.length < 13 || digits.length > 19) {
             result.errors.push(this.getMessage('invalid_card_number'));
             return result;
         }
 
-        // Luhn algorithm validation
-        if (!this.luhnCheck(digits)) {
-            result.errors.push(this.getMessage('luhn_check_failed'));
+        // Detect card type (optional, don't fail if unknown)
+        const cardType = this.detectCardType(digits);
+        result.cardType = cardType;
+
+        // Simplified Luhn check for real validation
+        if (digits.length >= 15 && !this.luhnCheck(digits)) {
+            result.errors.push(this.getMessage('invalid_card_number'));
             return result;
         }
 
@@ -281,7 +275,7 @@ class PaymentValidator {
     }
 
     /**
-     * Validate cardholder name
+     * Validate cardholder name (simplified)
      * @param {string} value - Cardholder name
      * @returns {ValidationResult} Validation result
      */
@@ -293,15 +287,9 @@ class PaymentValidator {
             return result;
         }
 
-        // Name should contain only letters, spaces, hyphens, and periods
-        if (!/^[A-Za-z\s\-\.]{2,100}$/.test(value.trim())) {
-            result.errors.push(this.getMessage('invalid_name'));
-            return result;
-        }
-
-        // Should have at least first and last name
-        const words = value.trim().split(/\s+/);
-        if (words.length < 2) {
+        // Basic validation - just check length and allow most characters
+        const trimmed = value.trim();
+        if (trimmed.length < 2 || trimmed.length > 100) {
             result.errors.push(this.getMessage('invalid_name'));
             return result;
         }

@@ -167,7 +167,7 @@ public class CardPaymentProcessingService : ICardPaymentProcessingService
     private readonly ILogger<CardPaymentProcessingService> _logger;
     
     // Card tokenization key (in production, this should come from secure key management)
-    private readonly byte[] _tokenizationKey = Convert.FromBase64String("YourSecureTokenizationKeyHere==");
+    private readonly byte[] _tokenizationKey = Convert.FromBase64String("QWJjZGVmZ2hpams9PQ=="); // "Abcdefghijk==" as placeholder
     
     // Metrics
     private static readonly Counter CardValidationOperations = Metrics

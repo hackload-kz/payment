@@ -13,7 +13,7 @@ using PaymentGateway.Infrastructure.Data;
 namespace PaymentGateway.Infrastructure.Migrations
 {
     [DbContext(typeof(PaymentGatewayDbContext))]
-    [Migration("20250807120741_InitialCreate")]
+    [Migration("20250813222311_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />

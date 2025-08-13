@@ -9,7 +9,6 @@
     <!-- Security Headers -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; form-action 'self';">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-Frame-Options" content="DENY">
     <meta name="referrer" content="no-referrer">
     
     <!-- Favicon -->
@@ -149,9 +148,9 @@
                     <!-- Payment Form -->
                     <form id="payment-form" class="payment-form" novalidate aria-label="Payment form">
                         <!-- Hidden fields for security -->
-                        <input type="hidden" name="payment_token" id="payment_token" value="">
+                        <input type="hidden" name="payment_token" id="payment_token" value="{{PaymentId}}">
                         <input type="hidden" name="session_id" id="session_id" value="">
-                        <input type="hidden" name="csrf_token" id="csrf_token" value="">
+                        <input type="hidden" name="csrf_token" id="csrf_token" value="{{CsrfToken}}">
                         
                         <!-- Card Information -->
                         <fieldset class="form-fieldset" aria-labelledby="card-info-legend">
@@ -489,6 +488,15 @@
     </div>
 
     <!-- JavaScript -->
+    <script>
+        // Make payment data available to JavaScript
+        window.paymentData = {
+            paymentId: '{{PaymentId}}',
+            amount: '{{Amount}}',
+            currency: '{{Currency}}',
+            merchantName: '{{MerchantName}}'
+        };
+    </script>
     <script src="/js/payment-validation.js"></script>
     <script src="/js/payment-localization.js"></script>
     <script src="/js/payment-form.js"></script>

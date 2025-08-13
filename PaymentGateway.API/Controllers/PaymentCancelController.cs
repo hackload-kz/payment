@@ -267,16 +267,13 @@ public class PaymentCancelController : ControllerBase
                 Timestamp = DateTime.UtcNow
             };
 
+            // SIMPLIFIED TOKEN FORMULA for PaymentCancel: PaymentId + TeamSlug + Password
             var authParameters = new Dictionary<string, object>
             {
-                { "TeamSlug", authContext.TeamSlug },
-                { "Token", authContext.Token },
-                { "RequestId", authContext.RequestId },
                 { "PaymentId", authContext.PaymentId },
-                { "Amount", authContext.Amount },
-                { "ClientIp", authContext.ClientIp },
-                { "UserAgent", authContext.UserAgent },
-                { "Timestamp", authContext.Timestamp }
+                { "TeamSlug", authContext.TeamSlug }
+                // Note: Password will be added by the authentication service
+                // Token is not included in the calculation (it's the result)
             };
             
             var authResult = await _authenticationService.AuthenticateAsync(authParameters, cancellationToken);

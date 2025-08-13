@@ -95,12 +95,9 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
             .HasForeignKey(t => t.PaymentId)
             .OnDelete(DeleteBehavior.Cascade);
             
-        // JSON column for additional data
+        // HSTORE column for additional data
         builder.Property(t => t.AdditionalData)
-            .HasConversion(
-                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions)null),
-                v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions)null) ?? new Dictionary<string, string>()
-            );
+            .HasColumnType("hstore");
             
         // Soft delete filter
         builder.HasQueryFilter(t => !t.IsDeleted);

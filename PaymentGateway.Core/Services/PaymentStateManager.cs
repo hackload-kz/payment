@@ -2,15 +2,18 @@ using System.Collections.Concurrent;
 using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Enums;
 using Microsoft.Extensions.Logging;
+using PaymentGateway.Core.Repositories;
 
 namespace PaymentGateway.Core.Services;
 
 public interface IPaymentStateManager
 {
+    Task<bool> TryTransitionStateAsync(string paymentId, PaymentStatus fromStatus, PaymentStatus toStatus, string teamSlug, CancellationToken cancellationToken = default);
     Task<bool> TryTransitionStateAsync(string paymentId, PaymentStatus fromStatus, PaymentStatus toStatus, CancellationToken cancellationToken = default);
     Task<PaymentStatus> GetPaymentStatusAsync(string paymentId, CancellationToken cancellationToken = default);
     Task<bool> IsValidTransitionAsync(PaymentStatus fromStatus, PaymentStatus toStatus);
     Task ReleaseLockAsync(string paymentId);
+    Task SynchronizePaymentStateAsync(string paymentId, PaymentStatus currentStatus);
 }
 
 public class PaymentStateManager : IPaymentStateManager
@@ -18,6 +21,8 @@ public class PaymentStateManager : IPaymentStateManager
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _paymentLocks;
     private readonly ILogger<PaymentStateManager> _logger;
     private readonly ConcurrentDictionary<string, PaymentStatus> _paymentStatusCache;
+    private readonly INotificationWebhookService _webhookService;
+    private readonly IPaymentRepository _paymentRepository;
     
     private static readonly Dictionary<PaymentStatus, List<PaymentStatus>> ValidTransitions = new()
     {
@@ -33,14 +38,19 @@ public class PaymentStateManager : IPaymentStateManager
         { PaymentStatus.EXPIRED, new List<PaymentStatus>() }
     };
 
-    public PaymentStateManager(ILogger<PaymentStateManager> logger)
+    public PaymentStateManager(
+        ILogger<PaymentStateManager> logger,
+        INotificationWebhookService webhookService,
+        IPaymentRepository paymentRepository)
     {
         _paymentLocks = new ConcurrentDictionary<string, SemaphoreSlim>();
         _paymentStatusCache = new ConcurrentDictionary<string, PaymentStatus>();
         _logger = logger;
+        _webhookService = webhookService;
+        _paymentRepository = paymentRepository;
     }
 
-    public async Task<bool> TryTransitionStateAsync(string paymentId, PaymentStatus fromStatus, PaymentStatus toStatus, CancellationToken cancellationToken = default)
+    public async Task<bool> TryTransitionStateAsync(string paymentId, PaymentStatus fromStatus, PaymentStatus toStatus, string teamSlug, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(paymentId);
 
@@ -60,7 +70,8 @@ public class PaymentStateManager : IPaymentStateManager
                 return false;
             }
 
-            var currentStatus = _paymentStatusCache.GetValueOrDefault(paymentId, PaymentStatus.INIT);
+            // Get the actual current status from database or cache
+            var currentStatus = await GetPaymentStatusAsync(paymentId, cancellationToken);
             if (currentStatus != fromStatus)
             {
                 _logger.LogWarning("Payment {PaymentId} state mismatch. Expected {ExpectedStatus}, but current is {CurrentStatus}", 
@@ -72,6 +83,9 @@ public class PaymentStateManager : IPaymentStateManager
             
             _logger.LogInformation("Payment {PaymentId} state transitioned from {FromStatus} to {ToStatus}", 
                 paymentId, fromStatus, toStatus);
+            
+            // Send webhook notification for status changes
+            await SendWebhookNotificationAsync(paymentId, toStatus, teamSlug, cancellationToken);
             
             return true;
         }
@@ -91,11 +105,40 @@ public class PaymentStateManager : IPaymentStateManager
         }
     }
 
+    public async Task<bool> TryTransitionStateAsync(string paymentId, PaymentStatus fromStatus, PaymentStatus toStatus, CancellationToken cancellationToken = default)
+    {
+        // For backward compatibility, try to send webhook without teamSlug (webhook service will skip if no NotificationUrl)
+        return await TryTransitionStateAsync(paymentId, fromStatus, toStatus, "", cancellationToken);
+    }
+
     public async Task<PaymentStatus> GetPaymentStatusAsync(string paymentId, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(paymentId);
         
-        return await Task.FromResult(_paymentStatusCache.GetValueOrDefault(paymentId, PaymentStatus.INIT));
+        // Check cache first
+        if (_paymentStatusCache.TryGetValue(paymentId, out var cachedStatus))
+        {
+            return cachedStatus;
+        }
+        
+        // Load from database if not in cache
+        try
+        {
+            var payment = await _paymentRepository.GetByPaymentIdAsync(paymentId, cancellationToken);
+            if (payment != null)
+            {
+                _paymentStatusCache.TryAdd(paymentId, payment.Status);
+                _logger.LogDebug("Loaded payment status from database: {PaymentId} = {Status}", paymentId, payment.Status);
+                return payment.Status;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading payment status from database for {PaymentId}", paymentId);
+        }
+        
+        // Default to INIT if payment not found
+        return PaymentStatus.INIT;
     }
 
     public async Task<bool> IsValidTransitionAsync(PaymentStatus fromStatus, PaymentStatus toStatus)
@@ -115,5 +158,48 @@ public class PaymentStateManager : IPaymentStateManager
         }
         
         await Task.CompletedTask;
+    }
+
+    public async Task SynchronizePaymentStateAsync(string paymentId, PaymentStatus currentStatus)
+    {
+        ArgumentNullException.ThrowIfNull(paymentId);
+        
+        _paymentStatusCache.AddOrUpdate(paymentId, currentStatus, (_, _) => currentStatus);
+        _logger.LogDebug("Synchronized payment state cache: {PaymentId} = {Status}", paymentId, currentStatus);
+        
+        await Task.CompletedTask;
+    }
+
+    private async Task SendWebhookNotificationAsync(string paymentId, PaymentStatus status, string teamSlug, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var additionalData = new Dictionary<string, object>
+            {
+                ["transition_timestamp"] = DateTime.UtcNow,
+                ["status_name"] = status.ToString()
+            };
+
+            // Send specific webhook notifications based on status
+            switch (status)
+            {
+                case PaymentStatus.CONFIRMED:
+                    await _webhookService.SendPaymentCompletedNotificationAsync(paymentId, teamSlug);
+                    break;
+                case PaymentStatus.REJECTED:
+                case PaymentStatus.CANCELLED:
+                case PaymentStatus.EXPIRED:
+                    await _webhookService.SendPaymentFailedNotificationAsync(paymentId, status.ToString(), teamSlug);
+                    break;
+                default:
+                    await _webhookService.SendPaymentNotificationAsync(paymentId, status.ToString(), teamSlug, additionalData);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send webhook notification for payment {PaymentId} status {Status}", paymentId, status);
+            // Don't throw - webhook failures shouldn't break payment processing
+        }
     }
 }

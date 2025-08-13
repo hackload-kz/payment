@@ -64,41 +64,46 @@ graph TD
 
 Система использует SHA-256 HMAC аутентификацию с защитой от повторных атак.
 
-### Алгоритм генерации токена
+### Алгоритм генерации токена (УПРОЩЕННАЯ ВЕРСИЯ)
 
 **Краткая формула**: `Token = SHA256(Amount + Currency + OrderId + Password + TeamSlug)`
 
 #### Детальный алгоритм:
 
-1. **Сбор параметров**: Собираются **только скалярные параметры корневого уровня** из тела запроса
-   - ✅ Включаются: все скалярные значения на корневом уровне
-   - ❌ Исключаются: вложенные объекты (Receipt, Data, Items и др.)
-   - ❌ Исключаются: массивы и сложные структуры
+**ВАЖНО**: Система использует упрощенную схему аутентификации с **только 5 основными параметрами**.
 
-2. **Добавление пароля**: К собранным параметрам добавляется `Password` с паролем команды
+1. **Сбор параметров**: Используются **только 5 обязательных параметров**:
+   - ✅ **Amount** - сумма платежа в копейках
+   - ✅ **Currency** - валюта платежа (например, "RUB")
+   - ✅ **OrderId** - уникальный идентификатор заказа
+   - ✅ **TeamSlug** - идентификатор команды
+   - ✅ **Password** - пароль команды (добавляется автоматически)
+   - ❌ **Исключаются**: ВСЕ остальные параметры (Description, Email, URLs, etc.)
 
-3. **Алфавитная сортировка**: Параметры сортируются в **строгом алфавитном порядке** по названию поля (регистрозависимо)
-   - **КРИТИЧНО**: Порядок всегда одинаковый: `Amount` → `Currency` → `OrderId` → `Password` → `TeamSlug`
-   - Любое отклонение от этого порядка приводит к ошибке аутентификации
+2. **Добавление пароля**: К 4 параметрам запроса автоматически добавляется `Password` команды
 
-4. **Конкатенация значений**: Значения параметров (не ключи!) конкатенируются без разделителей
+3. **Фиксированный порядок**: Параметры **ВСЕГДА** используются в строгом алфавитном порядке:
+   - **КРИТИЧНО**: `Amount` → `Currency` → `OrderId` → `Password` → `TeamSlug`
+   - Этот порядок НЕ меняется независимо от порядка в JSON запросе
+
+4. **Конкатенация значений**: Значения параметров конкатенируются без разделителей
    - Пример: `"19200" + "RUB" + "order-123" + "MyPassword123" + "my-team"`
    - Результат: `"19200RUBorder-123MyPassword123my-team"`
 
 5. **SHA-256 хеширование**: К получившейся строке применяется SHA-256 с кодировкой UTF-8
    - Результат: строка в нижнем регистре (hex)
 
-#### Важные особенности:
+#### Важные особенности упрощенной схемы:
 
-- **Тип данных**: все значения конвертируются в строки перед конкатенацией
-- **Кодировка**: обязательно UTF-8 для хеширования
-- **Регистр**: сортировка ключей регистрозависимая
-- **Исключения**: вложенные объекты (Receipt, Data, Items) НЕ участвуют в генерации токена
+- **Только 5 параметров**: Независимо от содержимого JSON запроса, в токене участвуют только Amount, Currency, OrderId, Password, TeamSlug
+- **Игнорирование остальных полей**: Description, Email, URLs, Receipt, Data и все остальные поля НЕ влияют на токен
+- **Простота интеграции**: Не нужно анализировать структуру запроса - всегда используются одни и те же 5 полей
+- **Обратная совместимость**: Токены генерируются одинаково для простых и сложных запросов
 
-### Пример генерации токена
+### Пример генерации токена (УПРОЩЕННАЯ СХЕМА)
 
 ```bash
-# Исходные параметры
+# Исходные параметры (только 5 обязательных)
 amount="19200"
 currency="RUB"
 orderId="21090"
@@ -107,48 +112,67 @@ password="usaf8fw8fsw21g"
 
 # КРИТИЧНО: Параметры ВСЕГДА в строгом алфавитном порядке:
 # Amount → Currency → OrderId → Password → TeamSlug
-token_params="${amount}${currency}${orderId}Password${password}${teamSlug}"
+token_params="${amount}${currency}${orderId}${password}${teamSlug}"
 
 echo "Строка для хеширования: $token_params"
-# Результат: "19200RUB21090Passwordusaf8fw8fsw21gMerchantTeamSlug"
+# Результат: "19200RUB21090usaf8fw8fsw21gMerchantTeamSlug"
 
 # Генерация токена SHA-256
 token=$(echo -n "$token_params" | sha256sum | cut -d' ' -f1)
 echo "Сгенерированный токен: $token"
+
+# ВАЖНО: Даже если запрос содержит дополнительные поля, 
+# они НЕ участвуют в генерации токена:
+curl -X POST /api/v1/PaymentInit/init \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"teamSlug\": \"$teamSlug\",
+    \"token\": \"$token\",
+    \"amount\": $amount,
+    \"orderId\": \"$orderId\",
+    \"currency\": \"$currency\",
+    \"description\": \"Это поле НЕ влияет на токен\",
+    \"email\": \"customer@example.com\",
+    \"successURL\": \"https://example.com/success\",
+    \"failURL\": \"https://example.com/fail\"
+  }"
 ```
 
-#### Пошаговый пример:
+#### Пошаговый пример упрощенной аутентификации:
 
-1. **Исходный запрос**:
+1. **Исходный запрос** (может содержать любые поля):
 ```json
 {
   "teamSlug": "MerchantTeamSlug",
   "amount": 19200,
   "orderId": "21090",
   "currency": "RUB",
-  "description": "Подарочная карта", // Исключается из токена
-  "receipt": { ... }               // Исключается из токена
+  "description": "Подарочная карта",     // ❌ ИГНОРИРУЕТСЯ
+  "email": "customer@example.com",      // ❌ ИГНОРИРУЕТСЯ
+  "successURL": "https://example.com",  // ❌ ИГНОРИРУЕТСЯ
+  "receipt": { ... },                   // ❌ ИГНОРИРУЕТСЯ
+  "data": { ... }                       // ❌ ИГНОРИРУЕТСЯ
 }
 ```
 
-2. **Извлеченные параметры** (только скалярные):
+2. **Извлеченные параметры** (ТОЛЬКО 5 основных):
 ```
-teamSlug: "MerchantTeamSlug"
-amount: "19200"
-orderId: "21090" 
-currency: "RUB"
+Amount: "19200"     ✅ ИСПОЛЬЗУЕТСЯ
+Currency: "RUB"     ✅ ИСПОЛЬЗУЕТСЯ
+OrderId: "21090"    ✅ ИСПОЛЬЗУЕТСЯ
+TeamSlug: "MerchantTeamSlug"  ✅ ИСПОЛЬЗУЕТСЯ
 ```
 
 3. **Добавление пароля**:
 ```
-amount: "19200"
-currency: "RUB"
-orderId: "21090"
-password: "usaf8fw8fsw21g"
-teamSlug: "MerchantTeamSlug"
+Amount: "19200"
+Currency: "RUB"
+OrderId: "21090"
+Password: "usaf8fw8fsw21g"  ✅ ДОБАВЛЯЕТСЯ АВТОМАТИЧЕСКИ
+TeamSlug: "MerchantTeamSlug"
 ```
 
-4. **Алфавитная сортировка** (Amount → Currency → OrderId → Password → TeamSlug):
+4. **Фиксированный порядок** (Amount → Currency → OrderId → Password → TeamSlug):
 ```
 Amount: "19200"
 Currency: "RUB"  
@@ -167,6 +191,8 @@ TeamSlug: "MerchantTeamSlug"
 Input:  "19200RUB21090usaf8fw8fsw21gMerchantTeamSlug"
 Output: "b8f2f8e5c9d6a4c8f7b5e3a2d1f0e9c8b7a6f5d4e3c2b1a0f9e8d7c6b5a4f3e2"
 ```
+
+**Ключевая особенность**: Независимо от количества полей в JSON, токен всегда генерируется из одних и тех же 5 параметров!
 
 ### Безопасность
 
@@ -481,7 +507,78 @@ Content-Type: application/json
 }
 ```
 
-### 5. Отмена платежа
+### 5. Платежная форма (PaymentForm)
+
+**GET** `/api/v1/paymentform/render/{paymentId}`
+
+Отображение безопасной формы для ввода данных карты покупателем.
+
+**Параметры URL:**
+- `{paymentId}` - ID платежа, полученный при создании платежа
+- `?lang=en|ru` - язык интерфейса (опционально, по умолчанию `en`)
+
+**Заголовки:**
+```
+Accept: text/html
+```
+
+**Ответ (200 OK):**
+Возвращает HTML-страницу с платежной формой, содержащей:
+- Форму ввода данных карты с валидацией
+- Информацию о платеже (сумма, описание, мерчант)
+- Индикаторы безопасности (SSL, PCI DSS)
+- Многоязычный интерфейс
+- CSRF-защиту
+
+**Особенности формы:**
+- Автоматическое определение типа карты по номеру
+- Real-time валидация полей ввода
+- Форматирование номера карты и срока действия
+- Проверка по алгоритму Луна
+- Защита от XSS и CSRF атак
+
+**POST** `/api/v1/paymentform/submit`
+
+Обработка данных карты, отправленных с платежной формы.
+
+**Заголовки:**
+```
+Content-Type: application/x-www-form-urlencoded
+```
+
+**Тело запроса:**
+```
+PaymentId=pmt_abc123&CardNumber=4111111111111111&ExpiryDate=12%2F25&Cvv=123&CardholderName=John+Doe&Email=customer%40example.com&Phone=%2B79001234567&SaveCard=false&TermsAgreement=true&CsrfToken=csrf_token_value
+```
+
+**Ответ (200 OK) - Успех:**
+Перенаправление на страницу результата или возврат HTML-страницы с результатом.
+
+**Ответ (400 Bad Request) - Ошибка валидации:**
+```json
+{
+  "error": "Validation failed",
+  "details": [
+    "Card number is required",
+    "Invalid CVV format"
+  ],
+  "paymentId": "pmt_abc123"
+}
+```
+
+**GET** `/api/v1/paymentform/result/{paymentId}`
+
+Отображение страницы с результатом обработки платежа.
+
+**Параметры URL:**
+- `{paymentId}` - ID платежа
+- `?success=true|false` - результат обработки
+- `?message=text` - сообщение о результате
+
+**Ответ (200 OK):**
+HTML-страница с информацией о результате платежа и кнопками для возврата к мерчанту.
+
+### 6. Отмена платежа
 
 **POST** `/api/v1/PaymentCancel/cancel`
 
@@ -558,7 +655,64 @@ Content-Type: application/json
 
 ## Примеры запросов
 
-### Создание платежа с полной аутентификацией
+### Полный пример интеграции с платежной формой
+
+```bash
+#!/bin/bash
+
+# Параметры платежа
+team_slug="my-test-store"
+password="MySecretPassword123"
+amount="250000"
+order_id="order-$(date +%s)"
+currency="RUB"
+description="Test payment"
+email="customer@example.com"
+success_url="https://mystore.com/success"
+fail_url="https://mystore.com/fail"
+notification_url="https://mystore.com/webhook"
+
+# Генерация токена (упрощенная схема: только 5 параметров)
+token_params="${amount}${currency}${order_id}${password}${team_slug}"
+token=$(echo -n "$token_params" | sha256sum | cut -d' ' -f1)
+
+echo "Создание платежа..."
+
+# Создание платежа
+response=$(curl -s -X POST https://gateway.hackload.com/api/v1/PaymentInit/init \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"teamSlug\": \"$team_slug\",
+    \"token\": \"$token\",
+    \"amount\": $amount,
+    \"orderId\": \"$order_id\",
+    \"currency\": \"$currency\",
+    \"description\": \"$description\",
+    \"email\": \"$email\",
+    \"successURL\": \"$success_url\",
+    \"failURL\": \"$fail_url\",
+    \"notificationURL\": \"$notification_url\",
+    \"language\": \"ru\"
+  }")
+
+echo "Ответ API: $response"
+
+# Извлечение paymentURL для перенаправления покупателя
+payment_url=$(echo "$response" | jq -r '.paymentURL // empty')
+
+if [ ! -z "$payment_url" ]; then
+    echo "✅ Платеж создан успешно!"
+    echo "🔗 Перенаправьте покупателя на: $payment_url"
+    echo ""
+    echo "Покупатель увидит защищенную форму для ввода данных карты."
+    echo "После обработки карты система перенаправит на successURL или failURL."
+    echo "Webhook-уведомления будут отправлены на: $notification_url"
+else
+    echo "❌ Ошибка создания платежа: $response"
+fi
+```
+
+### Создание платежа с полной аутентификацией (старый метод)
 
 ```bash
 #!/bin/bash
@@ -574,8 +728,8 @@ email="customer@example.com"
 success_url="https://mystore.com/success"
 fail_url="https://mystore.com/fail"
 
-# Генерация токена (параметры в алфавитном порядке)
-token_params="${amount}${currency}${description}${email}${fail_url}${order_id}${success_url}${team_slug}Password${password}"
+# Генерация токена (параметры в алфавитном порядке - УСТАРЕВШИЙ МЕТОД)
+token_params="${amount}${currency}${description}${email}${fail_url}${order_id}${success_url}${team_slug}${password}"
 token=$(echo -n "$token_params" | sha256sum | cut -d' ' -f1)
 
 # Создание платежа
@@ -606,7 +760,7 @@ password="MySecretPassword123"
 payment_id="pay_123456789"
 
 # Простой токен для проверки статуса (минимальные параметры)
-token_params="${payment_id}${team_slug}Password${password}"
+token_params="${payment_id}${team_slug}${password}"
 token=$(echo -n "$token_params" | sha256sum | cut -d' ' -f1)
 
 # Проверка статуса
@@ -634,7 +788,7 @@ payment_id="pay_123456789"
 amount="250000"
 
 # Токен для подтверждения
-token_params="${amount}${payment_id}${team_slug}Password${password}"
+token_params="${amount}${payment_id}${team_slug}${password}"
 token=$(echo -n "$token_params" | sha256sum | cut -d' ' -f1)
 
 # Подтверждение платежа
@@ -661,7 +815,7 @@ payment_id="pay_123456789"
 reason="Customer requested cancellation"
 
 # Токен для отмены
-token_params="${payment_id}${team_slug}Password${password}"
+token_params="${payment_id}${team_slug}${password}"
 token=$(echo -n "$token_params" | sha256sum | cut -d' ' -f1)
 
 # Отмена платежа
@@ -674,6 +828,202 @@ curl -X POST https://gateway.hackload.com/api/v1/PaymentCancel/cancel \
     \"reason\": \"$reason\"
   }"
 ```
+
+## Webhook-уведомления
+
+Система платежного шлюза автоматически отправляет HTTP-уведомления (webhooks) на указанный URL при изменении статуса платежа. Это позволяет интернет-магазину мгновенно реагировать на события платежей без необходимости постоянного опроса API.
+
+### Когда отправляются webhook-уведомления
+
+Webhook отправляется при **каждом** изменении статуса платежа в следующих случаях:
+
+#### Сценарий полного жизненного цикла платежа
+
+**1. Создание платежа** - `POST /api/v1/PaymentInit/init`
+```json
+{
+  "teamSlug": "my-store",
+  "amount": 150000,
+  "orderId": "order-12345",
+  "currency": "RUB",
+  "notificationURL": "https://mystore.com/webhook"
+}
+```
+**Webhook:** Переход `INIT` → `NEW`
+```json
+{
+  "paymentId": "pmt_abc123",
+  "status": "NEW",
+  "teamSlug": "my-store",
+  "timestamp": "2025-01-15T10:30:00Z",
+  "data": {
+    "transition_timestamp": "2025-01-15T10:30:00Z",
+    "status_name": "NEW"
+  }
+}
+```
+
+**2. Покупатель переходит на платежную форму**
+
+После создания платежа покупатель переходит по ссылке `paymentURL` из ответа, например:
+```
+https://gateway.hackload.com/api/v1/paymentform/render/pmt_abc123?lang=ru
+```
+
+**Платежная форма** - `GET /api/v1/paymentform/render/{paymentId}`
+- **Назначение**: Отображение безопасной формы ввода данных карты
+- **Параметры URL**: 
+  - `{paymentId}` - ID платежа из ответа PaymentInit
+  - `?lang=en|ru` - язык интерфейса (опционально)
+- **Безопасность**: PCI DSS compliant, SSL-шифрование, защита от XSS/CSRF
+- **Поддерживаемые карты**: Visa, MasterCard, American Express, Discover, JCB, Diners Club, UnionPay, Mir
+
+**Тестовые номера карт для разработки:**
+- **4111111111111111** (Visa) - успешная обработка
+- **5555555555554444** (MasterCard) - успешная обработка  
+- **4000000000000002** - отклонение банком
+- **4000000000000119** - недостаточно средств
+
+**3. Покупатель отправляет данные карты** - `POST /api/v1/paymentform/submit`
+
+Форма автоматически отправляет данные при заполнении:
+```json
+{
+  "PaymentId": "pmt_abc123",
+  "CardNumber": "4111111111111111",
+  "ExpiryDate": "12/25",
+  "Cvv": "123",
+  "CardholderName": "John Doe",
+  "Email": "customer@example.com",
+  "Phone": "+79001234567",
+  "SaveCard": false,
+  "TermsAgreement": true,
+  "CsrfToken": "csrf_token_here"
+}
+```
+
+**Webhook #1:** Переход `NEW` → `FORM_SHOWED` (покупатель начал заполнение формы)
+```json
+{
+  "paymentId": "pmt_abc123",
+  "status": "FORM_SHOWED",
+  "teamSlug": "my-store",
+  "timestamp": "2025-01-15T10:30:15Z",
+  "data": {
+    "transition_timestamp": "2025-01-15T10:30:15Z",
+    "status_name": "FORM_SHOWED"
+  }
+}
+```
+
+**Webhook #2:** Переход `FORM_SHOWED` → `AUTHORIZED` (карта успешно обработана)
+```json
+{
+  "paymentId": "pmt_abc123",
+  "status": "AUTHORIZED",
+  "teamSlug": "my-store",
+  "timestamp": "2025-01-15T10:30:45Z",
+  "data": {
+    "transition_timestamp": "2025-01-15T10:30:45Z",
+    "status_name": "AUTHORIZED"
+  }
+}
+```
+
+**Если обработка карты неудачна:**
+**Webhook #2 (альтернативный):** Переход `FORM_SHOWED` → `REJECTED` (ошибка обработки карты)
+```json
+{
+  "paymentId": "pmt_abc123",
+  "status": "failed",
+  "teamSlug": "my-store",
+  "timestamp": "2025-01-15T10:30:50Z",
+  "data": {
+    "event_type": "payment_failed",
+    "failure_reason": "REJECTED"
+  }
+}
+```
+
+**3. Подтверждение платежа** - `POST /api/v1/PaymentConfirm/confirm`
+**Webhook:** Переход `AUTHORIZED` → `CONFIRMED` (ОСОБЫЙ случай - уведомление о завершении)
+```json
+{
+  "paymentId": "pmt_abc123",
+  "status": "completed",
+  "teamSlug": "my-store",
+  "timestamp": "2025-01-15T10:31:00Z",
+  "data": {
+    "event_type": "payment_completed"
+  }
+}
+```
+
+**HTTP-заголовки webhook:**
+```
+X-Webhook-Signature: sha256=a1b2c3d4e5f6...
+X-Webhook-Event: payment_completed
+X-Webhook-Delivery: uuid-123e4567-e89b-12d3-a456-426614174000
+User-Agent: PaymentGateway-Webhook/1.0
+Content-Type: application/json
+```
+
+#### Сценарии ошибок
+
+**Отклонение платежа банком**
+**Webhook:** Переход `FORM_SHOWED` → `REJECTED`
+```json
+{
+  "paymentId": "pmt_abc123",
+  "status": "failed",
+  "teamSlug": "my-store",
+  "timestamp": "2025-01-15T10:30:50Z",
+  "data": {
+    "event_type": "payment_failed",
+    "failure_reason": "REJECTED"
+  }
+}
+```
+
+**Отмена платежа** - `POST /api/v1/PaymentCancel/cancel`
+**Webhook:** Переход к `CANCELLED`
+```json
+{
+  "paymentId": "pmt_abc123",
+  "status": "failed",
+  "teamSlug": "my-store",
+  "timestamp": "2025-01-15T10:32:00Z",
+  "data": {
+    "event_type": "payment_failed",
+    "failure_reason": "CANCELLED"
+  }
+}
+```
+
+### Безопасность webhook
+
+Каждый webhook содержит подпись HMAC-SHA256 для проверки подлинности:
+
+```javascript
+// Проверка подписи webhook (Node.js)
+const crypto = require('crypto');
+
+function verifyWebhookSignature(payload, signature, secret) {
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(JSON.stringify(payload))
+    .digest('hex');
+  
+  return signature === `sha256=${expectedSignature}`;
+}
+```
+
+### Retry-логика
+
+Система автоматически повторяет отправку webhook при ошибках:
+- **Количество попыток:** Настраивается для каждой команды (по умолчанию 3)
+- **Интервалы:** Экспоненциальная задержка (1с, 2с, 4с, 8с...)
+- **Timeout:** Настраивается для каждой команды (по умолчанию 30 секунд)
 
 ### Интеграция с webhook уведомлениями
 
@@ -688,31 +1038,51 @@ app.use(express.json());
 // Webhook endpoint
 app.post('/payment/webhook', (req, res) => {
   const payment = req.body;
+  const signature = req.headers['x-webhook-signature'];
+  const eventType = req.headers['x-webhook-event'];
+  
+  // Проверка подписи (замените на ваш webhook secret)
+  const webhookSecret = 'your-webhook-secret-from-team-settings';
+  const isValid = verifyWebhookSignature(req.body, signature, webhookSecret);
+  
+  if (!isValid) {
+    console.error('Invalid webhook signature');
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
   
   // Логирование уведомления
   console.log('Payment notification received:', {
     paymentId: payment.paymentId,
-    orderId: payment.orderId,
     status: payment.status,
-    amount: payment.amount,
-    currency: payment.currency
+    eventType: eventType,
+    timestamp: payment.timestamp
   });
   
   // Обработка различных статусов
   switch (payment.status) {
+    case 'completed':
     case 'CONFIRMED':
       // Платеж подтвержден - выполнить заказ
-      processOrder(payment.orderId, payment.amount);
+      processOrder(payment.paymentId);
       break;
       
-    case 'FAILED':
+    case 'failed':
+    case 'REJECTED':
+    case 'CANCELLED':
+    case 'EXPIRED':
       // Платеж не прошел - уведомить покупателя
-      notifyPaymentFailure(payment.orderId);
+      notifyPaymentFailure(payment.paymentId, payment.data?.failure_reason);
       break;
       
-    case 'REFUNDED':
-      // Возврат - обработать возврат товара
-      processRefund(payment.orderId, payment.amount);
+    case 'AUTHORIZED':
+      // Платеж авторизован - можно подтверждать
+      handlePaymentAuthorized(payment.paymentId);
+      break;
+      
+    case 'NEW':
+    case 'FORM_SHOWED':
+      // Промежуточные статусы - можно обновить UI
+      updatePaymentStatus(payment.paymentId, payment.status);
       break;
   }
   
@@ -720,25 +1090,85 @@ app.post('/payment/webhook', (req, res) => {
   res.status(200).json({ received: true });
 });
 
-function processOrder(orderId, amount) {
-  // Логика обработки заказа
-  console.log(`Processing order ${orderId} for amount ${amount}`);
+function verifyWebhookSignature(payload, signature, secret) {
+  if (!signature || !signature.startsWith('sha256=')) {
+    return false;
+  }
+  
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(JSON.stringify(payload))
+    .digest('hex');
+  
+  return signature === `sha256=${expectedSignature}`;
 }
 
-function notifyPaymentFailure(orderId) {
-  // Логика уведомления о неудачной оплате
-  console.log(`Payment failed for order ${orderId}`);
+function processOrder(paymentId) {
+  console.log(`✅ Processing order for payment ${paymentId}`);
+  // Логика выполнения заказа:
+  // - Отправка товара
+  // - Отправка чека покупателю
+  // - Обновление статуса заказа в базе данных
 }
 
-function processRefund(orderId, amount) {
-  // Логика обработки возврата
-  console.log(`Processing refund for order ${orderId}, amount ${amount}`);
+function notifyPaymentFailure(paymentId, reason) {
+  console.log(`❌ Payment failed: ${paymentId}, reason: ${reason}`);
+  // Логика обработки неудачной оплаты:
+  // - Уведомление покупателя
+  // - Освобождение зарезервированных товаров
+  // - Логирование для аналитики
+}
+
+function handlePaymentAuthorized(paymentId) {
+  console.log(`🔄 Payment authorized: ${paymentId}`);
+  // Платеж авторизован, можно подтверждать через API
+  // confirmPayment(paymentId);
+}
+
+function updatePaymentStatus(paymentId, status) {
+  console.log(`📊 Payment status updated: ${paymentId} -> ${status}`);
+  // Обновление статуса в UI или базе данных
 }
 
 app.listen(3000, () => {
   console.log('Webhook server running on port 3000');
 });
 ```
+
+### Отладка webhook
+
+Для тестирования webhook-уведомлений рекомендуется:
+
+1. **Локальная разработка:** Используйте ngrok для проброса localhost
+```bash
+# Установка ngrok
+npm install -g ngrok
+
+# Запуск туннеля
+ngrok http 3000
+
+# Используйте полученный URL в notificationURL
+# Например: https://abc123.ngrok.io/payment/webhook
+```
+
+2. **Логирование:** Сохраняйте все входящие webhook для анализа
+```javascript
+app.post('/payment/webhook', (req, res) => {
+  // Сохранение webhook в файл для отладки
+  const fs = require('fs');
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    headers: req.headers,
+    body: req.body
+  };
+  
+  fs.appendFileSync('webhook.log', JSON.stringify(logEntry) + '\n');
+  
+  // ... остальная логика
+});
+```
+
+3. **Мониторинг:** Отслеживайте доставку webhook в логах платежного шлюза
 
 ### Полный пример интеграции
 
@@ -764,7 +1194,7 @@ class PaymentGatewayClient:
         token_string = ''.join(str(value) for key, value in sorted_params)
         
         # Добавляем пароль
-        token_string += f"Password{self.password}"
+        token_string += f"{self.password}"
         
         # Генерируем SHA-256 хеш
         return hashlib.sha256(token_string.encode()).hexdigest()
@@ -904,6 +1334,111 @@ if __name__ == "__main__":
         
     else:
         print(f"Payment creation failed: {payment_result}")
+```
+
+---
+
+## Интеграция с платежной формой
+
+### Рекомендуемый поток интеграции
+
+1. **Создание платежа** (Backend мерчанта)
+   ```javascript
+   // На вашем сервере
+   const paymentData = {
+     teamSlug: "my-store",
+     token: generateToken(params),
+     amount: 150000, // 1500 рублей в копейках
+     orderId: "order-12345",
+     currency: "RUB",
+     description: "Покупка книг",
+     email: "customer@example.com",
+     successURL: "https://mystore.com/payment/success",
+     failURL: "https://mystore.com/payment/fail",
+     notificationURL: "https://mystore.com/webhook"
+   };
+   
+   const response = await fetch('https://gateway.hackload.com/api/v1/PaymentInit/init', {
+     method: 'POST',
+     headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify(paymentData)
+   });
+   
+   const result = await response.json();
+   // result.paymentURL - ссылка для перенаправления покупателя
+   ```
+
+2. **Перенаправление покупателя** (Frontend мерчанта)
+   ```javascript
+   // Перенаправляем покупателя на платежную форму
+   window.location.href = result.paymentURL;
+   // Или открываем в новом окне
+   window.open(result.paymentURL, '_blank');
+   ```
+
+3. **Обработка результата** (Backend мерчанта)
+   ```javascript
+   // Webhook-обработчик для уведомлений от платежного шлюза
+   app.post('/webhook', (req, res) => {
+     const payment = req.body;
+     
+     if (payment.status === 'completed' || payment.status === 'CONFIRMED') {
+       // Платеж успешно завершен - выполняем заказ
+       processOrder(payment.paymentId);
+     } else if (payment.status === 'failed') {
+       // Платеж не прошел - уведомляем покупателя
+       notifyPaymentFailure(payment.paymentId);
+     }
+     
+     res.status(200).json({ received: true });
+   });
+   ```
+
+### Настройка URL-адресов возврата
+
+**successURL** - куда перенаправлять после успешной оплаты:
+```
+https://mystore.com/payment/success?paymentId={paymentId}&orderId={orderId}
+```
+
+**failURL** - куда перенаправлять при ошибке оплаты:
+```
+https://mystore.com/payment/fail?paymentId={paymentId}&reason={reason}
+```
+
+**notificationURL** - куда отправлять webhook-уведомления:
+```
+https://mystore.com/api/payment/webhook
+```
+
+### Мобильная версия
+
+Платежная форма автоматически адаптируется под мобильные устройства:
+- Responsive дизайн для всех экранов
+- Оптимизированные поля ввода для мобильных клавиатур
+- Touch-friendly интерфейс
+- Поддержка мобильных кошельков (при наличии)
+
+### Безопасность интеграции
+
+1. **HTTPS обязательно** - все URL должны использовать HTTPS
+2. **Проверка webhook** - всегда проверяйте подпись webhook-уведомлений
+3. **Валидация на стороне сервера** - не полагайтесь только на client-side валидацию
+4. **Секретность паролей** - никогда не передавайте пароль команды в frontend
+
+```javascript
+// Правильно - генерация токена на backend
+function generateToken(params) {
+  const sortedParams = Object.keys(params)
+    .sort()
+    .map(key => params[key])
+    .join('') + process.env.TEAM_PASSWORD;
+  
+  return crypto.createHash('sha256').update(sortedParams).digest('hex');
+}
+
+// Неправильно - НЕ делайте так!
+const token = sha256(params + 'MyPassword123'); // Пароль в коде!
 ```
 
 ---

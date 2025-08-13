@@ -80,6 +80,9 @@ try
 
     app.UseHttpsRedirection();
     
+    // Enable static files serving (CSS, JS, images, etc.)
+    app.UseStaticFiles();
+    
     // Add security headers (early in pipeline)
     app.UseSecurityHeaders();
     

@@ -133,7 +133,7 @@ public class ComprehensiveAuditService : IComprehensiveAuditService
             
             var auditEntry = new AuditEntry
             {
-                EntityId = Guid.Empty, // System events don't have entity IDs
+                EntityId = Guid.NewGuid(), // Generate unique ID for system events
                 EntityType = entityType,
                 Action = action,
                 UserId = auditContext?.UserId ?? "System",

@@ -111,9 +111,9 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
             var requestObject = context.ActionArguments.Values.FirstOrDefault(v => v != null);
             if (requestObject != null)
             {
-                // CRITICAL FIX: Extract only parameters that were actually provided in the original JSON request
-                // This implements the payment-authentication.md specification: "Collect only root-level parameters from the request body"
-                var extractedParameters = ExtractFromDtoWithDefaults(requestObject);
+                // Use SIMPLIFIED token formula: Amount + Currency + OrderId + Password + TeamSlug
+                // Extract only the 5 core parameters as per documentation
+                var extractedParameters = ExtractSimplifiedParameters(requestObject);
                 foreach (var kvp in extractedParameters)
                 {
                     parameters[kvp.Key] = kvp.Value;
@@ -377,6 +377,43 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
             _logger.LogInformation("FILTER DEBUG: Final parameter {Key} = {Value}", kvp.Key, kvp.Value);
         }
 
+        return parameters;
+    }
+
+    /// <summary>
+    /// Extract only the 5 core parameters for simplified authentication: Amount, Currency, OrderId, TeamSlug, Token
+    /// Password will be added by the authentication service
+    /// </summary>
+    private Dictionary<string, object> ExtractSimplifiedParameters(object requestObject)
+    {
+        var parameters = new Dictionary<string, object>();
+        var properties = requestObject.GetType().GetProperties();
+        
+        _logger.LogInformation("FILTER DEBUG: Using SIMPLIFIED parameter extraction (5 params only)");
+        
+        foreach (var property in properties)
+        {
+            var value = property.GetValue(requestObject);
+            if (value == null) continue;
+
+            // Only include the 5 core parameters for simplified authentication
+            switch (property.Name)
+            {
+                case "TeamSlug":
+                case "Token":
+                case "Amount":
+                case "OrderId":
+                case "Currency":
+                    parameters[property.Name] = value;
+                    _logger.LogInformation("FILTER DEBUG: SIMPLIFIED - INCLUDED {Name} = {Value}", property.Name, value);
+                    break;
+                default:
+                    _logger.LogInformation("FILTER DEBUG: SIMPLIFIED - EXCLUDED {Name} = {Value} (not in core 5)", property.Name, value);
+                    break;
+            }
+        }
+
+        _logger.LogInformation("FILTER DEBUG: SIMPLIFIED - Final parameter count: {Count}", parameters.Count);
         return parameters;
     }
 }

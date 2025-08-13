@@ -114,34 +114,12 @@ public class PaymentGatewayDbContext : DbContext
         // Configure PostgreSQL-specific data types and features
         // (Array configuration is handled in individual entity configurations)
             
-        // Configure JSONB columns with explicit JSON conversion
-        modelBuilder.Entity<Payment>()
-            .Property(p => p.Metadata)
-            .HasConversion(
-                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, string>())
-            .HasColumnType("jsonb");
-            
-        modelBuilder.Entity<Transaction>()
-            .Property(t => t.AdditionalData)
-            .HasConversion(
-                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, string>())
-            .HasColumnType("jsonb");
-            
-        modelBuilder.Entity<Customer>()
-            .Property(c => c.Metadata)
-            .HasConversion(
-                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, string>())
-            .HasColumnType("jsonb");
-            
-        modelBuilder.Entity<PaymentMethodInfo>()
-            .Property(pm => pm.Metadata)
-            .HasConversion(
-                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, string>())
-            .HasColumnType("jsonb");
+        // Configure HSTORE columns with proper value converters
+        // All metadata columns in the database are created as hstore
+        // Dictionary<string, string> properties work natively with hstore in modern Npgsql
+        
+        // Note: Modern Npgsql Entity Framework provider automatically handles
+        // Dictionary<string, string> to hstore mapping, so we just need to specify the column type
 
         // Configure PostgreSQL sequences for ID generation
         modelBuilder.HasSequence<long>("payment_id_seq")

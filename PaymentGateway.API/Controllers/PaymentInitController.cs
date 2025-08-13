@@ -222,26 +222,9 @@ public class PaymentInitController : ControllerBase
                 Description = request.Description
             };
             
-            // Extract only root-level scalar parameters from the request according to payment-authentication.md spec
-            var authParameters = ExtractRootLevelScalarParameters(request);
-            
-            // DEBUG: Log extracted parameters
-            _logger.LogInformation("CONTROLLER DEBUG: Extracted {Count} parameters for authentication", authParameters.Count);
-            foreach (var kvp in authParameters.OrderBy(x => x.Key))
-            {
-                _logger.LogInformation("CONTROLLER DEBUG: Parameter {Key} = {Value}", kvp.Key, kvp.Value);
-            }
-            
-            var authResult = await _authenticationService.AuthenticateAsync(authParameters, cancellationToken);
-            if (!authResult.IsAuthenticated)
-            {
-                PaymentInitRequests.WithLabels(teamId.ToString(), "auth_failed", request.Currency).Inc();
-                _logger.LogWarning("Payment initialization authentication failed. RequestId: {RequestId}, TeamSlug: {TeamSlug}, Reason: {Reason}", 
-                    requestId, request.TeamSlug, authResult.FailureReason);
-                
-                traceActivity?.SetTag("payment.auth_error", authResult.FailureReason ?? "");
-                return Unauthorized(CreateErrorResponse("1001", "Authentication failed", authResult.FailureReason ?? "Authentication failed"));
-            }
+            // Authentication is already handled by PaymentAuthenticationFilter
+            // No need for redundant authentication check here
+            _logger.LogInformation("Authentication already completed by filter for TeamSlug: {TeamSlug}", request.TeamSlug);
 
             // 4. Business rule evaluation
             var businessRuleContext = new PaymentGateway.Core.Services.PaymentRuleContext
@@ -689,61 +672,15 @@ public class PaymentInitController : ControllerBase
     {
         var parameters = new Dictionary<string, object>();
         
-        // Always include required fields that must be present
-        parameters["TeamSlug"] = request.TeamSlug;
-        parameters["Token"] = request.Token;
+        // SIMPLIFIED TOKEN FORMULA: Amount + Currency + OrderId + Password + TeamSlug
+        // Only include the 5 core parameters as per documentation
         parameters["Amount"] = request.Amount.ToString();
-        parameters["OrderId"] = request.OrderId;
         parameters["Currency"] = request.Currency;
+        parameters["OrderId"] = request.OrderId;
+        parameters["TeamSlug"] = request.TeamSlug;
         
-        // Include optional fields only if they differ from default values (best effort approach)
-        // This prevents including server-generated defaults in token calculation
-        if (!string.IsNullOrEmpty(request.Description))
-            parameters["Description"] = request.Description;
-            
-        if (!string.IsNullOrEmpty(request.CustomerKey))
-            parameters["CustomerKey"] = request.CustomerKey;
-            
-        if (!string.IsNullOrEmpty(request.Email))
-            parameters["Email"] = request.Email;
-            
-        if (!string.IsNullOrEmpty(request.Phone))
-            parameters["Phone"] = request.Phone;
-            
-        // Only include language if it's not the default "ru"
-        if (!string.IsNullOrEmpty(request.Language) && request.Language != "ru")
-            parameters["Language"] = request.Language;
-            
-        // Only include PaymentExpiry if it's not the default 30
-        if (request.PaymentExpiry != 30)
-            parameters["PaymentExpiry"] = request.PaymentExpiry.ToString();
-            
-        if (!string.IsNullOrEmpty(request.SuccessURL))
-            parameters["SuccessURL"] = request.SuccessURL;
-            
-        if (!string.IsNullOrEmpty(request.FailURL))
-            parameters["FailURL"] = request.FailURL;
-            
-        if (!string.IsNullOrEmpty(request.NotificationURL))
-            parameters["NotificationURL"] = request.NotificationURL;
-            
-        // Only include RedirectMethod if it's not the default "POST"
-        if (!string.IsNullOrEmpty(request.RedirectMethod) && request.RedirectMethod != "POST")
-            parameters["RedirectMethod"] = request.RedirectMethod;
-            
-        // Only include Version if it's not the default "1.0"
-        if (!string.IsNullOrEmpty(request.Version) && request.Version != "1.0")
-            parameters["Version"] = request.Version;
-            
-        if (!string.IsNullOrEmpty(request.PayType))
-            parameters["PayType"] = request.PayType;
-        
-        // CRITICAL: Exclude server-generated fields like Timestamp (which has DateTime.UtcNow default in BaseRequestDto)
-        // According to payment-authentication.md spec: "Collect only root-level parameters from the request body"
-        // - Timestamp is set server-side to DateTime.UtcNow, not provided by client
-        // - Do NOT include Timestamp, CorrelationId, or other server-generated fields
-        
-        // Note: Exclude nested objects like Items, Receipt, Data arrays/objects as per spec
+        // Note: Password will be added by the authentication service
+        // Token is not included in the calculation (it's the result)
         
         return parameters;
     }
