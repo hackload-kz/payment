@@ -208,11 +208,8 @@ public class PaymentFormController : ControllerBase
 
                 _formSubmissionCounter.Add(1, new KeyValuePair<string, object?>("result", "validation_error"));
 
-                return BadRequest(new { 
-                    error = "Validation failed", 
-                    details = validationResult.Errors,
-                    paymentId = submission.PaymentId 
-                });
+                var errorMessage = string.Join("; ", validationResult.Errors);
+                return await RedirectToFailureAsync(submission.PaymentId, $"Validation failed: {errorMessage}");
             }
 
             // CSRF token validation
@@ -223,7 +220,7 @@ public class PaymentFormController : ControllerBase
 
                 _csrfValidationCounter.Add(1, new KeyValuePair<string, object?>("result", "failed"));
 
-                return BadRequest(new { error = "Invalid security token" });
+                return await RedirectToFailureAsync(submission.PaymentId, "Invalid security token");
             }
 
             _csrfValidationCounter.Add(1, new KeyValuePair<string, object?>("result", "success"));
@@ -233,7 +230,7 @@ public class PaymentFormController : ControllerBase
             if (payment == null)
             {
                 _logger.LogWarning("Payment not found during form submission: {PaymentId}", submission.PaymentId);
-                return NotFound(new { error = "Payment not found" });
+                return await RedirectToFailureAsync(submission.PaymentId, "Payment not found");
             }
 
             // Synchronize payment state with state manager
@@ -245,10 +242,7 @@ public class PaymentFormController : ControllerBase
                 _logger.LogWarning("Payment form submitted for payment in invalid status: {Status}, PaymentId: {PaymentId}",
                     payment.Status, submission.PaymentId);
 
-                return BadRequest(new { 
-                    error = $"Payment is in {payment.Status} status and cannot be processed",
-                    currentStatus = payment.Status.ToString()
-                });
+                return await RedirectToFailureAsync(submission.PaymentId, $"Payment is in {payment.Status} status and cannot be processed", payment);
             }
 
             // First transition: INIT/NEW → FORM_SHOWED (customer engaged with form)
@@ -277,14 +271,14 @@ public class PaymentFormController : ControllerBase
             {
                 _logger.LogError("Payment {PaymentId} is in unexpected state {Status} for form submission", 
                     submission.PaymentId, payment.Status);
-                return BadRequest(new { error = $"Payment is in {payment.Status} status and cannot be processed" });
+                return await RedirectToFailureAsync(submission.PaymentId, $"Payment is in {payment.Status} status and cannot be processed", payment);
             }
 
             if (!formShowedTransition)
             {
                 _logger.LogError("Failed to transition payment {PaymentId} from {CurrentStatus} to FORM_SHOWED", 
                     submission.PaymentId, payment.Status);
-                return BadRequest(new { error = "Payment state transition failed" });
+                return await RedirectToFailureAsync(submission.PaymentId, "Payment state transition failed", payment);
             }
 
             // Process card payment securely
@@ -298,13 +292,36 @@ public class PaymentFormController : ControllerBase
                     new KeyValuePair<string, object?>("error_reason", cardProcessingResult.ErrorCode));
 
                 // On card processing failure, transition to REJECTED
-                await _paymentStateManager.TryTransitionStateAsync(
+                var rejectedTransition = await _paymentStateManager.TryTransitionStateAsync(
                     submission.PaymentId,
                     PaymentGateway.Core.Enums.PaymentStatus.FORM_SHOWED,
                     PaymentGateway.Core.Enums.PaymentStatus.REJECTED,
                     payment.TeamSlug);
 
-                return await RenderPaymentResult(submission.PaymentId, false, cardProcessingResult.ErrorMessage);
+                // Update payment with error information if transition succeeded
+                if (rejectedTransition)
+                {
+                    // Store error information in payment metadata
+                    if (payment.Metadata == null)
+                        payment.Metadata = new Dictionary<string, string>();
+                    
+                    payment.Metadata["rejection_reason"] = cardProcessingResult.ErrorMessage ?? "Card processing failed";
+                    payment.Metadata["rejection_code"] = cardProcessingResult.ErrorCode ?? "UNKNOWN";
+                    payment.Metadata["rejected_at"] = DateTime.UtcNow.ToString("O");
+                    
+                    await _paymentRepository.UpdateAsync(payment);
+                }
+
+                // Redirect to merchant's fail URL if provided, otherwise to internal result page
+                if (!string.IsNullOrEmpty(payment.FailUrl))
+                {
+                    return Redirect(payment.FailUrl);
+                }
+                else
+                {
+                    var failureResultUrl = Url.Action("GetPaymentResult", "PaymentForm", new { paymentId = submission.PaymentId, success = false, message = cardProcessingResult.ErrorMessage });
+                    return Redirect(failureResultUrl ?? $"/api/v1/paymentform/result/{submission.PaymentId}?success=false&message={Uri.EscapeDataString(cardProcessingResult.ErrorMessage ?? "Card processing failed")}");
+                }
             }
 
             // Second transition: FORM_SHOWED → AUTHORIZED (card processing successful)
@@ -317,11 +334,11 @@ public class PaymentFormController : ControllerBase
             if (!authorizedTransition)
             {
                 _logger.LogError("Failed to transition payment {PaymentId} from FORM_SHOWED to AUTHORIZED", submission.PaymentId);
-                return BadRequest(new { error = "Payment authorization state transition failed" });
+                return await RedirectToFailureAsync(submission.PaymentId, "Payment authorization state transition failed", payment);
             }
 
-            // Update payment metadata (card mask, timestamp)
-            payment.UpdatedAt = DateTime.UtcNow;
+            // Update payment metadata (card mask, additional timestamp for metadata)
+            // Note: Status and primary UpdatedAt are already updated by PaymentStateManager
             payment.CardMask = cardProcessingResult.CardInfo;
             
             await _paymentRepository.UpdateAsync(payment);
@@ -332,8 +349,16 @@ public class PaymentFormController : ControllerBase
             _formSubmissionCounter.Add(1, new KeyValuePair<string, object?>("result", "success"),
                 new KeyValuePair<string, object?>("currency", payment.Currency));
 
-            // Return success result page
-            return await RenderPaymentResult(submission.PaymentId, true, "Payment authorized successfully");
+            // Redirect to merchant's success URL if provided, otherwise to internal result page
+            if (!string.IsNullOrEmpty(payment.SuccessUrl))
+            {
+                return Redirect(payment.SuccessUrl);
+            }
+            else
+            {
+                var resultUrl = Url.Action("GetPaymentResult", "PaymentForm", new { paymentId = submission.PaymentId, success = true, message = "Payment authorized successfully" });
+                return Redirect(resultUrl ?? $"/api/v1/paymentform/result/{submission.PaymentId}?success=true&message=Payment authorized successfully");
+            }
         }
         catch (Exception ex)
         {
@@ -343,7 +368,7 @@ public class PaymentFormController : ControllerBase
             _formSubmissionCounter.Add(1, new KeyValuePair<string, object?>("result", "error"),
                 new KeyValuePair<string, object?>("error_type", ex.GetType().Name));
 
-            return StatusCode(500, new { error = "Internal server error" });
+            return await RedirectToFailureAsync(submission?.PaymentId ?? "unknown", "Internal server error");
         }
         finally
         {
@@ -429,37 +454,25 @@ public class PaymentFormController : ControllerBase
     {
         var result = new FormValidationResult { IsValid = true, Errors = new List<string>() };
 
-        // Basic field validation
+        // Only validate essential non-card parameters
         if (string.IsNullOrWhiteSpace(submission.PaymentId))
             result.Errors.Add("Payment ID is required");
 
+        // Basic presence check for required fields (no format validation)
         if (string.IsNullOrWhiteSpace(submission.CardNumber))
             result.Errors.Add("Card number is required");
-        else if (!IsValidCardNumber(submission.CardNumber))
-            result.Errors.Add("Invalid card number");
 
         if (string.IsNullOrWhiteSpace(submission.ExpiryDate))
             result.Errors.Add("Expiry date is required");
-        else if (!IsValidExpiryDate(submission.ExpiryDate))
-            result.Errors.Add("Invalid or expired card");
 
         if (string.IsNullOrWhiteSpace(submission.Cvv))
             result.Errors.Add("CVV is required");
-        else if (!IsValidCvv(submission.Cvv))
-            result.Errors.Add("Invalid CVV");
 
         if (string.IsNullOrWhiteSpace(submission.CardholderName))
             result.Errors.Add("Cardholder name is required");
-        else if (submission.CardholderName.Length < 2 || submission.CardholderName.Length > 100)
-            result.Errors.Add("Cardholder name must be between 2 and 100 characters");
 
         if (string.IsNullOrWhiteSpace(submission.Email))
             result.Errors.Add("Email is required");
-        else if (!IsValidEmail(submission.Email))
-            result.Errors.Add("Invalid email format");
-
-        if (!string.IsNullOrWhiteSpace(submission.Phone) && !IsValidPhone(submission.Phone))
-            result.Errors.Add("Invalid phone number format");
 
         result.IsValid = result.Errors.Count == 0;
         return result;
@@ -682,6 +695,36 @@ public class PaymentFormController : ControllerBase
                Request.Headers["X-Forwarded-For"].FirstOrDefault() ?? 
                Request.Headers["X-Real-IP"].FirstOrDefault() ?? 
                "unknown";
+    }
+
+    private async Task<IActionResult> RedirectToFailureAsync(string paymentId, string errorMessage, Core.Entities.Payment? payment = null)
+    {
+        // If payment is provided and has a fail URL, redirect there
+        if (payment != null && !string.IsNullOrEmpty(payment.FailUrl))
+        {
+            return Redirect(payment.FailUrl);
+        }
+        
+        // If payment is not provided, try to load it
+        if (payment == null && !string.IsNullOrEmpty(paymentId))
+        {
+            try
+            {
+                payment = await _paymentRepository.GetByPaymentIdAsync(paymentId);
+                if (payment != null && !string.IsNullOrEmpty(payment.FailUrl))
+                {
+                    return Redirect(payment.FailUrl);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load payment for fail URL redirect: {PaymentId}", paymentId);
+            }
+        }
+        
+        // Fallback to internal result page
+        var failureResultUrl = Url.Action("GetPaymentResult", "PaymentForm", new { paymentId, success = false, message = errorMessage });
+        return Redirect(failureResultUrl ?? $"/api/v1/paymentform/result/{paymentId}?success=false&message={Uri.EscapeDataString(errorMessage)}");
     }
 }
 

@@ -176,9 +176,9 @@ public class PaymentInitializationService : IPaymentInitializationService
         try
         {
             // Generate hosted payment page URL
-            // In a real implementation, this would use the actual payment gateway configuration
-            var baseUrl = "https://securepay.hackload.com"; // This would come from configuration
-            var paymentUrl = $"{baseUrl}/pay/form/{paymentId}";
+            // For development, use localhost. In production, this would come from configuration
+            var baseUrl = "http://localhost:5162"; // Development URL
+            var paymentUrl = $"{baseUrl}/api/v1/paymentform/render/{paymentId}";
             
             _logger.LogDebug("Generated PaymentURL: {PaymentUrl} for PaymentId: {PaymentId}", paymentUrl, paymentId);
             

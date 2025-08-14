@@ -116,7 +116,7 @@ generate_correlation_id() {
     echo "test-$(date +%s)-$$-$(shuf -i 1000-9999 -n 1 2>/dev/null || echo $RANDOM)"
 }
 
-# Function to generate token using simplified formula
+# Function to generate token using correct server algorithm
 generate_token() {
     local amount="$1"
     local currency="$2"
@@ -124,21 +124,47 @@ generate_token() {
     local team_slug="$4"
     local password="$5"
     
-    # SIMPLIFIED TOKEN FORMULA: Amount + Currency + OrderId + Password + TeamSlug
-    local token_string="${amount}${currency}${order_id}${password}${team_slug}"
+    # SERVER TOKEN FORMULA: All parameters sorted alphabetically by key name, then concatenated
+    # Based on PaymentAuthenticationService.cs implementation:
+    # 1. Include only core parameters (Amount, Currency, OrderId, TeamSlug)
+    # 2. Add Password 
+    # 3. Sort by key name alphabetically
+    # 4. Concatenate values in sorted order
     
-    log_info "Token generation parameters:"
-    echo "  Amount: $amount"
-    echo "  Currency: $currency" 
-    echo "  OrderId: $order_id"
-    echo "  TeamSlug: $team_slug"
-    echo "  Password: [HIDDEN]"
-    echo ""
-    echo "  Token string: $token_string"
-    echo ""
+    # Redirect all logging to stderr so only token goes to stdout
+    {
+        log_info "Token generation parameters (server algorithm):"
+        echo "  Amount: $amount"
+        echo "  Currency: $currency" 
+        echo "  OrderId: $order_id"
+        echo "  Password: [HIDDEN]"
+        echo "  TeamSlug: $team_slug"
+        echo ""
+        
+        # Based on server logs, the concatenation order is: Amount + Currency + OrderId + Password + TeamSlug
+        # This matches the alphabetical sorting: Amount, Currency, OrderId, Password, TeamSlug
+        
+        echo "  Server algorithm concatenation order:"
+        echo "    Amount: $amount"
+        echo "    Currency: $currency"
+        echo "    OrderId: $order_id"
+        echo "    Password: [HIDDEN]"
+        echo "    TeamSlug: $team_slug"
+        
+        echo ""
+        echo "  Final concatenated string: [HIDDEN FOR SECURITY]"
+        echo ""
+    } >&2
+    
+    # Concatenate in the exact order shown in server logs
+    local token_string="${amount}${currency}${order_id}${password}${team_slug}"
     
     # Generate SHA-256 hash
     local token=$(echo -n "$token_string" | shasum -a 256 | cut -d' ' -f1)
+    echo "  Generated token: $token" >&2
+    echo "" >&2
+    
+    # Return only the token to stdout
     echo "$token"
 }
 
@@ -148,27 +174,54 @@ test_payment_init() {
     
     log_info "Making payment initialization request..."
     
+    # Debug: Check token length
+    log_debug "Token length: ${#token} characters"
+    log_debug "Token value: $token"
+    
+    # Create JSON payload using jq to ensure proper escaping
+    local json_payload=$(jq -n \
+        --arg teamSlug "$TEAM_SLUG" \
+        --arg token "$token" \
+        --argjson amount "$AMOUNT" \
+        --arg orderId "$ORDER_ID" \
+        --arg currency "$CURRENCY" \
+        --arg description "$DESCRIPTION" \
+        --arg email "$EMAIL" \
+        --arg successURL "$SUCCESS_URL" \
+        --arg failURL "$FAIL_URL" \
+        --arg notificationURL "$NOTIFICATION_URL" \
+        --arg language "$LANGUAGE" \
+        --arg payType "$PAY_TYPE" \
+        --argjson paymentExpiry "$PAYMENT_EXPIRY" \
+        '{
+            teamSlug: $teamSlug,
+            token: $token,
+            amount: $amount,
+            orderId: $orderId,
+            currency: $currency,
+            description: $description,
+            email: $email,
+            successURL: $successURL,
+            failURL: $failURL,
+            notificationURL: $notificationURL,
+            language: $language,
+            payType: $payType,
+            paymentExpiry: $paymentExpiry
+        }')
+    
+    # Debug: Show the JSON payload being sent
+    log_debug "JSON payload being sent:"
+    if [[ "${DEBUG:-0}" == "1" ]]; then
+        echo "$json_payload" | jq '.'
+    fi
+    
     local response=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE_URL}/api/v1/PaymentInit/init" \
         -H "Content-Type: application/json" \
-        -d "{
-            \"teamSlug\": \"$TEAM_SLUG\",
-            \"token\": \"$token\",
-            \"amount\": $AMOUNT,
-            \"orderId\": \"$ORDER_ID\",
-            \"currency\": \"$CURRENCY\",
-            \"description\": \"$DESCRIPTION\",
-            \"email\": \"$EMAIL\",
-            \"successURL\": \"$SUCCESS_URL\",
-            \"failURL\": \"$FAIL_URL\",
-            \"notificationURL\": \"$NOTIFICATION_URL\",
-            \"language\": \"$LANGUAGE\",
-            \"payType\": \"$PAY_TYPE\",
-            \"paymentExpiry\": $PAYMENT_EXPIRY
-        }")
+        -d "$json_payload")
     
-    # Split response and status code
+    # Split response and status code (macOS compatible)
     local http_code=$(echo "$response" | tail -n1)
-    local response_body=$(echo "$response" | head -n -1)
+    local response_body=$(echo "$response" | sed '$d')
     
     echo ""
     log_info "HTTP Status Code: $http_code"

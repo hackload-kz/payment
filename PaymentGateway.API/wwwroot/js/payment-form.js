@@ -482,8 +482,20 @@ class PaymentFormController {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: new URLSearchParams(formData)
+                body: new URLSearchParams(formData),
+                redirect: 'manual'  // Don't automatically follow redirects
             });
+
+            // Check if response is a redirect (status 302/301)
+            if (response.status === 302 || response.status === 301) {
+                // Get the redirect location from the response headers
+                const redirectLocation = response.headers.get('Location');
+                if (redirectLocation) {
+                    // Redirect to the location specified in the header
+                    window.location.href = redirectLocation;
+                    return { success: true };
+                }
+            }
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -497,7 +509,7 @@ class PaymentFormController {
                 window.location.href = response.url;
                 return { success: true };
             } else {
-                // JSON response
+                // JSON response (should not happen with redirect implementation, but kept for compatibility)
                 const result = await response.json();
                 return result;
             }

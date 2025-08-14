@@ -372,7 +372,28 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
         try
         {
             payment.MarkAsUpdated();
-            Update(payment);
+            
+            // Check if entity is already tracked
+            var tracked = _context.Entry(payment);
+            if (tracked.State == Microsoft.EntityFrameworkCore.EntityState.Detached)
+            {
+                // If not tracked, check for existing tracked instance
+                var existingTracked = _context.ChangeTracker.Entries<Payment>()
+                    .FirstOrDefault(e => e.Entity.Id == payment.Id);
+                
+                if (existingTracked != null)
+                {
+                    // Update the existing tracked entity with current values
+                    _context.Entry(existingTracked.Entity).CurrentValues.SetValues(payment);
+                }
+                else
+                {
+                    // No existing tracked instance, safe to update
+                    Update(payment);
+                }
+            }
+            // If already tracked, EF will handle the update automatically
+            
             await _context.SaveChangesAsync(cancellationToken);
             return payment;
         }

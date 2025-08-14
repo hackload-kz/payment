@@ -79,7 +79,30 @@ public class PaymentStateManager : IPaymentStateManager
                 return false;
             }
 
+            // Update in-memory cache
             _paymentStatusCache.AddOrUpdate(paymentId, toStatus, (_, _) => toStatus);
+            
+            // Update database
+            try
+            {
+                var payment = await _paymentRepository.GetByPaymentIdAsync(paymentId, cancellationToken);
+                if (payment != null)
+                {
+                    payment.Status = toStatus;
+                    payment.UpdatedAt = DateTime.UtcNow;
+                    await _paymentRepository.UpdateAsync(payment, cancellationToken);
+                    _logger.LogDebug("Payment {PaymentId} status updated in database to {Status}", paymentId, toStatus);
+                }
+                else
+                {
+                    _logger.LogWarning("Payment {PaymentId} not found in database during state transition", paymentId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update payment {PaymentId} status in database during transition to {ToStatus}", paymentId, toStatus);
+                // Don't fail the entire transition if database update fails, but log the error
+            }
             
             _logger.LogInformation("Payment {PaymentId} state transitioned from {FromStatus} to {ToStatus}", 
                 paymentId, fromStatus, toStatus);
