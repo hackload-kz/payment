@@ -200,27 +200,21 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Run CodeQL Analysis
-      uses: github/codeql-action/init@v3
+    - name: Run Trivy vulnerability scanner on built image
+      uses: aquasecurity/trivy-action@master
       with:
-        languages: csharp
+        image-ref: ${{ needs.build-and-push.outputs.image_tag }}
+        format: 'table'
+        output: 'trivy-results.txt'
         
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+    - name: Upload security scan results
+      uses: actions/upload-artifact@v4
+      if: always()
       with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+        name: security-scan-results
+        path: trivy-results.txt
+        retention-days: 30
         
-    - name: Restore dependencies
-      run: dotnet restore PaymentGateway.sln
-      
-    - name: Build solution
-      run: dotnet build PaymentGateway.sln --no-restore
-      
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
-      with:
-        category: "/language:csharp"
-
   deployment-check:
     name: Deployment Readiness Check
     runs-on: self-hosted
@@ -238,11 +232,28 @@ jobs:
         
     - name: Test container startup
       run: |
-        # Start container in detached mode
+        # Ensure Docker network exists
+        docker network create hackload-network || true
+        
+        # Start PostgreSQL test container for deployment check
+        POSTGRES_CONTAINER=$(docker run -d \
+          --name postgres-deployment-test \
+          --network hackload-network \
+          -e POSTGRES_DB=paymentgateway_test \
+          -e POSTGRES_USER=test \
+          -e POSTGRES_PASSWORD=test \
+          postgres:15)
+        
+        # Wait for PostgreSQL to be ready
+        echo "Waiting for PostgreSQL to start..."
+        sleep 10
+        
+        # Start payment gateway container in detached mode
         CONTAINER_ID=$(docker run -d \
+          --network hackload-network \
           -p 8080:8080 \
           -e ASPNETCORE_ENVIRONMENT=Production \
-          -e ConnectionStrings__DefaultConnection="Host=localhost;Database=paymentgateway_test;Username=test;Password=test" \
+          -e ConnectionStrings__DefaultConnection="Host=postgres-deployment-test;Database=paymentgateway_test;Username=test;Password=test" \
           ${{ needs.build-and-push.outputs.image_tag }})
         
         # Wait for container to be ready
@@ -268,6 +279,8 @@ jobs:
         # Clean up
         docker stop $CONTAINER_ID
         docker rm $CONTAINER_ID
+        docker stop $POSTGRES_CONTAINER
+        docker rm $POSTGRES_CONTAINER
         
     - name: Generate deployment summary
       run: |

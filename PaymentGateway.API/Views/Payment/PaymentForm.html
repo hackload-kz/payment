@@ -11,8 +11,6 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="no-referrer">
     
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     
     <!-- CSS -->
     <link rel="stylesheet" href="/css/payment-form.css">
@@ -35,15 +33,15 @@
         <div class="container">
             <div class="header-content">
                 <div class="logo">
-                    <img src="/images/hackload-logo.svg" alt="HackLoad Payment Gateway" class="logo-img">
+                    <div class="text-2xl font-bold"><span class="text-amber-400">Hack</span><span class="text-gray-800">Load</span></div>
                     <span class="logo-text" data-i18n="payment_gateway">Payment Gateway</span>
                 </div>
                 <div class="security-indicators">
-                    <div class="ssl-indicator">
+                    <div class="ssl-indicator" id="ssl-indicator">
                         <svg class="icon-lock" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
                             <path d="M4 7V5a4 4 0 0 1 8 0v2h1a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h1zM6 5v2h4V5a2 2 0 1 0-4 0z"/>
                         </svg>
-                        <span data-i18n="secure_connection">Secure Connection</span>
+                        <span data-i18n="secure_connection" id="connection-status">Secure Connection</span>
                     </div>
                     <div class="language-selector">
                         <button type="button" class="language-toggle" aria-label="Change language" data-current-lang="en">
@@ -76,16 +74,16 @@
                     <h1 id="payment-summary-title" data-i18n="payment_summary">Payment Summary</h1>
                     <div class="summary-details">
                         <div class="merchant-info">
-                            <div class="merchant-name" id="merchant-name">Sample Store</div>
+                            <div class="merchant-name" id="merchant-name">{{MerchantName}}</div>
                             <div class="order-info">
                                 <span data-i18n="order_number">Order #:</span>
-                                <span id="order-id">ORDER-12345</span>
+                                <span id="order-id">{{OrderId}}</span>
                             </div>
                         </div>
                         <div class="amount-info">
                             <div class="amount-display">
-                                <span class="currency" id="currency">RUB</span>
-                                <span class="amount" id="payment-amount">1,500.00</span>
+                                <span class="currency" id="currency">{{Currency}}</span>
+                                <span class="amount" id="payment-amount">{{Amount}}</span>
                             </div>
                             <div class="amount-description" id="amount-description" data-i18n="total_amount">Total Amount</div>
                         </div>
@@ -176,8 +174,7 @@
                                             aria-describedby="card_number_help card_number_error"
                                             data-testid="card-number-input">
                                         <div class="card-type-indicator" id="card_type_indicator" aria-hidden="true">
-                                            <img src="/images/cards/unknown.svg" alt="" class="card-type-icon" id="card_type_icon">
-                                        </div>
+                                                        </div>
                                     </div>
                                     <div class="form-help" id="card_number_help" data-i18n="card_number_help">
                                         Enter your 13-19 digit card number
@@ -381,8 +378,8 @@
                                     </svg>
                                     <span class="btn-text" data-i18n="pay_now">Pay Now</span>
                                     <span class="btn-amount">
-                                        <span id="submit_currency">RUB</span>
-                                        <span id="submit_amount">1,500.00</span>
+                                        <span id="submit_currency">{{Currency}}</span>
+                                        <span id="submit_amount">{{Amount}}</span>
                                     </span>
                                 </span>
                                 <span class="btn-loading" hidden>
@@ -444,15 +441,13 @@
     <footer class="payment-footer" role="contentinfo">
         <div class="container">
             <div class="footer-content">
-                <div class="footer-links">
-                    <a href="/help" data-i18n="help">Help</a>
-                    <a href="/contact" data-i18n="contact">Contact</a>
-                    <a href="/terms" data-i18n="terms">Terms</a>
-                    <a href="/privacy" data-i18n="privacy">Privacy</a>
-                </div>
                 <div class="footer-info">
                     <span data-i18n="powered_by">Powered by</span>
                     <strong>HackLoad Payment Gateway</strong>
+                    <div class="footer-links-info">
+                        <span>Website: <a href="https://hackload.kz" target="_blank" rel="noopener">https://hackload.kz</a></span>
+                        <span>Cabinet: <a href="https://hub.hackload.kz" target="_blank" rel="noopener">https://hub.hackload.kz</a></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -473,7 +468,6 @@
             <div class="modal-body">
                 <div class="cvv-explanation">
                     <div class="cvv-card-example">
-                        <img src="/images/cvv-example.svg" alt="CVV location on card" class="cvv-example-img">
                     </div>
                     <p data-i18n="cvv_explanation">
                         The CVV (Card Verification Value) is a 3 or 4 digit security code on your card:
@@ -494,8 +488,64 @@
             paymentId: '{{PaymentId}}',
             amount: '{{Amount}}',
             currency: '{{Currency}}',
-            merchantName: '{{MerchantName}}'
+            merchantName: '{{MerchantName}}',
+            orderId: '{{OrderId}}',
+            description: '{{Description}}'
         };
+        
+        // Debug: Log CSRF token value
+        console.log('CSRF Token value:', document.getElementById('csrf_token')?.value || 'MISSING');
+
+        // Check connection security and update UI
+        document.addEventListener('DOMContentLoaded', function() {
+            const sslIndicator = document.getElementById('ssl-indicator');
+            const connectionStatus = document.getElementById('connection-status');
+            const isSecure = window.location.protocol === 'https:';
+            
+            if (isSecure) {
+                sslIndicator.classList.add('ssl-secure');
+                sslIndicator.classList.remove('ssl-insecure');
+                connectionStatus.textContent = 'Secure Connection';
+            } else {
+                sslIndicator.classList.add('ssl-insecure');
+                sslIndicator.classList.remove('ssl-secure');
+                connectionStatus.textContent = 'Not Secure';
+                
+                // Show warning icon for insecure connections
+                const lockIcon = sslIndicator.querySelector('.icon-lock');
+                lockIcon.innerHTML = '<path d="M4 7V5a4 4 0 0 1 8 0v2h1a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h1zM6 5v2h4V5a2 2 0 1 0-4 0z" fill="none"/><path d="M8 2L6 4h4l-2-2z" fill="currentColor"/>';
+            }
+            
+            // Log form responses
+            const form = document.getElementById('payment-form');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    // Don't prevent default - let the normal form handling work
+                    // e.preventDefault();
+                    
+                    const formData = new FormData(form);
+                    const formValues = {};
+                    
+                    for (let [key, value] of formData.entries()) {
+                        formValues[key] = value;
+                    }
+                    
+                    console.log('Form submission data:', formValues);
+                    console.log('Payment data:', window.paymentData);
+                    console.log('CSRF Token being submitted:', formValues.csrf_token);
+                    
+                    // Let the payment-form.js handle the actual submission
+                });
+                
+                // Log input changes
+                const inputs = form.querySelectorAll('input');
+                inputs.forEach(input => {
+                    input.addEventListener('input', function() {
+                        console.log(`Input changed - ${input.name || input.id}:`, input.value);
+                    });
+                });
+            }
+        });
     </script>
     <script src="/js/payment-validation.js"></script>
     <script src="/js/payment-localization.js"></script>

@@ -51,6 +51,10 @@
     --text-2xl: 1.5rem;
     --text-3xl: 1.875rem;
     
+    /* Additional Colors */
+    --amber-400: #fbbf24;
+    --amber-200: #fde68a;
+    
     /* Spacing */
     --space-1: 0.25rem;
     --space-2: 0.5rem;
@@ -177,6 +181,15 @@ body {
     font-size: var(--text-sm);
     color: var(--success-color);
     font-weight: 500;
+    transition: color var(--transition-fast);
+}
+
+.ssl-indicator.ssl-secure {
+    color: var(--success-color);
+}
+
+.ssl-indicator.ssl-insecure {
+    color: var(--error-color);
 }
 
 .icon-lock {
@@ -520,13 +533,14 @@ body {
     border-radius: var(--radius-md);
     font-size: var(--text-base);
     transition: all var(--transition-fast);
-    background-color: var(--white);
+    background-color: var(--white) !important;
+    color: var(--gray-800) !important;
 }
 
 .form-input:focus {
     outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    border-color: var(--amber-400);
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.2);
 }
 
 .form-input.valid {
@@ -579,7 +593,7 @@ body {
 }
 
 .cvv-help-button:hover {
-    color: var(--primary-color);
+    color: var(--amber-400);
 }
 
 .cvv-help-button svg {
@@ -610,7 +624,7 @@ body {
 .form-checkbox {
     width: 18px;
     height: 18px;
-    accent-color: var(--primary-color);
+    accent-color: var(--amber-400);
     margin-top: 2px;
     flex-shrink: 0;
 }
@@ -623,7 +637,7 @@ body {
 }
 
 .checkbox-label a {
-    color: var(--primary-color);
+    color: var(--amber-400);
     text-decoration: none;
 }
 
@@ -822,6 +836,23 @@ body {
 .footer-info {
     font-size: var(--text-sm);
     color: var(--gray-600);
+}
+
+.footer-links-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin-top: var(--space-2);
+    font-size: var(--text-xs);
+}
+
+.footer-links-info a {
+    color: var(--amber-400);
+    text-decoration: none;
+}
+
+.footer-links-info a:hover {
+    text-decoration: underline;
 }
 
 /* Modal Styles */
@@ -1095,6 +1126,27 @@ body {
         --gray-800: #f1f5f9;
         --gray-900: #f8fafc;
     }
+}
+
+/* Utility Classes */
+.text-2xl {
+    font-size: var(--text-2xl);
+}
+
+.font-bold {
+    font-weight: 700;
+}
+
+.text-amber-400 {
+    color: var(--amber-400);
+}
+
+.text-white {
+    color: var(--white);
+}
+
+.text-gray-800 {
+    color: var(--gray-800);
 }
 
 /* Print Styles */

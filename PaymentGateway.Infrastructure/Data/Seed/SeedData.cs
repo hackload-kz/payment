@@ -38,6 +38,21 @@ public static class SeedData
                 UpdatedAt = DateTime.SpecifyKind(new DateTime(2024, 1, 1, 0, 0, 0), DateTimeKind.Utc),
                 CreatedBy = "SYSTEM",
                 UpdatedBy = "SYSTEM"
+            },
+            new Team
+            {
+                Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
+                TeamSlug = "my-webhook-test",
+                TeamName = "My Webhook Test Store",
+                Password = "TestPassword123!",
+                IsActive = true,
+                NotificationUrl = "https://webhook.site/unique-id-here",
+                SuccessUrl = "https://mystore.com/success",
+                FailUrl = "https://mystore.com/fail",
+                CreatedAt = DateTime.SpecifyKind(new DateTime(2024, 1, 1, 0, 0, 0), DateTimeKind.Utc),
+                UpdatedAt = DateTime.SpecifyKind(new DateTime(2024, 1, 1, 0, 0, 0), DateTimeKind.Utc),
+                CreatedBy = "SYSTEM",
+                UpdatedBy = "SYSTEM"
             }
         };
 

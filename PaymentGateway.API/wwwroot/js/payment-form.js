@@ -486,13 +486,23 @@ class PaymentFormController {
                 redirect: 'manual'  // Don't automatically follow redirects
             });
 
+            console.log('Response status:', response.status);
+            console.log('Response headers:', [...response.headers.entries()]);
+
             // Check if response is a redirect (status 302/301)
             if (response.status === 302 || response.status === 301) {
                 // Get the redirect location from the response headers
                 const redirectLocation = response.headers.get('Location');
+                console.log('Redirect location:', redirectLocation);
                 if (redirectLocation) {
+                    // Handle relative URLs by making them absolute
+                    const redirectUrl = redirectLocation.startsWith('/') 
+                        ? window.location.origin + redirectLocation 
+                        : redirectLocation;
+                    
+                    console.log('Redirecting to:', redirectUrl);
                     // Redirect to the location specified in the header
-                    window.location.href = redirectLocation;
+                    window.location.href = redirectUrl;
                     return { success: true };
                 }
             }
@@ -515,8 +525,41 @@ class PaymentFormController {
             }
         } catch (error) {
             console.error('Payment submission error:', error);
+            
+            // If fetch fails completely, it might be due to redirect handling
+            // In this case, try a traditional form submission as fallback
+            if (error.message.includes('HTTP 0') || error.name === 'TypeError') {
+                console.log('Fetch failed, attempting traditional form submission...');
+                this.fallbackFormSubmission(formData);
+                return { success: true };
+            }
+            
             throw error;
         }
+    }
+
+    fallbackFormSubmission(formData) {
+        console.log('Using fallback form submission');
+        
+        // Create a temporary form element for traditional submission
+        const tempForm = document.createElement('form');
+        tempForm.method = 'POST';
+        tempForm.action = '/api/v1/paymentform/submit';
+        tempForm.style.display = 'none';
+        
+        // Add all form data as hidden inputs
+        for (const [key, value] of Object.entries(formData)) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = value;
+            tempForm.appendChild(input);
+        }
+        
+        // Add form to document, submit, then remove
+        document.body.appendChild(tempForm);
+        tempForm.submit();
+        document.body.removeChild(tempForm);
     }
 
     showValidationErrors(validationResults) {
