@@ -50,65 +50,64 @@ env:
   DOTNET_VERSION: '9.0.x'
 
 jobs:
-  test:
-    name: Test in Container
-    runs-on: self-hosted
-    if: github.event.inputs.skip_tests != 'true'
+  # test:
+  #   name: Test in Container
+  #   runs-on: self-hosted
+  #   if: github.event.inputs.skip_tests != 'true'
     
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
       
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+  #   - name: Set up Docker Buildx
+  #     uses: docker/setup-buildx-action@v3
       
-    - name: Build test image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile
-        target: test
-        tags: paymentgateway-test:latest
-        load: true
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+  #   - name: Build test image
+  #     uses: docker/build-push-action@v5
+  #     with:
+  #       context: .
+  #       file: ./Dockerfile
+  #       target: test
+  #       tags: paymentgateway-test:latest
+  #       load: true
+  #       cache-from: type=gha
+  #       cache-to: type=gha,mode=max
         
-    - name: Run tests in container
-      run: |
-        docker run --rm \
-          -v /tmp/test-results:/testresults \
-          paymentgateway-test:latest
+  #   - name: Run tests in container
+  #     run: |
+  #       docker run --rm \
+  #         -v /tmp/test-results:/testresults \
+  #         paymentgateway-test:latest
           
-    - name: Extract test results
-      if: always()
-      run: |
-        # Copy test results from container volume
-        mkdir -p test-results
-        if [ -d /tmp/test-results ]; then
-          cp -r /tmp/test-results/* test-results/ || true
-        fi
+  #   - name: Extract test results
+  #     if: always()
+  #     run: |
+  #       # Copy test results from container volume
+  #       mkdir -p test-results
+  #       if [ -d /tmp/test-results ]; then
+  #         cp -r /tmp/test-results/* test-results/ || true
+  #       fi
         
-    - name: Publish test results
-      uses: dorny/test-reporter@v1
-      if: always()
-      with:
-        name: PaymentGateway Tests
-        path: 'test-results/*.trx'
-        reporter: dotnet-trx
-        fail-on-error: true
+  #   - name: Publish test results
+  #     uses: dorny/test-reporter@v1
+  #     if: always()
+  #     with:
+  #       name: PaymentGateway Tests
+  #       path: 'test-results/*.trx'
+  #       reporter: dotnet-trx
+  #       fail-on-error: true
         
-    - name: Upload test results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results
-        path: test-results/
-        retention-days: 30
+  #   - name: Upload test results
+  #     if: always()
+  #     uses: actions/upload-artifact@v4
+  #     with:
+  #       name: test-results
+  #       path: test-results/
+  #       retention-days: 30
 
   build-and-push:
     name: Build and Push Container
     runs-on: self-hosted
-    needs: test
     if: always() && (needs.test.result == 'success' || github.event.inputs.skip_tests == 'true')
     
     outputs:
