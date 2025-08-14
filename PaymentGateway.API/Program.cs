@@ -119,6 +119,8 @@ try
 
     // Map controllers
     app.MapControllers();
+    // just a comment to be built
+    
 
     // Map health checks
     app.MapHealthChecks("/health");
