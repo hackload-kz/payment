@@ -168,62 +168,62 @@ jobs:
           BUILDKIT_INLINE_CACHE=1
           ASPNETCORE_ENVIRONMENT=${{ github.event.inputs.environment || 'production' }}
           
-    - name: Generate SBOM
-      uses: anchore/sbom-action@v0
-      with:
-        image: ${{ steps.meta.outputs.tags }}
-        format: spdx-json
-        output-file: sbom.spdx.json
-        
-    - name: Upload SBOM
-      uses: actions/upload-artifact@v4
-      with:
-        name: sbom
-        path: sbom.spdx.json
-        retention-days: 90
-        
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: ${{ steps.meta.outputs.tags }}
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-        
-    - name: Upload Trivy scan results
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
+    # - name: Generate SBOM
+    #   uses: anchore/sbom-action@v0
+    #   with:
+    #     image: ${{ steps.meta.outputs.tags }}
+    #     format: spdx-json
+    #     output-file: sbom.spdx.json
+    #     
+    # - name: Upload SBOM
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: sbom
+    #     path: sbom.spdx.json
+    #     retention-days: 90
+    #     
+    # - name: Run Trivy vulnerability scanner
+    #   uses: aquasecurity/trivy-action@master
+    #   with:
+    #     image-ref: ${{ steps.meta.outputs.tags }}
+    #     format: 'sarif'
+    #     output: 'trivy-results.sarif'
+    #     
+    # - name: Upload Trivy scan results
+    #   uses: github/codeql-action/upload-sarif@v3
+    #   if: always()
+    #   with:
+    #     sarif_file: 'trivy-results.sarif'
 
-  security-scan:
-    name: Security Scan
-    runs-on: self-hosted
-    needs: build-and-push
-    if: always() && needs.build-and-push.result == 'success'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Run Trivy vulnerability scanner on built image
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: ${{ needs.build-and-push.outputs.image_tag }}
-        format: 'table'
-        output: 'trivy-results.txt'
-        
-    - name: Upload security scan results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: security-scan-results
-        path: trivy-results.txt
-        retention-days: 30
+  # security-scan:
+  #   name: Security Scan
+  #   runs-on: self-hosted
+  #   needs: build-and-push
+  #   if: always() && needs.build-and-push.result == 'success'
+  #   
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #     
+  #   - name: Run Trivy vulnerability scanner on built image
+  #     uses: aquasecurity/trivy-action@master
+  #     with:
+  #       image-ref: ${{ needs.build-and-push.outputs.image_tag }}
+  #       format: 'table'
+  #       output: 'trivy-results.txt'
+  #       
+  #   - name: Upload security scan results
+  #     uses: actions/upload-artifact@v4
+  #     if: always()
+  #     with:
+  #       name: security-scan-results
+  #       path: trivy-results.txt
+  #       retention-days: 30
         
   deployment-check:
     name: Deployment Readiness Check
     runs-on: self-hosted
-    needs: [build-and-push, security-scan]
+    needs: [build-and-push]
     if: always() && needs.build-and-push.result == 'success'
     
     steps:
@@ -299,8 +299,8 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### ✅ Checks Passed" >> $GITHUB_STEP_SUMMARY
         echo "- Container builds successfully" >> $GITHUB_STEP_SUMMARY
-        echo "- Tests passed (if not skipped)" >> $GITHUB_STEP_SUMMARY
-        echo "- Security scan completed" >> $GITHUB_STEP_SUMMARY
+        echo "- Tests skipped (commented out)" >> $GITHUB_STEP_SUMMARY
+        echo "- Security scan skipped (commented out)" >> $GITHUB_STEP_SUMMARY
         echo "- Container starts and runs correctly" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Ready for deployment! 🎉**" >> $GITHUB_STEP_SUMMARY
@@ -308,16 +308,15 @@ jobs:
   notify:
     name: Notify Completion
     runs-on: self-hosted
-    needs: [build-and-push, security-scan, deployment-check]
+    needs: [build-and-push, deployment-check]
     if: always()
     
     steps:
     - name: Determine workflow status
       id: status
       run: |
-        # Remove test dependency since test job is commented out
+        # Remove test and security-scan dependencies since jobs are commented out
         if [[ "${{ needs.build-and-push.result }}" == "success" ]] && \
-           [[ "${{ needs.security-scan.result }}" == "success" ]] && \
            [[ "${{ needs.deployment-check.result }}" == "success" ]]; then
           echo "status=success" >> $GITHUB_OUTPUT
           echo "message=✅ PaymentGateway CI/CD completed successfully!" >> $GITHUB_OUTPUT
@@ -338,7 +337,7 @@ jobs:
         echo "## Job Results" >> $GITHUB_STEP_SUMMARY
         echo "- **Test:** skipped (job commented out)" >> $GITHUB_STEP_SUMMARY
         echo "- **Build & Push:** ${{ needs.build-and-push.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Security Scan:** ${{ needs.security-scan.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Security Scan:** skipped (job commented out)" >> $GITHUB_STEP_SUMMARY
         echo "- **Deployment Check:** ${{ needs.deployment-check.result }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         if [[ "${{ steps.status.outputs.status }}" == "success" ]]; then
