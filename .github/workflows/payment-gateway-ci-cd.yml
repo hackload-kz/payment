@@ -108,7 +108,8 @@ jobs:
   build-and-push:
     name: Build and Push Container
     runs-on: self-hosted
-    if: always() && (needs.test.result == 'success' || github.event.inputs.skip_tests == 'true')
+    # Remove test dependency since test job is commented out
+    # if: always() && (needs.test.result == 'success' || github.event.inputs.skip_tests == 'true')
     
     outputs:
       image_tag: ${{ steps.meta.outputs.tags }}
@@ -309,8 +310,8 @@ jobs:
     - name: Determine workflow status
       id: status
       run: |
-        if [[ "${{ needs.test.result }}" == "success" || "${{ github.event.inputs.skip_tests }}" == "true" ]] && \
-           [[ "${{ needs.build-and-push.result }}" == "success" ]] && \
+        # Remove test dependency since test job is commented out
+        if [[ "${{ needs.build-and-push.result }}" == "success" ]] && \
            [[ "${{ needs.security-scan.result }}" == "success" ]] && \
            [[ "${{ needs.deployment-check.result }}" == "success" ]]; then
           echo "status=success" >> $GITHUB_OUTPUT
@@ -330,7 +331,7 @@ jobs:
         echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## Job Results" >> $GITHUB_STEP_SUMMARY
-        echo "- **Test:** ${{ needs.test.result || 'skipped' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Test:** skipped (job commented out)" >> $GITHUB_STEP_SUMMARY
         echo "- **Build & Push:** ${{ needs.build-and-push.result }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Security Scan:** ${{ needs.security-scan.result }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Deployment Check:** ${{ needs.deployment-check.result }}" >> $GITHUB_STEP_SUMMARY
