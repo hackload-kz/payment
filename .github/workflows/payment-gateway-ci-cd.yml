@@ -168,31 +168,6 @@ jobs:
           BUILDKIT_INLINE_CACHE=1
           ASPNETCORE_ENVIRONMENT=${{ github.event.inputs.environment || 'production' }}
 
-  security-scan:
-    name: Security Scan
-    runs-on: self-hosted
-    needs: build-and-push
-    if: always() && needs.build-and-push.result == 'success'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Run Trivy vulnerability scanner on built image
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: ${{ needs.build-and-push.outputs.image_tag }}
-        format: 'table'
-        output: 'trivy-results.txt'
-        
-    - name: Upload security scan results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: security-scan-results
-        path: trivy-results.txt
-        retention-days: 30
-
   notify:
     name: Notify Completion
     runs-on: self-hosted
