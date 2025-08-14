@@ -45,7 +45,7 @@ on:
           - development
 
 env:
-  REGISTRY: ghcr.io
+  REGISTRY: docker.io
   IMAGE_NAME: hackload-paymentgateway
   DOTNET_VERSION: '9.0.x'
 
@@ -122,18 +122,18 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       
-    - name: Log in to Container Registry
+    - name: Log in to Docker Hub
       uses: docker/login-action@v3
       with:
         registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
         
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+        images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
         tags: |
           type=ref,event=branch
           type=ref,event=pr
@@ -153,12 +153,13 @@ jobs:
         context: .
         file: ./Dockerfile
         target: runtime
-        push: true
+        push: true   # Push to Docker Hub
+        load: false  # Don't need local copy when pushing
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
-        platforms: linux/amd64,linux/arm64
+        platforms: linux/amd64  # Build only for x64 platform
         build-args: |
           BUILDKIT_INLINE_CACHE=1
           ASPNETCORE_ENVIRONMENT=${{ github.event.inputs.environment || 'production' }}
@@ -225,9 +226,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Verify image exists
+    - name: Verify image exists in registry
       run: |
-        echo "Verifying image: ${{ needs.build-and-push.outputs.image_tag }}"
+        echo "Verifying registry image: ${{ needs.build-and-push.outputs.image_tag }}"
         docker manifest inspect ${{ needs.build-and-push.outputs.image_tag }}
         
     - name: Test container startup
