@@ -302,7 +302,7 @@ jobs:
   notify:
     name: Notify Completion
     runs-on: self-hosted
-    needs: [test, build-and-push, security-scan, deployment-check]
+    needs: [build-and-push, security-scan, deployment-check]
     if: always()
     
     steps:
