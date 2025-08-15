@@ -189,6 +189,142 @@ curl -X GET "${BASE_URL}/api/v1/TeamRegistration/status/my-store" \
 }
 ```
 
+## Administrative API Endpoints
+
+**⚠️ Admin Authentication Required**: All administrative endpoints require admin authentication via one of these methods:
+- **Authorization header**: `Authorization: Bearer {admin-token}`
+- **Custom header**: `X-Admin-Token: {admin-token}`
+
+The admin token is configured in `AdminAuthentication.AdminToken` in application settings.
+
+```bash
+# Add one of these headers to all admin requests
+-H "Authorization: Bearer admin_token_2025_hackload_payment_gateway_secure_key_dev_only"
+# OR
+-H "X-Admin-Token: admin_token_2025_hackload_payment_gateway_secure_key_dev_only"
+```
+
+### 1. Admin Status Check
+
+Check admin service status and configuration.
+
+**Endpoint**: `GET /api/v1/Admin/status`
+
+```bash
+curl -X GET "${BASE_URL}/api/v1/Admin/status" \
+  -H "Accept: application/json"
+```
+
+**Response**:
+```json
+{
+  "adminTokenConfigured": true,
+  "serviceVersion": "1.0",
+  "serverTime": "2025-08-15T10:30:00Z"
+}
+```
+
+### 2. Clear Database
+
+**⚠️ DESTRUCTIVE OPERATION**: This endpoint permanently deletes payment, transaction, and order data while preserving team/merchant information.
+
+**Endpoint**: `POST /api/v1/Admin/clear-database`
+
+**Use Cases**:
+- Clean up test data in development/staging environments
+- Reset system for new environment setup
+- Clear accumulated test transactions
+
+**Data Cleared**:
+- **Payments**: All payment records and lifecycle data
+- **Transactions**: All transaction records and processing details
+- **Orders**: Order data embedded in payment records (OrderId field)
+- **Related Audit Logs**: Audit trails for cleared payment/transaction data
+
+**Data Preserved**:
+- **Teams**: Merchant/team configurations and settings
+- **Customers**: Customer profile information  
+- **System Configuration**: Application settings and configurations
+
+```bash
+# Using Bearer token
+curl -X POST "${BASE_URL}/api/v1/Admin/clear-database" \
+  -H "Authorization: Bearer admin_token_2025_hackload_payment_gateway_secure_key_dev_only"
+
+# Using custom header
+curl -X POST "${BASE_URL}/api/v1/Admin/clear-database" \
+  -H "X-Admin-Token: admin_token_2025_hackload_payment_gateway_secure_key_dev_only"
+```
+
+**Success Response**:
+```json
+{
+  "success": true,
+  "message": "Database cleared successfully",
+  "statistics": {
+    "deletedPayments": 150,
+    "deletedTransactions": 300,
+    "deletedOrders": 120,
+    "operationDurationMs": 1250,
+    "clearTimestamp": "2025-08-15T10:30:00Z"
+  }
+}
+```
+
+**Error Responses**:
+
+**401 Unauthorized** (Missing or invalid token):
+```json
+{
+  "error": "Missing Authorization",
+  "message": "Admin token required. Use Authorization header with Bearer token or X-Admin-Token header."
+}
+```
+
+**403 Forbidden** (Admin not configured):
+```json
+{
+  "error": "Admin functionality not configured",
+  "message": "Admin token must be configured in application settings to use admin endpoints"
+}
+```
+
+**500 Internal Server Error** (Operation failed):
+```json
+{
+  "error": "Clear Operation Failed", 
+  "message": "Database transaction failed during clear operation"
+}
+```
+
+### Admin Testing Script
+
+```bash
+#!/bin/bash
+
+# Admin endpoint testing script
+BASE_URL="http://localhost:5162"
+ADMIN_TOKEN="admin_token_2025_hackload_payment_gateway_secure_key_dev_only"
+
+echo "=== Admin Endpoint Testing ==="
+
+# Test admin status
+echo "1. Testing admin status..."
+curl -s -X GET "${BASE_URL}/api/v1/Admin/status" | jq '.'
+
+# Test clear database with Bearer token
+echo -e "\n2. Testing clear database (Bearer token)..."
+curl -s -X POST "${BASE_URL}/api/v1/Admin/clear-database" \
+  -H "Authorization: Bearer ${ADMIN_TOKEN}" | jq '.'
+
+# Test clear database with custom header  
+echo -e "\n3. Testing clear database (X-Admin-Token header)..."
+curl -s -X POST "${BASE_URL}/api/v1/Admin/clear-database" \
+  -H "X-Admin-Token: ${ADMIN_TOKEN}" | jq '.'
+
+echo -e "\nAdmin testing completed!"
+```
+
 ## Core Payment API Endpoints
 
 ### 4. Initialize Payment
@@ -503,6 +639,11 @@ All API endpoints return standardized error responses:
 - `PAYMENT_EXPIRED` - Payment session expired
 - `INVALID_CARD` - Card validation failed
 
+#### Administrative Error Codes
+- `401` - Unauthorized (missing or invalid admin token)
+- `403` - Forbidden (admin functionality not configured) 
+- `500` - Internal server error during admin operations
+
 #### General Error Codes
 - `9999` - Internal server error
 
@@ -563,3 +704,26 @@ curl -X POST "${BASE_URL}/api/v1/TeamRegistration/register" \
 ```
 
 The key difference from typical APIs is the custom token-based authentication rather than standard Basic Auth or Bearer tokens.
+
+## Admin Endpoints Quick Reference
+
+| Endpoint | Method | Purpose | Authentication |
+|----------|---------|---------|----------------|
+| `/api/v1/Admin/status` | GET | Check admin service status | None required |
+| `/api/v1/Admin/clear-database` | POST | Clear payment/transaction data | Bearer token or X-Admin-Token header |
+
+**Admin Token Configuration**:
+```json
+{
+  "AdminAuthentication": {
+    "AdminToken": "your_secure_admin_token_here",
+    "TokenHeaderName": "X-Admin-Token"
+  }
+}
+```
+
+**Security Notes**:
+- Admin tokens are SHA-256 hashed for validation
+- Clear database operation is **irreversible**
+- All admin operations are thoroughly logged
+- Only use admin endpoints in development/staging environments

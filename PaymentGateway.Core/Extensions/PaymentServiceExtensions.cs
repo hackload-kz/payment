@@ -44,6 +44,10 @@ public static class PaymentServiceExtensions
         // Register team management services
         services.AddScoped<ITeamRegistrationService, TeamRegistrationService>();
 
+        // Register admin services
+        services.AddScoped<IAdminAuthenticationService, AdminAuthenticationService>();
+        services.AddScoped<IAdminDataClearService, AdminDataClearService>();
+
         return services;
     }
 
@@ -64,6 +68,8 @@ public static class PaymentServiceExtensions
         services.AddScoped<IPaymentCancellationService, PaymentCancellationService>();
         services.AddScoped<IPaymentStatusCheckService, PaymentStatusCheckService>();
         services.AddScoped<ITeamRegistrationService, TeamRegistrationService>();
+        services.AddScoped<IAdminAuthenticationService, AdminAuthenticationService>();
+        services.AddScoped<IAdminDataClearService, AdminDataClearService>();
 
         return services;
     }
