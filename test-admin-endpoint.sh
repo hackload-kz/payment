@@ -3,7 +3,7 @@
 # Test script for the admin clear-database endpoint
 
 # Configuration
-BASE_URL="http://localhost:5162"
+BASE_URL="http://localhost:7010"
 ADMIN_TOKEN="admin_token_2025_hackload_payment_gateway_secure_key_dev_only"  # Matches AdminAuthentication configuration
 
 echo "Testing Admin Clear Database Endpoint"

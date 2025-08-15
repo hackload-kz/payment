@@ -52,6 +52,10 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: hackload-paymentgateway
   DOTNET_VERSION: '9.0.x'
+  # Docker build parameters from docker-build.sh
+  DOCKER_REGISTRY: ghcr.io
+  DOCKER_NAMESPACE: hackload-kz
+  DOCKER_IMAGE_NAME: paymentgateway
 
 jobs:
   # test:
@@ -133,22 +137,48 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
         
+    - name: Get Git information
+      id: git
+      run: |
+        # Get commit SHA (short) - matching docker-build.sh
+        COMMIT_SHA=$(git rev-parse --short HEAD)
+        BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        
+        # Check if working directory is clean
+        if ! git diff-index --quiet HEAD --; then
+          DIRTY="-dirty"
+        else
+          DIRTY=""
+        fi
+        
+        echo "commit_sha=${COMMIT_SHA}${DIRTY}" >> $GITHUB_OUTPUT
+        echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
+        echo "is_dirty=${DIRTY:+true}" >> $GITHUB_OUTPUT
+        
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+        # Use consistent naming from docker-build.sh: REGISTRY/NAMESPACE/IMAGE_NAME
+        images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/${{ env.DOCKER_IMAGE_NAME }}
         tags: |
+          # Match docker-build.sh tagging strategy
+          type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=${{ steps.git.outputs.commit_sha }}
           type=ref,event=branch
           type=ref,event=pr
-          type=sha,prefix=sha-,format=short
-          type=raw,value=latest,enable={{is_default_branch}}
           type=raw,value=${{ github.event.inputs.environment }},enable=${{ github.event_name == 'workflow_dispatch' }}
         labels: |
           org.opencontainers.image.title=HackLoad Payment Gateway
           org.opencontainers.image.description=Payment Gateway API for HackLoad 2025
           org.opencontainers.image.vendor=HackLoad Team
           org.opencontainers.image.licenses=MIT
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          # Custom labels matching docker-build.sh
+          hackload.commit.sha=${{ steps.git.outputs.commit_sha }}
+          hackload.commit.branch=${{ steps.git.outputs.branch }}
+          hackload.build.dirty=${{ steps.git.outputs.is_dirty }}
           
     - name: Build and push Docker image
       id: build

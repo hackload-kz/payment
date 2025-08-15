@@ -63,10 +63,12 @@ public class MetricsController : ControllerBase
     {
         try
         {
+            var paymentMetrics = await _metricsService.GetPaymentMetricsAsync();
+            
             var response = new PaymentMetricsResponse
             {
                 Timestamp = DateTime.UtcNow,
-                PaymentMetrics = ExtractPaymentMetrics(new List<object>())
+                PaymentMetrics = paymentMetrics
             };
 
             return Ok(response);
@@ -86,12 +88,14 @@ public class MetricsController : ControllerBase
     {
         try
         {
+            var systemMetrics = await _metricsService.GetSystemMetricsAsync();
+            
             var response = new SystemMetricsResponse
             {
                 Timestamp = DateTime.UtcNow,
-                DatabaseMetrics = ExtractDatabaseMetrics(new List<object>()),
-                ApiMetrics = ExtractApiMetrics(new List<object>()),
-                HealthCheckMetrics = ExtractHealthCheckMetrics(new List<object>())
+                DatabaseMetrics = FilterMetricsByCategory(systemMetrics, "database"),
+                ApiMetrics = FilterMetricsByCategory(systemMetrics, "api"),
+                HealthCheckMetrics = FilterMetricsByCategory(systemMetrics, "authentication")
             };
 
             return Ok(response);
@@ -167,6 +171,21 @@ public class MetricsController : ControllerBase
             return "transactions";
         
         return "system";
+    }
+    
+    private static Dictionary<string, object> FilterMetricsByCategory(Dictionary<string, object> allMetrics, string category)
+    {
+        var filtered = new Dictionary<string, object>();
+        
+        foreach (var (key, value) in allMetrics)
+        {
+            if (key.Contains(category, StringComparison.OrdinalIgnoreCase))
+            {
+                filtered[key] = value;
+            }
+        }
+        
+        return filtered;
     }
 
     private static Dictionary<string, object> ExtractPaymentMetrics(IEnumerable<object> metricFamilies)

@@ -187,21 +187,41 @@ public class PaymentAuthenticationService : IPaymentAuthenticationService
             // Step 2: Add password (now using raw password for simplicity)
             tokenParams["Password"] = team.Password;
 
-            // Step 3: Sort alphabetically by key
-            var sortedKeys = tokenParams.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
-
-            // DEBUG: Log all parameters being used for token generation
-            _logger.LogInformation("DEBUG: Token generation for TeamSlug {TeamSlug}", teamSlug);
-            _logger.LogInformation("DEBUG: Parameters count: {Count}", tokenParams.Count);
-            foreach (var key in sortedKeys)
+            // Step 3: SPECIAL HANDLING FOR PaymentCheck - NON-ALPHABETICAL ORDER
+            // Check if this is a PaymentCheck request by looking for PaymentId parameter
+            var isPaymentCheckRequest = tokenParams.ContainsKey("PaymentId") && tokenParams.ContainsKey("TeamSlug") && !tokenParams.ContainsKey("Amount");
+            
+            string concatenatedValues;
+            if (isPaymentCheckRequest)
             {
-                _logger.LogInformation("DEBUG: Parameter {Key} = {Value}", key, tokenParams[key]);
+                // SPECIAL ORDER for PaymentCheck: PaymentId + Password + TeamSlug (NOT alphabetical)
+                _logger.LogInformation("DEBUG: Detected PaymentCheck request - using SPECIAL non-alphabetical order");
+                _logger.LogInformation("DEBUG: PaymentCheck formula: PaymentId + Password + TeamSlug");
+                
+                var paymentId = tokenParams["PaymentId"];
+                var password = tokenParams["Password"];
+                var teamSlugParam = tokenParams["TeamSlug"];
+                
+                concatenatedValues = paymentId + password + teamSlugParam;
+                
+                _logger.LogInformation("DEBUG: PaymentCheck token string: PaymentId({PaymentId}) + Password(***) + TeamSlug({TeamSlug})", 
+                    paymentId, teamSlugParam);
+            }
+            else
+            {
+                // Standard alphabetical order for all other endpoints
+                var sortedKeys = tokenParams.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
+                concatenatedValues = string.Join("", sortedKeys.Select(key => tokenParams[key]));
+                
+                _logger.LogInformation("DEBUG: Standard alphabetical order for non-PaymentCheck request");
+                foreach (var key in sortedKeys)
+                {
+                    _logger.LogInformation("DEBUG: Parameter {Key} = {Value}", key, key == "Password" ? "***" : tokenParams[key]);
+                }
             }
 
-            // Step 4: Concatenate values in sorted order
-            var concatenatedValues = string.Join("", sortedKeys.Select(key => tokenParams[key]));
-
-            _logger.LogInformation("DEBUG: Final concatenated string: {ConcatenatedString}", concatenatedValues);
+            _logger.LogInformation("DEBUG: Final concatenated string: {ConcatenatedString}", 
+                concatenatedValues.Contains(team.Password) ? concatenatedValues.Replace(team.Password, "***PASSWORD***") : concatenatedValues);
 
             // Step 5: Generate SHA-256 hash
             using var sha256 = SHA256.Create();

@@ -396,7 +396,9 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
             var value = property.GetValue(requestObject);
             if (value == null) continue;
 
-            // Only include the 5 core parameters for simplified authentication
+            // Include core parameters for simplified authentication
+            // For PaymentInit: TeamSlug, Token, Amount, OrderId, Currency
+            // For PaymentCheck: TeamSlug, Token, PaymentId (per documentation line 762-764)
             switch (property.Name)
             {
                 case "TeamSlug":
@@ -404,11 +406,12 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
                 case "Amount":
                 case "OrderId":
                 case "Currency":
+                case "PaymentId":  // PaymentCheck uses PaymentId + TeamSlug + Password
                     parameters[property.Name] = value;
                     _logger.LogInformation("FILTER DEBUG: SIMPLIFIED - INCLUDED {Name} = {Value}", property.Name, value);
                     break;
                 default:
-                    _logger.LogInformation("FILTER DEBUG: SIMPLIFIED - EXCLUDED {Name} = {Value} (not in core 5)", property.Name, value);
+                    _logger.LogInformation("FILTER DEBUG: SIMPLIFIED - EXCLUDED {Name} = {Value} (not in core parameters)", property.Name, value);
                     break;
             }
         }

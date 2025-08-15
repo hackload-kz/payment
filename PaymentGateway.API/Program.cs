@@ -155,8 +155,9 @@ try
 
     // Map controllers
     app.MapControllers();
-    // just a comment to be built
     
+    // Map Prometheus metrics endpoint
+    app.MapMetrics();
 
     // Map health checks
     app.MapHealthChecks("/health");

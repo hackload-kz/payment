@@ -36,6 +36,10 @@ public interface IPrometheusMetricsService
     // Health check metrics
     void RecordHealthCheckDuration(string healthCheckName, double milliseconds, bool healthy);
     void SetHealthCheckStatus(string healthCheckName, bool healthy);
+    
+    // Metrics retrieval methods
+    Task<Dictionary<string, object>> GetPaymentMetricsAsync();
+    Task<Dictionary<string, object>> GetSystemMetricsAsync();
 }
 
 public class PrometheusMetricsService : IPrometheusMetricsService
@@ -240,5 +244,85 @@ public class PrometheusMetricsService : IPrometheusMetricsService
     public void SetHealthCheckStatus(string healthCheckName, bool healthy)
     {
         HealthCheckStatus.WithLabels(healthCheckName).Set(healthy ? 1 : 0);
+    }
+    
+    // Metrics retrieval implementation
+    public async Task<Dictionary<string, object>> GetPaymentMetricsAsync()
+    {
+        await Task.CompletedTask; // For async consistency
+        
+        var metrics = new Dictionary<string, object>();
+        
+        try
+        {
+            // Extract payment-related metrics directly from metric objects
+            metrics["payment_success_total"] = GetCounterValue(PaymentSuccessTotal);
+            metrics["payment_failure_total"] = GetCounterValue(PaymentFailureTotal);
+            metrics["payment_processing_duration_count"] = GetHistogramCount(PaymentProcessingDuration);
+            metrics["concurrent_payments"] = ConcurrentPayments.Value;
+            metrics["transactions_total"] = GetCounterValue(TransactionCountTotal);
+            metrics["transaction_amounts_count"] = GetHistogramCount(TransactionAmounts);
+        }
+        catch (Exception)
+        {
+            // If metric extraction fails, return basic info
+            metrics["payment_success_total"] = "0";
+            metrics["payment_failure_total"] = "0";
+            metrics["concurrent_payments"] = ConcurrentPayments.Value;
+            metrics["note"] = "Some metrics may not be available until after payments are processed";
+        }
+        
+        return metrics;
+    }
+    
+    public async Task<Dictionary<string, object>> GetSystemMetricsAsync()
+    {
+        await Task.CompletedTask; // For async consistency
+        
+        var metrics = new Dictionary<string, object>();
+        
+        try
+        {
+            // Extract system-related metrics directly from metric objects
+            metrics["api_requests_total"] = GetCounterValue(ApiRequestsTotal);
+            metrics["api_request_duration_count"] = GetHistogramCount(ApiRequestDuration);
+            metrics["api_errors_total"] = GetCounterValue(ApiErrorsTotal);
+            metrics["database_operations_total"] = GetCounterValue(DatabaseOperationsTotal);
+            metrics["database_connection_duration_count"] = GetHistogramCount(DatabaseConnectionDuration);
+            metrics["database_errors_total"] = GetCounterValue(DatabaseErrorsTotal);
+            metrics["authentication_attempts_total"] = GetCounterValue(AuthenticationAttemptsTotal);
+            metrics["authentication_failures_total"] = GetCounterValue(AuthenticationFailuresTotal);
+        }
+        catch (Exception)
+        {
+            metrics["note"] = "System metrics collection temporarily unavailable";
+        }
+        
+        return metrics;
+    }
+    
+    private static double GetCounterValue(Counter counter)
+    {
+        try
+        {
+            return counter.Value;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+    
+    private static long GetHistogramCount(Histogram histogram)
+    {
+        try
+        {
+            // Get total count of observations
+            return histogram.Count;
+        }
+        catch
+        {
+            return 0;
+        }
     }
 }

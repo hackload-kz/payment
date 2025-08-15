@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using PaymentGateway.Core.DTOs.PaymentCheck;
 using PaymentGateway.Core.Services;
+using PaymentGateway.Core.Entities;
 using PaymentGateway.API.Filters;
 using PaymentGateway.API.Middleware;
 using Microsoft.Extensions.Caching.Memory;
@@ -209,6 +210,20 @@ public class PaymentCheckController : ControllerBase
         _logger.LogInformation("Payment status check request received. RequestId: {RequestId}, TeamSlug: {TeamSlug}, PaymentId: {PaymentId}, OrderId: {OrderId}",
             requestId, teamSlug, request?.PaymentId, request?.OrderId);
 
+        // DEBUG: Add comprehensive debug logging for token validation
+        _logger.LogDebug("DEBUG - PaymentCheck Request Details: RequestId: {RequestId}", requestId);
+        _logger.LogDebug("DEBUG - Request TeamSlug: '{TeamSlug}'", request?.TeamSlug ?? "NULL");
+        _logger.LogDebug("DEBUG - Request Token: '{Token}' (Length: {TokenLength})", 
+            string.IsNullOrEmpty(request?.Token) ? "NULL" : "***PROVIDED***", 
+            request?.Token?.Length ?? 0);
+        _logger.LogDebug("DEBUG - Request PaymentId: '{PaymentId}'", request?.PaymentId ?? "NULL");
+        _logger.LogDebug("DEBUG - Request OrderId: '{OrderId}'", request?.OrderId ?? "NULL");
+        _logger.LogDebug("DEBUG - HttpContext TeamId: '{TeamId}'", teamId);
+        _logger.LogDebug("DEBUG - HttpContext TeamSlug: '{TeamSlug}'", teamSlug);
+        _logger.LogDebug("DEBUG - Request Version: '{Version}'", request?.Version ?? "NULL");
+        _logger.LogDebug("DEBUG - Request Timestamp: '{Timestamp}'", request?.Timestamp);
+        _logger.LogDebug("DEBUG - Request CorrelationId: '{CorrelationId}'", request?.CorrelationId ?? "NULL");
+
         try
         {
             ActivePaymentChecks.WithLabels(teamId.ToString()).Inc();
@@ -252,43 +267,24 @@ public class PaymentCheckController : ControllerBase
 
             PaymentCheckCacheMisses.WithLabels(teamId.ToString(), lookupType).Inc();
 
-            // 4. Enhanced authentication validation
-            var authContext = new PaymentCheckAuthContext
-            {
-                TeamSlug = request.TeamSlug,
-                Token = request.Token,
-                RequestId = requestId,
-                PaymentId = request.PaymentId,
-                OrderId = request.OrderId,
-                ClientIp = GetClientIpAddress(),
-                UserAgent = Request.Headers.UserAgent.ToString(),
-                Timestamp = DateTime.UtcNow
-            };
-
-            // SIMPLIFIED TOKEN FORMULA for PaymentCheck: PaymentId OR OrderId + TeamSlug + Password  
-            var authParameters = new Dictionary<string, object>
-            {
-                { "TeamSlug", authContext.TeamSlug }
-                // Note: Password will be added by the authentication service
-                // Token is not included in the calculation (it's the result)
-            };
+            // 4. Use authentication result from filter
+            // The PaymentAuthenticationFilter has already validated the request
+            var authResult = HttpContext.Items["AuthenticationResult"] as PaymentAuthenticationResult;
+            var authenticatedTeam = HttpContext.Items["AuthenticatedTeam"] as Team;
             
-            // Include either PaymentId or OrderId (whichever is provided)
-            if (!string.IsNullOrEmpty(authContext.PaymentId))
-                authParameters["PaymentId"] = authContext.PaymentId;
-            else if (!string.IsNullOrEmpty(authContext.OrderId))
-                authParameters["OrderId"] = authContext.OrderId;
-            
-            var authResult = await _authenticationService.AuthenticateAsync(authParameters, cancellationToken);
-            if (!authResult.IsAuthenticated)
+            if (authResult == null || !authResult.IsAuthenticated)
             {
                 PaymentCheckRequests.WithLabels(teamId.ToString(), "auth_failed", lookupType).Inc();
-                _logger.LogWarning("Payment status check authentication failed. RequestId: {RequestId}, TeamSlug: {TeamSlug}, Reason: {Reason}",
-                    requestId, request.TeamSlug, authResult.FailureReason);
+                _logger.LogWarning("Payment status check authentication failed. RequestId: {RequestId}, TeamSlug: {TeamSlug}, Reason: Filter authentication failed",
+                    requestId, request.TeamSlug);
 
-                traceActivity?.SetTag("payment_check.auth_error", authResult.FailureReason ?? "");
-                return Unauthorized(CreateErrorResponse("1001", "Authentication failed", authResult.FailureReason ?? "Authentication failed"));
+                traceActivity?.SetTag("payment_check.auth_error", "Filter authentication failed");
+                return Unauthorized(CreateErrorResponse("1001", "Authentication failed", "Filter authentication failed"));
             }
+
+            // Use the authenticated team information
+            teamId = authResult.TeamId ?? teamId;
+            teamSlug = authResult.TeamSlug ?? teamSlug;
 
             // 5. Perform payment status check
             PaymentCheckResponseDto response;
@@ -398,8 +394,19 @@ public class PaymentCheckController : ControllerBase
     /// <summary>
     /// Get payment status using GET method (simplified version)
     /// 
+    /// ⚠️ **DEPRECATED - SECURITY RISK**: This GET endpoint exposes authentication tokens in URLs,
+    /// which can be logged in server logs, browser history, and proxy caches. Use the POST endpoint instead.
+    /// 
+    /// **RECOMMENDED**: Use POST /api/v1/PaymentCheck/check for secure token handling.
+    /// 
     /// This endpoint provides a simplified GET-based payment status check for easier integration
-    /// with systems that prefer GET requests over POST.
+    /// with systems that prefer GET requests over POST, but should be avoided in production.
+    /// 
+    /// ## Security Issues:
+    /// - ❌ Tokens exposed in URL query parameters
+    /// - ❌ Tokens logged in web server access logs
+    /// - ❌ Tokens visible in browser history
+    /// - ❌ Tokens cached by proxies and CDNs
     /// </summary>
     /// <param name="paymentId">Payment identifier to check</param>
     /// <param name="orderId">Order identifier to check (alternative to paymentId)</param>
@@ -409,6 +416,7 @@ public class PaymentCheckController : ControllerBase
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Payment status information</returns>
     [HttpGet("status")]
+    [Obsolete("This GET endpoint exposes tokens in URLs which is a security risk. Use POST /api/v1/PaymentCheck/check instead.", false)]
     [ProducesResponseType(typeof(PaymentCheckResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(PaymentCheckResponseDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -443,6 +451,12 @@ public class PaymentCheckController : ControllerBase
     {
         var errors = new List<string>();
         var warnings = new List<string>();
+
+        // DEBUG: Log validation process start
+        _logger.LogDebug("DEBUG - Starting PaymentCheck validation");
+        _logger.LogDebug("DEBUG - Validation TeamId: '{TeamId}'", teamId);
+        _logger.LogDebug("DEBUG - Validation Request.TeamSlug: '{TeamSlug}'", request?.TeamSlug ?? "NULL");
+        _logger.LogDebug("DEBUG - Validation Request.Token provided: {TokenProvided}", !string.IsNullOrEmpty(request?.Token));
 
         // Validate that either PaymentId or OrderId is provided
         if (string.IsNullOrWhiteSpace(request.PaymentId) && string.IsNullOrWhiteSpace(request.OrderId))

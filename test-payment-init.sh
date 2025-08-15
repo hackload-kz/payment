@@ -30,9 +30,16 @@ SCRIPT_VERSION="2.0.0"
 SCRIPT_NAME="Payment Gateway Test Suite"
 
 # Configuration
-API_BASE_URL="http://localhost:7010"
-TEAM_SLUG="my-webhook-test"
-PASSWORD="TestPassword123!"
+#API_BASE_URL="http://localhost:7010"
+#TEAM_SLUG="my-webhook-test"
+#PASSWORD="TestPassword123!"
+
+API_BASE_URL="https://hub.hackload.kz/payment-provider/common"
+TEAM_SLUG="los-lobos"
+PASSWORD="nSHCigO232PEMT#HqqcsqGweOEdUK"
+
+# "MERCHANT_ID": "los-lobos",
+        #"MERCHANT_PASSWORD": "nSHCigO232PEMT#HqqcsqGweOEdUK"
 
 # Generate unique order ID with timestamp
 ORDER_ID="order-$(date +%s)"
