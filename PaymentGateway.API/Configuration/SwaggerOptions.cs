@@ -36,4 +36,9 @@ public class SwaggerOptions
     /// Enable "Try it out" functionality in Swagger UI
     /// </summary>
     public bool EnableTryItOut { get; set; } = false;
+
+    /// <summary>
+    /// Custom endpoint URL for Swagger OpenAPI JSON (overrides default /openapi/v1.json)
+    /// </summary>
+    public string? EndpointUrl { get; set; }
 }

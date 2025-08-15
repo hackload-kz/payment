@@ -127,25 +127,74 @@ check_prerequisites() {
     print_success "Dockerfile found: $PROJECT_DIR/Dockerfile"
 }
 
-# Function to build Docker image
+# Function to build Docker image using docker-build.sh
 build_docker_image() {
     print_header "Building Docker Image"
     
     cd "$PROJECT_DIR"
     
-    local full_image_name="$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG"
+    # Check if docker-build.sh exists
+    if [ ! -f "$PROJECT_DIR/docker-build.sh" ]; then
+        print_error "docker-build.sh not found: $PROJECT_DIR/docker-build.sh"
+        print_message $YELLOW "Falling back to direct docker build..."
+        
+        local full_image_name="$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG"
+        print_message $BLUE "Building Docker image: $full_image_name"
+        
+        docker build -t "$full_image_name" \
+            --target runtime \
+            --build-arg ASPNETCORE_ENVIRONMENT="$ASPNETCORE_ENVIRONMENT" \
+            .
+        
+        if [ $? -eq 0 ]; then
+            print_success "Docker image built successfully: $full_image_name"
+        else
+            print_error "Failed to build Docker image"
+            exit 1
+        fi
+        return
+    fi
     
-    print_message $BLUE "Building Docker image: $full_image_name"
+    print_message $BLUE "Using docker-build.sh for building Docker image"
+    print_message $BLUE "Image name: $DOCKER_IMAGE_NAME"
+    print_message $BLUE "Image tag: $DOCKER_IMAGE_TAG"
     
-    docker build -t "$full_image_name" \
-        --target runtime \
-        --build-arg ASPNETCORE_ENVIRONMENT="$ASPNETCORE_ENVIRONMENT" \
-        .
+    # Set environment variables for docker-build.sh
+    export DOCKER_REGISTRY="${DOCKER_REGISTRY:-ghcr.io}"
+    export DOCKER_NAMESPACE="${DOCKER_NAMESPACE:-hackload-kz}"
+    export DOCKER_IMAGE_NAME="$DOCKER_IMAGE_NAME"
+    export DOCKERFILE="${DOCKERFILE:-Dockerfile}"
+    
+    # Run docker-build.sh (build only, no push)
+    print_message $BLUE "Running docker-build.sh..."
+    bash "$PROJECT_DIR/docker-build.sh"
     
     if [ $? -eq 0 ]; then
-        print_success "Docker image built successfully: $full_image_name"
+        print_success "Docker image built successfully using docker-build.sh"
+        
+        # Show the built images
+        print_message $BLUE "Available Docker images:"
+        docker images "${DOCKER_REGISTRY}/${DOCKER_NAMESPACE}/${DOCKER_IMAGE_NAME}" --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}"
+        
+        # Tag the image with our local tag if different
+        local full_registry_name="${DOCKER_REGISTRY}/${DOCKER_NAMESPACE}/${DOCKER_IMAGE_NAME}:latest"
+        local local_name="${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
+        
+        if [ "$full_registry_name" != "$local_name" ]; then
+            print_message $BLUE "Creating local tag: $local_name"
+            docker tag "$full_registry_name" "$local_name"
+            
+            if [ $? -eq 0 ]; then
+                print_success "Local tag created: $local_name"
+            else
+                print_warning "Failed to create local tag, will use registry name"
+                # Update the local variables to use the registry name
+                DOCKER_IMAGE_NAME="${DOCKER_REGISTRY}/${DOCKER_NAMESPACE}/${DOCKER_IMAGE_NAME}"
+                DOCKER_IMAGE_TAG="latest"
+            fi
+        fi
     else
-        print_error "Failed to build Docker image"
+        print_error "Failed to build Docker image using docker-build.sh"
         exit 1
     fi
 }

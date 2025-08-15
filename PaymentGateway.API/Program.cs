@@ -82,7 +82,9 @@ try
         // Configure Swagger UI
         app.UseSwaggerUI(options =>
         {
-            options.SwaggerEndpoint("/openapi/v1.json", $"{swaggerOptions.Title} v1");
+            // Use configurable endpoint URL or default to /openapi/v1.json
+            var endpointUrl = swaggerOptions.EndpointUrl ?? "/openapi/v1.json";
+            options.SwaggerEndpoint(endpointUrl, $"{swaggerOptions.Title} v1");
             options.RoutePrefix = swaggerOptions.RoutePrefix;
             options.DocumentTitle = swaggerOptions.Title;
             options.DisplayOperationId();
