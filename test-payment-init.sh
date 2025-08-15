@@ -30,7 +30,7 @@ SCRIPT_VERSION="2.0.0"
 SCRIPT_NAME="Payment Gateway Test Suite"
 
 # Configuration
-API_BASE_URL="http://localhost:5162"
+API_BASE_URL="http://localhost:7010"
 TEAM_SLUG="my-webhook-test"
 PASSWORD="TestPassword123!"
 

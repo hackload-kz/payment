@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using PaymentGateway.Core.DTOs.PaymentInit;
 using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Enums;
@@ -33,6 +34,7 @@ public class PaymentInitializationService : IPaymentInitializationService
     private readonly IMetricsService _metricsService;
     private readonly IComprehensiveAuditService _auditService;
     private readonly IPaymentStateManager _paymentStateManager;
+    private readonly IConfiguration _configuration;
 
     public PaymentInitializationService(
         IPaymentRepository paymentRepository,
@@ -41,7 +43,8 @@ public class PaymentInitializationService : IPaymentInitializationService
         ILogger<PaymentInitializationService> logger,
         IMetricsService metricsService,
         IComprehensiveAuditService auditService,
-        IPaymentStateManager paymentStateManager)
+        IPaymentStateManager paymentStateManager,
+        IConfiguration configuration)
     {
         _paymentRepository = paymentRepository;
         _teamRepository = teamRepository;
@@ -50,6 +53,7 @@ public class PaymentInitializationService : IPaymentInitializationService
         _metricsService = metricsService;
         _auditService = auditService;
         _paymentStateManager = paymentStateManager;
+        _configuration = configuration;
     }
 
     public async Task<PaymentInitResponseDto> InitializePaymentAsync(PaymentInitRequestDto request, CancellationToken cancellationToken = default)
@@ -175,9 +179,8 @@ public class PaymentInitializationService : IPaymentInitializationService
     {
         try
         {
-            // Generate hosted payment page URL
-            // For development, use localhost. In production, this would come from configuration
-            var baseUrl = "http://localhost:5162"; // Development URL
+            // Generate hosted payment page URL using configuration
+            var baseUrl = _configuration["Api:BaseUrl"] ?? "http://localhost:7010";
             var paymentUrl = $"{baseUrl}/api/v1/paymentform/render/{paymentId}";
             
             _logger.LogDebug("Generated PaymentURL: {PaymentUrl} for PaymentId: {PaymentId}", paymentUrl, paymentId);

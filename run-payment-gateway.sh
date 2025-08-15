@@ -24,7 +24,7 @@ ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}"
 BASE_URL="${BASE_URL:-http://localhost:7010}"
 
 # Database Configuration
-DB_HOST="${DB_HOST:-localhost}"
+DB_HOST="${DB_HOST:-host.docker.internal}"
 DB_PORT="${DB_PORT:-5432}"
 DB_NAME="${DB_NAME:-task}"
 DB_USER="${DB_USER:-organizer}"

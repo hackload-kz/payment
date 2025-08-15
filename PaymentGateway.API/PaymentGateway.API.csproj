@@ -4,6 +4,8 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Ensure Views are included in publish -->
+    <CopyRazorGenerateFilesToPublishDirectory>true</CopyRazorGenerateFilesToPublishDirectory>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,6 +30,11 @@
   <ItemGroup>
     <ProjectReference Include="..\PaymentGateway.Core\PaymentGateway.Core.csproj" />
     <ProjectReference Include="..\PaymentGateway.Infrastructure\PaymentGateway.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!-- Ensure Views directory is included in publish -->
+  <ItemGroup>
+    <Content Include="Views/**/*" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

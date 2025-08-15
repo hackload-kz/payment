@@ -1,0 +1,106 @@
+/* Custom Swagger UI styles for production */
+
+/* Add warning banner for production */
+.swagger-ui .info::before {
+    content: "⚠️ PRODUCTION API - Use with caution. All operations affect live data.";
+    display: block;
+    background: #ff6b6b;
+    color: white;
+    padding: 10px 15px;
+    margin: 0 -20px 20px -20px;
+    font-weight: bold;
+    text-align: center;
+    border-radius: 4px 4px 0 0;
+}
+
+/* Customize the main title */
+.swagger-ui .info .title {
+    color: #2c3e50;
+    font-size: 32px;
+    margin: 0 0 5px 0;
+}
+
+/* Style the description */
+.swagger-ui .info .description p {
+    color: #5a6c7d;
+    font-size: 16px;
+    margin-bottom: 20px;
+}
+
+/* Highlight admin endpoints */
+.swagger-ui .opblock.opblock-post[data-path*="Admin"] {
+    border-color: #e74c3c;
+    background: rgba(231, 76, 60, 0.05);
+}
+
+.swagger-ui .opblock.opblock-post[data-path*="Admin"] .opblock-summary {
+    border-color: #e74c3c;
+}
+
+/* Style security schemes section */
+.swagger-ui .auth-wrapper {
+    border: 2px solid #f39c12;
+    border-radius: 8px;
+    padding: 15px;
+    background: rgba(243, 156, 18, 0.05);
+}
+
+/* Add footer with additional information */
+.swagger-ui::after {
+    content: "Payment Gateway API • For technical support contact: support@hackload.com";
+    display: block;
+    text-align: center;
+    padding: 20px;
+    color: #7f8c8d;
+    font-size: 14px;
+    margin-top: 40px;
+    border-top: 1px solid #ecf0f1;
+}
+
+/* Disable try-it-out buttons in production (backup CSS if JS doesn't work) */
+.swagger-ui .try-out__btn {
+    display: none !important;
+}
+
+/* Style the response section */
+.swagger-ui .responses-wrapper {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 10px;
+}
+
+/* Make parameter sections more prominent */
+.swagger-ui .parameters-container {
+    background: #ffffff;
+    border: 1px solid #e1e8ed;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 10px 0;
+}
+
+/* Style required parameters */
+.swagger-ui .parameter__name.required::after {
+    content: " *";
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* Add subtle animations */
+.swagger-ui .opblock-summary:hover {
+    background: rgba(52, 152, 219, 0.05);
+    transition: background-color 0.2s ease;
+}
+
+/* Responsive design adjustments */
+@media (max-width: 768px) {
+    .swagger-ui .info .title {
+        font-size: 24px;
+    }
+    
+    .swagger-ui .info::before {
+        margin: 0 -10px 15px -10px;
+        padding: 8px 10px;
+        font-size: 14px;
+    }
+}

@@ -59,7 +59,7 @@ try
 
     // Add API versioning
     builder.Services.AddPaymentGatewayApiVersioning();
-    builder.Services.AddVersionedSwagger();
+    builder.Services.AddVersionedSwagger(builder.Configuration);
 
     // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
     builder.Services.AddOpenApi();
@@ -73,9 +73,45 @@ try
     await app.MigrateDatabase(); 
 
     // Configure the HTTP request pipeline.
-    if (app.Environment.IsDevelopment())
+    var swaggerOptions = app.Configuration.GetSection("Swagger").Get<PaymentGateway.API.Configuration.SwaggerOptions>() ?? new();
+    
+    if (swaggerOptions.Enabled)
     {
         app.MapOpenApi();
+        
+        // Configure Swagger UI
+        app.UseSwaggerUI(options =>
+        {
+            options.SwaggerEndpoint("/openapi/v1.json", $"{swaggerOptions.Title} v1");
+            options.RoutePrefix = swaggerOptions.RoutePrefix;
+            options.DocumentTitle = swaggerOptions.Title;
+            options.DisplayOperationId();
+            options.DisplayRequestDuration();
+            
+            // Security settings for production
+            if (swaggerOptions.RequireHttps && !app.Environment.IsDevelopment())
+            {
+                options.ConfigObject.AdditionalItems["onComplete"] = "function() { if (window.location.protocol !== 'https:') { window.location.replace('https:' + window.location.href.substring(window.location.protocol.length)); } }";
+            }
+            
+            // Disable try-it-out functionality if configured
+            if (!swaggerOptions.EnableTryItOut)
+            {
+                options.ConfigObject.AdditionalItems["supportedSubmitMethods"] = "[]";
+            }
+            
+            // Add custom CSS for production environments
+            if (!app.Environment.IsDevelopment())
+            {
+                options.InjectStylesheet("/css/swagger-custom.css");
+            }
+        });
+        
+        Log.Information("Swagger UI enabled at /{RoutePrefix}", swaggerOptions.RoutePrefix);
+    }
+    else
+    {
+        Log.Information("Swagger UI is disabled via configuration");
     }
 
     app.UseHttpsRedirection();
