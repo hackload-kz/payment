@@ -5,6 +5,7 @@ using PaymentGateway.Core.Configuration;
 using PaymentGateway.Core.Data;
 using PaymentGateway.Core.DTOs.TeamRegistration;
 using PaymentGateway.Core.Entities;
+using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -272,7 +273,49 @@ public class TeamRegistrationService : ITeamRegistrationService
                         team.BusinessInfo = businessInfo;
                     }
                     break;
+                case "minpaymentamount":
+                    originalData["min_payment_amount"] = team.MinPaymentAmount;
+                    if (kvp.Value != null && decimal.TryParse(kvp.Value.ToString(), out var minAmount))
+                    {
+                        team.MinPaymentAmount = minAmount;
+                    }
+                    break;
+                case "maxpaymentamount":
+                    originalData["max_payment_amount"] = team.MaxPaymentAmount;
+                    if (kvp.Value != null && decimal.TryParse(kvp.Value.ToString(), out var maxAmount))
+                    {
+                        team.MaxPaymentAmount = maxAmount;
+                    }
+                    break;
+                case "dailypaymentlimit":
+                    originalData["daily_payment_limit"] = team.DailyPaymentLimit;
+                    if (kvp.Value != null && decimal.TryParse(kvp.Value.ToString(), out var dailyLimit))
+                    {
+                        team.DailyPaymentLimit = dailyLimit;
+                    }
+                    break;
+                case "monthlypaymentlimit":
+                    originalData["monthly_payment_limit"] = team.MonthlyPaymentLimit;
+                    if (kvp.Value != null && decimal.TryParse(kvp.Value.ToString(), out var monthlyLimit))
+                    {
+                        team.MonthlyPaymentLimit = monthlyLimit;
+                    }
+                    break;
+                case "dailytransactionlimit":
+                    originalData["daily_transaction_limit"] = team.DailyTransactionLimit;
+                    if (kvp.Value != null && int.TryParse(kvp.Value.ToString(), out var dailyTxnLimit))
+                    {
+                        team.DailyTransactionLimit = dailyTxnLimit;
+                    }
+                    break;
             }
+        }
+
+        // Validate business rules after all updates
+        var (isValid, validationErrors) = team.ValidateForCreation();
+        if (!isValid)
+        {
+            throw new ValidationException(string.Join("; ", validationErrors));
         }
 
         team.UpdatedAt = DateTime.UtcNow;

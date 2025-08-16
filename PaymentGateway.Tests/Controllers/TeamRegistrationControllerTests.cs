@@ -14,6 +14,7 @@ namespace PaymentGateway.Tests.Controllers;
 public class TeamRegistrationControllerTests
 {
     private Mock<ITeamRegistrationService> _mockTeamService;
+    private Mock<IAdminAuthenticationService> _mockAdminAuth;
     private Mock<ILogger<TeamRegistrationController>> _mockLogger;
     private TeamRegistrationController _controller;
 
@@ -21,8 +22,9 @@ public class TeamRegistrationControllerTests
     public void SetUp()
     {
         _mockTeamService = new Mock<ITeamRegistrationService>();
+        _mockAdminAuth = new Mock<IAdminAuthenticationService>();
         _mockLogger = new Mock<ILogger<TeamRegistrationController>>();
-        _controller = new TeamRegistrationController(_mockTeamService.Object, _mockLogger.Object);
+        _controller = new TeamRegistrationController(_mockTeamService.Object, _mockAdminAuth.Object, _mockLogger.Object);
         
         // Setup HttpContext for admin authentication
         var httpContext = new DefaultHttpContext();

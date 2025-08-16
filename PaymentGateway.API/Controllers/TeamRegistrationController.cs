@@ -18,6 +18,7 @@ namespace PaymentGateway.API.Controllers;
 public class TeamRegistrationController : ControllerBase
 {
     private readonly ITeamRegistrationService _teamRegistrationService;
+    private readonly IAdminAuthenticationService _adminAuthService;
     private readonly ILogger<TeamRegistrationController> _logger;
 
     // Metrics for monitoring
@@ -27,11 +28,19 @@ public class TeamRegistrationController : ControllerBase
     private static readonly Histogram TeamRegistrationDuration = Metrics
         .CreateHistogram("team_registration_duration_seconds", "Team registration request duration");
 
+    private static readonly Counter TeamUpdateRequests = Metrics
+        .CreateCounter("team_update_requests_total", "Total team update requests", new[] { "result" });
+
+    private static readonly Histogram TeamUpdateDuration = Metrics
+        .CreateHistogram("team_update_duration_seconds", "Team update request duration");
+
     public TeamRegistrationController(
         ITeamRegistrationService teamRegistrationService,
+        IAdminAuthenticationService adminAuthService,
         ILogger<TeamRegistrationController> logger)
     {
         _teamRegistrationService = teamRegistrationService;
+        _adminAuthService = adminAuthService;
         _logger = logger;
     }
 
@@ -412,6 +421,234 @@ public class TeamRegistrationController : ControllerBase
                 NextSteps = new[] { details }
             }
         };
+    }
+
+    /// <summary>
+    /// Update team information and limits (Admin only)
+    /// 
+    /// This endpoint allows administrators to update team/merchant information including
+    /// payment limits, contact details, and configuration. This is a privileged operation
+    /// that requires admin authentication.
+    /// 
+    /// ## Security:
+    /// - Requires admin token via one of these methods:
+    ///   - Authorization header: `Bearer {admin-token}`
+    ///   - Custom header: `X-Admin-Token: {admin-token}`
+    /// - Admin token must be configured in application settings
+    /// - All operations are logged for audit purposes
+    /// 
+    /// ## Updatable Fields:
+    /// - **Basic Info**: TeamName, Email, Phone
+    /// - **URLs**: SuccessURL, FailURL, NotificationURL
+    /// - **Configuration**: SupportedCurrencies, BusinessInfo
+    /// - **Limits**: MinPaymentAmount, MaxPaymentAmount, DailyPaymentLimit, MonthlyPaymentLimit
+    /// - **Transaction Limits**: DailyTransactionLimit, MonthlyTransactionLimit
+    /// 
+    /// ## Business Rules:
+    /// - Daily limits must be ≤ 10,000,000
+    /// - Daily limits must be ≤ Monthly limits (if both are set)
+    /// - Min payment amount must be ≤ Max payment amount (if both are set)
+    /// - All amounts must be ≥ 0
+    /// </summary>
+    /// <param name="teamSlug">Team slug identifier</param>
+    /// <param name="request">Team update request containing fields to update</param>
+    /// <param name="cancellationToken">Cancellation token for request timeout handling</param>
+    /// <returns>Updated team information</returns>
+    /// <response code="200">Team updated successfully</response>
+    /// <response code="400">Invalid request parameters or validation failed</response>
+    /// <response code="401">Invalid or missing admin token</response>
+    /// <response code="403">Admin functionality not configured</response>
+    /// <response code="404">Team not found</response>
+    /// <response code="500">Internal server error</response>
+    [HttpPut("update/{teamSlug}")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult> UpdateTeam(
+        [FromRoute] string teamSlug,
+        [FromBody] TeamUpdateRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        using var timer = TeamUpdateDuration.NewTimer();
+        var requestId = Guid.NewGuid().ToString();
+
+        try
+        {
+            _logger.LogInformation("Team update request received. RequestId: {RequestId}, TeamSlug: {TeamSlug}", requestId, teamSlug);
+
+            // Check if admin functionality is configured
+            if (!_adminAuthService.IsAdminTokenConfigured())
+            {
+                TeamUpdateRequests.WithLabels("forbidden").Inc();
+                _logger.LogWarning("Team update attempted but admin token not configured. RequestId: {RequestId}", requestId);
+                
+                return StatusCode(403, new
+                {
+                    Error = "Admin functionality not configured",
+                    Message = "Admin token must be configured in application settings to use team update endpoints"
+                });
+            }
+
+            // Validate admin token - check both Bearer token and custom header
+            string? token = null;
+            
+            // Try Bearer token first
+            var authHeader = Request.Headers.Authorization.FirstOrDefault();
+            if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+            {
+                token = authHeader["Bearer ".Length..];
+            }
+            
+            // If no Bearer token, try custom header
+            if (string.IsNullOrEmpty(token))
+            {
+                var headerName = _adminAuthService.GetAdminTokenHeaderName();
+                token = Request.Headers[headerName].FirstOrDefault();
+            }
+            
+            if (string.IsNullOrEmpty(token))
+            {
+                TeamUpdateRequests.WithLabels("unauthorized").Inc();
+                _logger.LogWarning("Team update attempted without admin token. RequestId: {RequestId}", requestId);
+                
+                return Unauthorized(new
+                {
+                    Error = "Missing Authorization",
+                    Message = $"Admin token required. Use Authorization header with Bearer token or {_adminAuthService.GetAdminTokenHeaderName()} header."
+                });
+            }
+
+            if (!_adminAuthService.ValidateAdminToken(token))
+            {
+                TeamUpdateRequests.WithLabels("unauthorized").Inc();
+                _logger.LogWarning("Team update attempted with invalid token. RequestId: {RequestId}, IP: {RemoteIP}", 
+                    requestId, Request.HttpContext.Connection.RemoteIpAddress);
+                
+                return Unauthorized(new
+                {
+                    Error = "Invalid Token",
+                    Message = "Invalid admin token provided"
+                });
+            }
+
+            // Get team by slug
+            var team = await _teamRegistrationService.GetTeamStatusAsync(teamSlug, cancellationToken);
+            if (team == null)
+            {
+                TeamUpdateRequests.WithLabels("not_found").Inc();
+                _logger.LogWarning("Team update attempted for non-existent team. RequestId: {RequestId}, TeamSlug: {TeamSlug}", requestId, teamSlug);
+                
+                return NotFound(new
+                {
+                    Error = "Team not found",
+                    Message = $"Team with slug '{teamSlug}' not found"
+                });
+            }
+
+            // Validate request model
+            if (!ModelState.IsValid)
+            {
+                TeamUpdateRequests.WithLabels("validation_failed").Inc();
+                var errors = ModelState
+                    .SelectMany(x => x.Value.Errors)
+                    .Select(x => x.ErrorMessage)
+                    .ToList();
+                var errorMessage = string.Join("; ", errors);
+
+                _logger.LogWarning("Team update validation failed. RequestId: {RequestId}, Errors: {Errors}", requestId, errorMessage);
+
+                return BadRequest(new
+                {
+                    Error = "Validation failed",
+                    Message = errorMessage
+                });
+            }
+
+            // Build update data dictionary
+            var updateData = new Dictionary<string, object>();
+            
+            if (!string.IsNullOrEmpty(request.TeamName))
+                updateData["teamname"] = request.TeamName;
+            if (!string.IsNullOrEmpty(request.Email))
+                updateData["email"] = request.Email;
+            if (!string.IsNullOrEmpty(request.Phone))
+                updateData["phone"] = request.Phone;
+            if (!string.IsNullOrEmpty(request.SuccessURL))
+                updateData["successurl"] = request.SuccessURL;
+            if (!string.IsNullOrEmpty(request.FailURL))
+                updateData["failurl"] = request.FailURL;
+            if (!string.IsNullOrEmpty(request.NotificationURL))
+                updateData["notificationurl"] = request.NotificationURL;
+            if (!string.IsNullOrEmpty(request.SupportedCurrencies))
+                updateData["supportedcurrencies"] = request.SupportedCurrencies.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(c => c.Trim()).ToArray();
+            if (request.BusinessInfo != null)
+                updateData["businessinfo"] = request.BusinessInfo;
+            if (request.MinPaymentAmount.HasValue)
+                updateData["minpaymentamount"] = request.MinPaymentAmount.Value;
+            if (request.MaxPaymentAmount.HasValue)
+                updateData["maxpaymentamount"] = request.MaxPaymentAmount.Value;
+            if (request.DailyPaymentLimit.HasValue)
+                updateData["dailypaymentlimit"] = request.DailyPaymentLimit.Value;
+            if (request.MonthlyPaymentLimit.HasValue)
+                updateData["monthlypaymentlimit"] = request.MonthlyPaymentLimit.Value;
+            if (request.DailyTransactionLimit.HasValue)
+                updateData["dailytransactionlimit"] = request.DailyTransactionLimit.Value;
+
+            if (updateData.Count == 0)
+            {
+                TeamUpdateRequests.WithLabels("no_changes").Inc();
+                _logger.LogWarning("Team update attempted with no changes. RequestId: {RequestId}", requestId);
+                
+                return BadRequest(new
+                {
+                    Error = "No changes provided",
+                    Message = "At least one field must be provided for update"
+                });
+            }
+
+            // Perform the update
+            var updatedTeam = await _teamRegistrationService.UpdateTeamAsync(team.Id, updateData, cancellationToken);
+
+            TeamUpdateRequests.WithLabels("success").Inc();
+            
+            _logger.LogInformation("Team updated successfully. RequestId: {RequestId}, TeamSlug: {TeamSlug}, TeamId: {TeamId}", 
+                requestId, teamSlug, team.Id);
+
+            return Ok(new
+            {
+                Success = true,
+                Message = "Team updated successfully",
+                TeamSlug = updatedTeam.TeamSlug,
+                TeamId = updatedTeam.Id,
+                UpdatedAt = updatedTeam.UpdatedAt,
+                UpdatedFields = updateData.Keys.ToArray()
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            TeamUpdateRequests.WithLabels("not_found").Inc();
+            _logger.LogWarning(ex, "Team update failed - team not found. RequestId: {RequestId}", requestId);
+            
+            return NotFound(new
+            {
+                Error = "Team not found",
+                Message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            TeamUpdateRequests.WithLabels("error").Inc();
+            _logger.LogError(ex, "Unexpected error during team update. RequestId: {RequestId}", requestId);
+            
+            return StatusCode(500, new
+            {
+                Error = "Internal Server Error",
+                Message = "An unexpected error occurred during the team update operation"
+            });
+        }
     }
 
     private int GetHttpStatusCodeFromErrorCode(string errorCode)

@@ -297,6 +297,38 @@ Output: "b8f2f8e5c9d6a4c8f7b5e3a2d1f0e9c8b7a6f5d4e3c2b1a0f9e8d7c6b5a4f3e2"
 | 2429 | Превышение лимита регистраций | 429 | Дождаться и повторить |
 | 9999 | Внутренняя ошибка сервера | 500 | Обратиться в поддержку |
 
+### Ошибки лимитов платежей (3xxx)
+
+| Код | Описание | HTTP Статус | Действие |
+|-----|----------|-------------|----------|
+| 3015 | Исчерпан суточный лимит по количеству платежей | 429 | Дождаться сброса лимита или обратиться к администратору |
+
+#### Управление ошибкой "Daily payment limit exceeded"
+
+**Когда возникает:** Ошибка с кодом 3015 возникает когда сумма текущих платежей за день + новый платеж превышает установленный дневной лимит команды.
+
+**Формула проверки:** `(сегодняшние платежи) + (сумма нового платежа) > DailyPaymentLimit`
+
+**Способы решения:**
+
+1. **Для администраторов:** Обновить дневной лимит через API
+   ```bash
+   curl -X PUT "https://gateway.hackload.com/api/v1/TeamRegistration/update/{teamSlug}" \
+     -H "Authorization: Bearer {admin-token}" \
+     -H "Content-Type: application/json" \
+     -d '{"dailyPaymentLimit": 10000000}'
+   ```
+
+2. **Для мерчантов:** 
+   - Дождаться сброса лимита в 00:00 UTC
+   - Обратиться к администратору системы для повышения лимита
+   - Разбить крупный платеж на несколько меньших (если позволяет бизнес-логика)
+
+**Лимиты по умолчанию:**
+- Если `DailyPaymentLimit = null` - лимит не применяется
+- Максимальный дневной лимит: 10,000,000 (10 миллионов в валюте платежа)
+- Дневной лимит должен быть ≤ месячного лимита
+
 ---
 
 ## API эндпоинты
@@ -354,6 +386,87 @@ Content-Type: application/json
     ]
   }
 }
+```
+
+### 1.1. Обновление настроек команды (Администраторы)
+
+**PUT** `/api/v1/TeamRegistration/update/{teamSlug}`
+
+Обновление информации команды/мерчанта и настройка лимитов платежей. Доступно только администраторам с admin токеном.
+
+**Заголовки:**
+```
+Content-Type: application/json
+Authorization: Bearer {admin-token}
+```
+или
+```
+Content-Type: application/json
+X-Admin-Token: {admin-token}
+```
+
+**Параметры URL:**
+- `{teamSlug}` - уникальный идентификатор команды
+
+**Тело запроса (все поля опциональны):**
+```json
+{
+  "teamName": "Updated Store Name",
+  "email": "newemail@mystore.com",
+  "phone": "+1234567891",
+  "successURL": "https://mystore.com/new-success",
+  "failURL": "https://mystore.com/new-fail",
+  "notificationURL": "https://mystore.com/new-webhook",
+  "supportedCurrencies": "RUB,USD,EUR,KZT",
+  "businessInfo": {
+    "businessType": "marketplace",
+    "website": "https://newstore.com"
+  },
+  "minPaymentAmount": 1000,
+  "maxPaymentAmount": 1000000,
+  "dailyPaymentLimit": 5000000,
+  "monthlyPaymentLimit": 50000000,
+  "dailyTransactionLimit": 100
+}
+```
+
+**Ответ (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Team updated successfully",
+  "teamSlug": "my-online-store",
+  "teamId": "123e4567-e89b-12d3-a456-426614174000",
+  "updatedAt": "2025-08-16T14:30:00Z",
+  "updatedFields": [
+    "dailyPaymentLimit",
+    "monthlyPaymentLimit", 
+    "email"
+  ]
+}
+```
+
+**Ошибки:**
+
+- **401 Unauthorized** - отсутствует или неверный admin токен
+- **403 Forbidden** - admin функциональность не настроена
+- **404 Not Found** - команда не найдена
+- **400 Bad Request** - ошибки валидации
+
+**Бизнес-правила для лимитов:**
+- Daily limit ≤ 10,000,000 (10M максимум)
+- Daily limit ≤ Monthly limit (если оба заданы)
+- Min payment ≤ Max payment (если оба заданы)
+- Все суммы ≥ 0
+
+**Пример настройки дневного лимита:**
+```bash
+curl -X PUT "https://gateway.hackload.com/api/v1/TeamRegistration/update/my-store" \
+  -H "Authorization: Bearer admin_token_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dailyPaymentLimit": 500000
+  }'
 ```
 
 ### 2. Создание платежа
