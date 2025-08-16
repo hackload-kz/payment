@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2025 HackLoad Payment Gateway
 
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
+using PaymentGateway.API.Models;
+using PaymentGateway.Core.Configuration;
 using PaymentGateway.Core.DTOs.Common;
 using PaymentGateway.Core.DTOs.PaymentInit;
+using PaymentGateway.Core.Enums;
 using PaymentGateway.Core.Interfaces;
 using PaymentGateway.Core.Repositories;
-using PaymentGateway.Core.Enums;
 using PaymentGateway.Core.Services;
 using System.Diagnostics;
-using System.Text.Json;
 using System.Security.Cryptography;
 using System.Text;
-using PaymentGateway.API.Models;
+using System.Text.Json;
 
 namespace PaymentGateway.API.Controllers;
 
@@ -44,6 +46,7 @@ public class PaymentFormController : ControllerBase
     private readonly IMetricsService _metricsService;
     private readonly IConfiguration _configuration;
     private readonly IPaymentStateManager _paymentStateManager;
+    private readonly ApiOptions _apiOptions;
 
     // Metrics
     private static readonly System.Diagnostics.Metrics.Meter _meter = new("PaymentGateway.API.PaymentForm");
@@ -66,7 +69,8 @@ public class PaymentFormController : ControllerBase
         IPaymentLifecycleManagementService lifecycleService,
         IMetricsService metricsService,
         IConfiguration configuration,
-        IPaymentStateManager paymentStateManager)
+        IPaymentStateManager paymentStateManager,
+        IOptions<ApiOptions> apiOptions)
     {
         _logger = logger;
         _memoryCache = memoryCache;
@@ -78,6 +82,7 @@ public class PaymentFormController : ControllerBase
         _metricsService = metricsService;
         _configuration = configuration;
         _paymentStateManager = paymentStateManager;
+        _apiOptions = apiOptions.Value;
     }
 
     /// <summary>
@@ -155,6 +160,7 @@ public class PaymentFormController : ControllerBase
                 Language = ValidateLanguage(lang),
                 CsrfToken = csrfToken,
                 PaymentTimeout = payment.ExpiresAt,
+                BasePath = _apiOptions.BaseUrl,
                 Receipt = payment.Receipt != null ? JsonSerializer.Deserialize<Dictionary<string, object>>(payment.Receipt) : null
             };
 
@@ -417,6 +423,7 @@ public class PaymentFormController : ControllerBase
             .Replace("{{MerchantName}}", data.MerchantName)
             .Replace("{{CsrfToken}}", data.CsrfToken)
             .Replace("{{Language}}", data.Language)
+            .Replace("{{BasePath}}", data.BasePath)
             .Replace("{{PaymentTimeout}}", data.PaymentTimeout?.ToString("yyyy-MM-ddTHH:mm:ssZ") ?? "")
             .Replace("{{SubmitUrl}}", "/api/v1/paymentform/submit");
 
@@ -583,6 +590,7 @@ public class PaymentFormController : ControllerBase
                 .Replace("{{Status}}", System.Net.WebUtility.HtmlEncode(status))
                 .Replace("{{IconClass}}", iconClass)
                 .Replace("{{Icon}}", icon)
+                .Replace("{{BasePath}}", _apiOptions.BaseUrl)
                 .Replace("{{Message}}", encodedMessage)
                 .Replace("{{PaymentId}}", System.Net.WebUtility.HtmlEncode(payment.PaymentId))
                 .Replace("{{OrderIdSection}}", orderIdSection)
@@ -879,6 +887,7 @@ public class PaymentFormData
     public string MerchantName { get; set; } = string.Empty;
     public string? SuccessUrl { get; set; }
     public string? FailUrl { get; set; }
+    public string BasePath { get; set; } = string.Empty;
     public string Language { get; set; } = "en";
     public string CsrfToken { get; set; } = string.Empty;
     public DateTime? PaymentTimeout { get; set; }
