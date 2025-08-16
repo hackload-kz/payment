@@ -94,6 +94,7 @@ public class HttpsEnforcementMiddleware
 
     private void AddSecurityHeaders(HttpContext context)
     {
+        return;
         var response = context.Response;
 
         // Strict Transport Security (HSTS)

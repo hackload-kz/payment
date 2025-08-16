@@ -331,7 +331,7 @@ public class SecurityHeadersOptions
     public bool HstsPreload { get; set; } = false;
 
     // Content Security Policy
-    public bool EnableContentSecurityPolicy { get; set; } = true;
+    public bool EnableContentSecurityPolicy { get; set; } = false;
     public bool CspUpgradeInsecureRequests { get; set; } = true;
     public string[] CspScriptSources { get; set; } = Array.Empty<string>();
     public string[] CspStyleSources { get; set; } = Array.Empty<string>();
@@ -407,8 +407,9 @@ public static class SecurityHeadersMiddlewareExtensions
         {
             // Configure CSP for payment gateway specific needs
             options.CspScriptSources = [
-                "'unsafe-inline'",
-                //"'sha256-8UeAfAS+DZjqKZMN2Jzy6YTc7YQBr46yHkXIkTphW90='"
+                //"'unsafe-inline'",
+                "'sha256-8UeAfAS+DZjqKZMN2Jzy6YTc7YQBr46yHkXIkTphW90='",
+                "'sha256-y58vSXy9BvMTxZxEGHs3BCugNI+ZN9npwTBbr8bX7nU='",
             ];
 
             options.CspConnectSources = new[]

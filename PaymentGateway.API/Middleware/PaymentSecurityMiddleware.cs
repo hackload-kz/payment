@@ -70,7 +70,7 @@ public class PaymentSecurityMiddleware
         // Configure Content Security Policy
         _cspPolicy = _configuration.GetValue<string>("Security:CSPPolicy") ?? 
             "default-src 'self'; " +
-            "script-src 'self' 'unsafe-inline'; " +
+            "script-src 'self' 'unsafe-inline' 'sha256-8UeAfAS+DZjqKZMN2Jzy6YTc7YQBr46yHkXIkTphW90=' 'sha256-y58vSXy9BvMTxZxEGHs3BCugNI+ZN9npwTBbr8bX7nU='; " +
             "style-src 'self' 'unsafe-inline'; " +
             "img-src 'self' data: https:; " +
             "form-action 'self'; " +
