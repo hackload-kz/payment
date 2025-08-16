@@ -219,11 +219,18 @@ public class TeamRegistrationService : ITeamRegistrationService
 
     public async Task<Team> UpdateTeamAsync(Guid teamId, Dictionary<string, object> updateData, CancellationToken cancellationToken = default)
     {
-        var team = await _context.Teams.FindAsync(new object[] { teamId }, cancellationToken);
+        // Use AsNoTracking to get a fresh copy, then attach and modify
+        var team = await _context.Teams
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == teamId, cancellationToken);
+            
         if (team == null)
         {
             throw new ArgumentException($"Team with ID {teamId} not found");
         }
+        
+        // Attach the entity to the context for tracking
+        _context.Teams.Attach(team);
 
         var originalData = new Dictionary<string, object>();
 
@@ -319,6 +326,10 @@ public class TeamRegistrationService : ITeamRegistrationService
         }
 
         team.UpdatedAt = DateTime.UtcNow;
+        
+        // Explicitly mark the entity as modified to ensure EF tracks changes
+        _context.Entry(team).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
+        
         await _context.SaveChangesAsync(cancellationToken);
 
         // Log audit event
