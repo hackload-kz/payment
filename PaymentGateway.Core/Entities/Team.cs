@@ -238,9 +238,6 @@ public class Team : BaseEntity, IAuditableEntity
         if (DailyPaymentLimit.HasValue && DailyPaymentLimit <= 0)
             errors.Add("Daily payment limit must be greater than zero");
             
-        if (DailyPaymentLimit.HasValue && DailyPaymentLimit > 10000000) // 10M daily limit
-            errors.Add("Daily payment limit exceeds maximum allowed");
-            
         if (MonthlyPaymentLimit.HasValue && DailyPaymentLimit.HasValue && 
             MonthlyPaymentLimit <= DailyPaymentLimit)
             errors.Add("Monthly payment limit must be greater than daily limit");

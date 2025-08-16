@@ -73,7 +73,7 @@ public class TeamUpdateRequestDto
     /// <summary>
     /// Daily payment limit (total amount per day)
     /// </summary>
-    [Range(0, 10000000, ErrorMessage = "DailyPaymentLimit must be between 0 and 10,000,000")]
+    [Range(0, 999999999999999999.99, ErrorMessage = "DailyPaymentLimit must be between 0 and 999,999,999,999,999,999.99")]
     public decimal? DailyPaymentLimit { get; set; }
 
     /// <summary>

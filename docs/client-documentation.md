@@ -316,7 +316,7 @@ Output: "b8f2f8e5c9d6a4c8f7b5e3a2d1f0e9c8b7a6f5d4e3c2b1a0f9e8d7c6b5a4f3e2"
    curl -X PUT "https://gateway.hackload.com/api/v1/TeamRegistration/update/{teamSlug}" \
      -H "Authorization: Bearer {admin-token}" \
      -H "Content-Type: application/json" \
-     -d '{"dailyPaymentLimit": 10000000}'
+     -d '{"dailyPaymentLimit": 999999999999999999.99}'
    ```
 
 2. **Для мерчантов:** 
@@ -326,7 +326,7 @@ Output: "b8f2f8e5c9d6a4c8f7b5e3a2d1f0e9c8b7a6f5d4e3c2b1a0f9e8d7c6b5a4f3e2"
 
 **Лимиты по умолчанию:**
 - Если `DailyPaymentLimit = null` - лимит не применяется
-- Максимальный дневной лимит: 10,000,000 (10 миллионов в валюте платежа)
+- Максимальный дневной лимит: 999,999,999,999,999,999.99
 - Дневной лимит должен быть ≤ месячного лимита
 
 ---
