@@ -192,6 +192,175 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
+    /// Clear data for a specific team/merchant
+    /// 
+    /// This endpoint allows administrators to clear payment, transaction, and order data
+    /// for a specific team while preserving the team configuration and data for other teams.
+    /// This is useful for cleaning up test data for a specific merchant.
+    /// 
+    /// ## Security:
+    /// - Requires admin token via one of these methods:
+    ///   - Authorization header: `Bearer {admin-token}`
+    ///   - Custom header: `X-Admin-Token: {admin-token}`
+    /// - Admin token must be configured in application settings
+    /// - All operations are logged for audit purposes
+    /// 
+    /// ## Data Cleared (for specified team only):
+    /// - **Payments**: All payment records for the team
+    /// - **Transactions**: All transaction records related to team's payments
+    /// - **Orders**: Order data embedded within payment records (OrderId field)
+    /// 
+    /// ## Data Preserved:
+    /// - **Team Configuration**: Team/merchant settings and configuration
+    /// - **Other Teams**: Data for all other teams remains untouched
+    /// - **Customers**: Customer profile information
+    /// - **System Configuration**: Application settings and configurations
+    /// </summary>
+    /// <param name="teamSlug">The team slug identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Statistics about the team data clearing operation</returns>
+    /// <response code="200">Team data cleared successfully</response>
+    /// <response code="401">Invalid or missing admin token</response>
+    /// <response code="403">Admin functionality not configured</response>
+    /// <response code="404">Team not found</response>
+    /// <response code="500">Internal server error during clearing operation</response>
+    [HttpPost("clear-team-data/{teamSlug}")]
+    [ProducesResponseType(typeof(AdminDataClearResponse), 200)]
+    [ProducesResponseType(typeof(ErrorResponse), 401)]
+    [ProducesResponseType(typeof(ErrorResponse), 403)]
+    [ProducesResponseType(typeof(ErrorResponse), 404)]
+    [ProducesResponseType(typeof(ErrorResponse), 500)]
+    public async Task<ActionResult<AdminDataClearResponse>> ClearTeamData(
+        [FromRoute] [Required] string teamSlug,
+        CancellationToken cancellationToken = default)
+    {
+        using var timer = AdminOperationDuration.WithLabels("clear_team_data").NewTimer();
+
+        try
+        {
+            // Check if admin functionality is configured
+            if (!_adminAuthService.IsAdminTokenConfigured())
+            {
+                AdminOperations.WithLabels("clear_team_data", "forbidden").Inc();
+                _logger.LogWarning("Admin team data clear attempted but admin token not configured for team {TeamSlug}", teamSlug);
+                
+                return StatusCode(403, new ErrorResponse
+                {
+                    Error = "Admin functionality not configured",
+                    Message = "Admin token must be configured in application settings to use admin endpoints"
+                });
+            }
+
+            // Validate admin token - check both Bearer token and custom header
+            string? token = null;
+            
+            // Try Bearer token first
+            var authHeader = Request.Headers.Authorization.FirstOrDefault();
+            if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+            {
+                token = authHeader["Bearer ".Length..];
+            }
+            
+            // If no Bearer token, try custom header
+            if (string.IsNullOrEmpty(token))
+            {
+                var headerName = _adminAuthService.GetAdminTokenHeaderName();
+                token = Request.Headers[headerName].FirstOrDefault();
+            }
+            
+            if (string.IsNullOrEmpty(token))
+            {
+                AdminOperations.WithLabels("clear_team_data", "unauthorized").Inc();
+                _logger.LogWarning("Admin team data clear attempted without admin token for team {TeamSlug}", teamSlug);
+                
+                return Unauthorized(new ErrorResponse
+                {
+                    Error = "Missing Authorization",
+                    Message = $"Admin token required. Use Authorization header with Bearer token or {_adminAuthService.GetAdminTokenHeaderName()} header."
+                });
+            }
+
+            if (!_adminAuthService.ValidateAdminToken(token))
+            {
+                AdminOperations.WithLabels("clear_team_data", "unauthorized").Inc();
+                _logger.LogWarning("Admin team data clear attempted with invalid token from IP {RemoteIP} for team {TeamSlug}", 
+                    Request.HttpContext.Connection.RemoteIpAddress, teamSlug);
+                
+                return Unauthorized(new ErrorResponse
+                {
+                    Error = "Invalid Token",
+                    Message = "Invalid admin token provided"
+                });
+            }
+
+            _logger.LogWarning("Admin team data clear operation initiated by IP {RemoteIP} for team {TeamSlug}", 
+                Request.HttpContext.Connection.RemoteIpAddress, teamSlug);
+
+            // Perform the clear operation for specific team
+            var result = await _dataClearService.ClearTeamDataAsync(teamSlug, cancellationToken);
+
+            if (result.Success)
+            {
+                AdminOperations.WithLabels("clear_team_data", "success").Inc();
+                
+                var response = new AdminDataClearResponse
+                {
+                    Success = true,
+                    Message = $"Team data cleared successfully for '{teamSlug}'",
+                    Statistics = new DatabaseClearStatistics
+                    {
+                        DeletedPayments = result.DeletedPayments,
+                        DeletedTransactions = result.DeletedTransactions,
+                        DeletedOrders = result.DeletedOrders,
+                        OperationDurationMs = (int)result.OperationDuration.TotalMilliseconds,
+                        ClearTimestamp = result.ClearTimestamp
+                    }
+                };
+
+                _logger.LogWarning("Admin team data clear completed successfully for team {TeamSlug}: {Statistics}", 
+                    teamSlug, System.Text.Json.JsonSerializer.Serialize(response.Statistics));
+
+                return Ok(response);
+            }
+            else
+            {
+                // Check if the error was due to team not found
+                if (result.ErrorMessage?.Contains("not found") == true)
+                {
+                    AdminOperations.WithLabels("clear_team_data", "not_found").Inc();
+                    
+                    return NotFound(new ErrorResponse
+                    {
+                        Error = "Team Not Found",
+                        Message = result.ErrorMessage
+                    });
+                }
+                
+                AdminOperations.WithLabels("clear_team_data", "error").Inc();
+                
+                _logger.LogError("Admin team data clear operation failed for team {TeamSlug}: {ErrorMessage}", teamSlug, result.ErrorMessage);
+                
+                return StatusCode(500, new ErrorResponse
+                {
+                    Error = "Clear Operation Failed",
+                    Message = result.ErrorMessage ?? "Unknown error occurred during team data clear operation"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            AdminOperations.WithLabels("clear_team_data", "error").Inc();
+            _logger.LogError(ex, "Unexpected error during admin team data clear operation for team {TeamSlug}", teamSlug);
+            
+            return StatusCode(500, new ErrorResponse
+            {
+                Error = "Internal Server Error",
+                Message = "An unexpected error occurred during the clear operation"
+            });
+        }
+    }
+
+    /// <summary>
     /// Check admin service status and configuration
     /// </summary>
     /// <returns>Admin service status information</returns>
