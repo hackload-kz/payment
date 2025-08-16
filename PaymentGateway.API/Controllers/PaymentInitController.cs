@@ -575,7 +575,7 @@ public class PaymentInitController : ControllerBase
         }
 
         // Currency validation
-        var allowedCurrencies = new[] { "RUB", "USD", "EUR" };
+        var allowedCurrencies = new[] { "KZT", "USD", "EUR", "BYN", "RUB" };
         if (!allowedCurrencies.Contains(request.Currency.ToUpper()))
             errors.Add($"Currency must be one of: {string.Join(", ", allowedCurrencies)}");
 

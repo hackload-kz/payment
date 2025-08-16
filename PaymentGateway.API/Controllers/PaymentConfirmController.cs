@@ -329,7 +329,7 @@ public class PaymentConfirmController : ControllerBase
                         ? (decimal)confirmationResult.ResultMetadata["confirmed_amount"] 
                         : request.Amount,
                     RemainingAmount = 0, // Full confirmation only
-                    Currency = "RUB", // Default currency
+                    Currency = "KZT", // Default currency
                     ConfirmedAt = confirmationResult.ConfirmedAt,
                     BankDetails = new BankTransactionDetailsDto
                     {

@@ -352,7 +352,7 @@ public class TeamRegistrationController : ControllerBase
         // Currency validation
         var supportedCurrencies = request.SupportedCurrencies.Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(c => c.Trim().ToUpper()).ToArray();
-        var allowedCurrencies = new[] { "RUB", "USD", "EUR" };
+        var allowedCurrencies = new[] { "KZT", "USD", "EUR", "BYN", "RUB" };
         
         foreach (var currency in supportedCurrencies)
         {

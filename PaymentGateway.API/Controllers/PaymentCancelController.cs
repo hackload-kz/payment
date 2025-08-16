@@ -347,7 +347,7 @@ public class PaymentCancelController : ControllerBase
                     OriginalAmount = cancellationResult.OriginalAmount,
                     CancelledAmount = cancellationResult.OriginalAmount,
                     RemainingAmount = 0, // Full cancellation only
-                    Currency = "RUB", // Default currency
+                    Currency = "KZT", // Default currency
                     CancelledAt = cancellationResult.CancelledAt,
                     BankDetails = new CancelBankDetailsDto
                     {

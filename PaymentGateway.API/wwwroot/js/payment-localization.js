@@ -260,9 +260,9 @@ class PaymentLocalization {
         // For now, we'll just update the display format
         currencyElements.forEach(element => {
             if (this.currentLanguage === 'ru') {
-                element.textContent = 'RUB';
+                element.textContent = 'KZT';
             } else {
-                element.textContent = 'RUB'; // Keep RUB for consistency
+                element.textContent = 'KZT'; // Keep RUB for consistency
             }
         });
 
