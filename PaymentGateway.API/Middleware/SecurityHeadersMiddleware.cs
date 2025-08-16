@@ -406,23 +406,14 @@ public static class SecurityHeadersMiddlewareExtensions
         return services.AddSecurityHeaders(options =>
         {
             // Configure CSP for payment gateway specific needs
-            options.CspScriptSources = new[]
-            {
-                "https://js.stripe.com",
-                "https://checkout.stripe.com", 
-                "https://maps.googleapis.com"
-            };
+            options.CspScriptSources = Array.Empty<string>();
 
             options.CspConnectSources = new[]
             {
-                "https://*.stripe.com",
                 "https://api.hackload.com"
             };
 
-            options.CspFormActionSources = new[]
-            {
-                "https://checkout.stripe.com"
-            };
+            options.CspFormActionSources = Array.Empty<string>();
 
             // Strict frame options for payment security
             options.XFrameOptionsValue = "DENY";

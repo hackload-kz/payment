@@ -70,12 +70,9 @@ public class PaymentSecurityMiddleware
         // Configure Content Security Policy
         _cspPolicy = _configuration.GetValue<string>("Security:CSPPolicy") ?? 
             "default-src 'self'; " +
-            "script-src 'self' 'unsafe-inline' https://js.stripe.com https://checkout.stripe.com; " +
+            "script-src 'self' 'unsafe-inline'; " +
             "style-src 'self' 'unsafe-inline'; " +
             "img-src 'self' data: https:; " +
-            "font-src 'self' https://fonts.gstatic.com; " +
-            "connect-src 'self' https://api.stripe.com; " +
-            "frame-src https://checkout.stripe.com https://hooks.stripe.com; " +
             "form-action 'self'; " +
             "frame-ancestors 'none'; " +
             "base-uri 'self'; " +
