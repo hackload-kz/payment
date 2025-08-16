@@ -406,7 +406,10 @@ public static class SecurityHeadersMiddlewareExtensions
         return services.AddSecurityHeaders(options =>
         {
             // Configure CSP for payment gateway specific needs
-            options.CspScriptSources = Array.Empty<string>();
+            options.CspScriptSources = [
+                "'unsafe-inline'",
+                "'sha256-8UeAfAS+DZjqKZMN2Jzy6YTc7YQBr46yHkXIkTphW90='"
+            ];
 
             options.CspConnectSources = new[]
             {
