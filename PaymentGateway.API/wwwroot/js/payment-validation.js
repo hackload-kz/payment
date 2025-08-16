@@ -189,7 +189,17 @@ class PaymentValidator {
 
         // Simplified Luhn check for real validation
         if (digits.length >= 15 && !this.luhnCheck(digits)) {
-            result.errors.push(this.getMessage('invalid_card_number'));
+            // Check if it's development environment (localhost or test domains)
+            const isDevelopment = window.location.hostname === 'localhost' || 
+                                  window.location.hostname.includes('test') ||
+                                  window.location.hostname.includes('dev');
+            
+            if (isDevelopment) {
+                result.errors.push(this.getMessage('invalid_card_number') + 
+                    ' (Try: 4532123456789012, 5555555555554444, 378282246310005)');
+            } else {
+                result.errors.push(this.getMessage('invalid_card_number'));
+            }
             return result;
         }
 

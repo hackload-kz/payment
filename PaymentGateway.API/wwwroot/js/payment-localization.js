@@ -91,7 +91,14 @@ class PaymentLocalization {
                 timer_minutes: 'minutes',
                 timer_minute: 'minute',
                 timer_seconds: 'seconds',
-                timer_second: 'second'
+                timer_second: 'second',
+                
+                // Timer warnings and expiration
+                'timer.warning-5min': 'Only 5 minutes left to complete payment!',
+                'timer.warning-1min': 'Only 1 minute left to complete payment!',
+                'timer.expired': 'Payment Expired',
+                'timer.expired-message': 'Unfortunately, the payment time has expired. Please create a new payment.',
+                'timer.create-new': 'Create New Payment'
             },
             ru: {
                 // Page elements
@@ -177,7 +184,14 @@ class PaymentLocalization {
                 timer_minutes: 'минут',
                 timer_minute: 'минута',
                 timer_seconds: 'секунд',
-                timer_second: 'секунда'
+                timer_second: 'секунда',
+                
+                // Timer warnings and expiration
+                'timer.warning-5min': 'Осталось только 5 минут для завершения платежа!',
+                'timer.warning-1min': 'Осталась только 1 минута для завершения платежа!',
+                'timer.expired': 'Платёж истёк',
+                'timer.expired-message': 'К сожалению, время платежа истекло. Пожалуйста, создайте новый платёж.',
+                'timer.create-new': 'Создать новый платёж'
             }
         };
 

@@ -54,8 +54,9 @@ public class PaymentValidationTests
         var validCardNumbers = new[]
         {
             "4111111111111111", // Visa
+            "4532123456789012", // Visa (recommended for docs)
             "5555555555554444", // Mastercard
-            "378282246310005",  // American Express
+            "378282246310005",  // American Express (recommended for docs)
             "4000000000000002", // Valid Luhn but test decline card
             "4242424242424242"  // Stripe test card
         };

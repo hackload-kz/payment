@@ -696,10 +696,10 @@ class TimezoneAwarePaymentTimer {
         // Parse expiration time with explicit UTC handling
         this.expiresAt = this.parseUtcTime(expiresAtUtc);
         
-        this.countdownElement = document.getElementById('countdown');
-        this.timerElement = document.getElementById('paymentTimer');
-        this.timezoneElement = document.getElementById('timezone-info');
-        this.progressBar = document.getElementById('timer-progress-bar');
+        this.countdownElement = document.getElementById('timer-countdown');
+        this.timerElement = document.getElementById('payment-timer');
+        this.timezoneElement = document.getElementById('timer-timezone-info');
+        this.progressFill = document.getElementById('timer-progress-fill');
         this.interval = null;
         this.lastWarning = null;
         
@@ -783,6 +783,11 @@ class TimezoneAwarePaymentTimer {
     }
     
     start() {
+        // Make timer visible
+        if (this.timerElement) {
+            this.timerElement.style.display = 'block';
+        }
+        
         this.updateDisplay();
         this.interval = setInterval(() => {
             this.updateDisplay();
@@ -826,19 +831,21 @@ class TimezoneAwarePaymentTimer {
     }
     
     updateProgressBar(remaining) {
-        if (!this.progressBar) return;
+        if (!this.progressFill) return;
         
         // Calculate progress percentage
         const progress = Math.max(0, Math.min(100, (remaining / this.initialDuration) * 100));
-        this.progressBar.style.width = `${progress}%`;
+        this.progressFill.style.width = `${progress}%`;
         
-        // Color coding
-        if (remaining < 60000) { // 1 minute
-            this.progressBar.className = 'timer-progress-bar critical';
-        } else if (remaining < 300000) { // 5 minutes
-            this.progressBar.className = 'timer-progress-bar warning';
-        } else {
-            this.progressBar.className = 'timer-progress-bar';
+        // Color coding - update class on parent timer element
+        if (this.timerElement) {
+            if (remaining < 60000) { // 1 minute
+                this.timerElement.className = 'payment-timer timer-critical';
+            } else if (remaining < 300000) { // 5 minutes
+                this.timerElement.className = 'payment-timer timer-warning';
+            } else {
+                this.timerElement.className = 'payment-timer';
+            }
         }
     }
     

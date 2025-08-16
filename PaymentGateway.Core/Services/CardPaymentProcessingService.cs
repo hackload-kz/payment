@@ -281,6 +281,11 @@ public class CardPaymentProcessingService : ICardPaymentProcessingService
             if (!result.IsLuhnValid)
             {
                 result.ValidationErrors.Add("Card number fails Luhn algorithm validation");
+                
+                // Log helpful test card suggestions for development
+                _logger.LogWarning("Luhn validation failed for card ending in {CardSuffix}. " +
+                    "Valid test cards: 4532123456789012 (Visa), 5555555555554444 (MasterCard), 378282246310005 (Amex)", 
+                    cleanCardNumber.Length >= 4 ? cleanCardNumber[^4..] : "****");
             }
 
             // Expiry date validation
