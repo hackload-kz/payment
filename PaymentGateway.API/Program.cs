@@ -52,7 +52,7 @@ try
     builder.Services.AddRequestValidation();
     builder.Services.AddAdminAuthentication(builder.Configuration);
     builder.Services.AddPaymentAuthentication();
-    builder.Services.AddPaymentGatewaySecurityHeaders();
+    //builder.Services.AddPaymentGatewaySecurityHeaders();
 
     // Add CORS configuration
     builder.Services.AddPaymentGatewayCors(builder.Configuration, builder.Environment);
