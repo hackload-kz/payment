@@ -327,7 +327,7 @@ public class PaymentCancellationService : IPaymentCancellationService
 
                 // Update metrics
                 CancellationOperations.WithLabels(payment.TeamId.ToString(), "success", operationType.ToString().ToLower()).Inc();
-                CancellationAmount.WithLabels(payment.TeamId.ToString(), payment.Currency ?? "RUB", operationType.ToString().ToLower()).Inc((double)payment.Amount);
+                CancellationAmount.WithLabels(payment.TeamId.ToString(), payment.Currency ?? "KZT", operationType.ToString().ToLower()).Inc((double)payment.Amount);
 
                 _logger.LogInformation("Payment cancellation successful: {PaymentId}, Type: {OperationType}, Amount: {Amount}, Duration: {Duration}ms", 
                     paymentId, operationType, payment.Amount, result.ProcessingDuration.TotalMilliseconds);

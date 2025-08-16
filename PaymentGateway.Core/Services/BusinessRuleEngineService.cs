@@ -1168,7 +1168,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
             PaymentId = testData.TryGetValue("payment_id", out var paymentId) ? Guid.Parse(paymentId.ToString()!) : Guid.NewGuid(),
             TeamId = testData.TryGetValue("team_id", out var teamId) ? Guid.Parse(teamId.ToString()!) : Guid.NewGuid(),
             Amount = testData.TryGetValue("amount", out var amount) ? Convert.ToDecimal(amount) : 1000m,
-            Currency = testData.TryGetValue("currency", out var currency) ? currency.ToString() ?? "RUB" : "RUB",
+            Currency = testData.TryGetValue("currency", out var currency) ? currency.ToString() ?? "KZT" : "KZT",
             PaymentDate = DateTime.UtcNow
         };
     }
@@ -1200,7 +1200,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
                 IsActive = true,
                 RuleExpression = "daily_total + amount <= daily_limit",
                 RuleParameters = new Dictionary<string, object> { ["daily_limit"] = 1000000m }, // 10,000 RUB
-                ApplicableCurrencies = new List<string> { "RUB", "USD", "EUR" }
+                ApplicableCurrencies = new List<string> { "KZT", "USD", "EUR", "BYN", "RUB" }
             },
             new BusinessRule
             {
@@ -1228,7 +1228,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
                 IsActive = true,
                 RuleExpression = "amount >= min_amount",
                 RuleParameters = new Dictionary<string, object> { ["min_amount"] = 100m }, // 1 RUB
-                ApplicableCurrencies = new List<string> { "RUB", "USD", "EUR" }
+                ApplicableCurrencies = new List<string> { "KZT", "USD", "EUR", "BYN", "RUB" }
             }
         };
 
@@ -1285,12 +1285,12 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
     private async Task<RuleEvaluationResult> EvaluateCurrencyRuleAsync(BusinessRule rule, CurrencyRuleContext context, CancellationToken cancellationToken)
     {
         // Simplified implementation for compilation
-        var allowedCurrencies = new[] { "RUB", "USD", "EUR" };
+        var allowedCurrencies = new[] { "KZT", "USD", "EUR", "BYN", "RUB" };
         return new RuleEvaluationResult
         {
-            IsAllowed = allowedCurrencies.Contains(context.Currency ?? "RUB"),
+            IsAllowed = allowedCurrencies.Contains(context.Currency ?? "KZT"),
             RuleType = RuleType.CURRENCY_VALIDATION,
-            Message = !allowedCurrencies.Contains(context.Currency ?? "RUB") ? "Currency not allowed" : ""
+            Message = !allowedCurrencies.Contains(context.Currency ?? "KZT") ? "Currency not allowed" : ""
         };
     }
 

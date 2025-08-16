@@ -72,7 +72,7 @@ public class TeamRegistrationRequestDto
     /// Supported currencies (comma-separated, e.g., "RUB,USD,EUR")
     /// </summary>
     [Required(ErrorMessage = "SupportedCurrencies is required")]
-    public string SupportedCurrencies { get; set; } = "RUB";
+    public string SupportedCurrencies { get; set; } = "KZT";
 
     /// <summary>
     /// Business information (optional JSON metadata)

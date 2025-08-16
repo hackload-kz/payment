@@ -252,7 +252,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
 
                 // Update metrics
                 ConfirmationOperations.WithLabels(payment.TeamId.ToString(), "success", "confirmed").Inc();
-                ConfirmationAmount.WithLabels(payment.TeamId.ToString(), payment.Currency ?? "RUB").Inc((double)payment.Amount);
+                ConfirmationAmount.WithLabels(payment.TeamId.ToString(), payment.Currency ?? "KZT").Inc((double)payment.Amount);
 
                 _logger.LogInformation("Payment confirmation successful: {PaymentId}, Amount: {Amount}, Duration: {Duration}ms", 
                     paymentId, payment.Amount, result.ProcessingDuration.TotalMilliseconds);

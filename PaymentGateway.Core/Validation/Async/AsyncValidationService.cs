@@ -466,7 +466,7 @@ public class AsyncValidationService : IAsyncValidationService
             MaxTransactionAmount = 1000000, // 10,000 RUB
             DailyLimit = 10000000, // 100,000 RUB
             DailyTransactionLimit = 100,
-            SupportedCurrencies = new[] { "RUB", "USD", "EUR" }
+            SupportedCurrencies = new[] { "KZT", "USD", "EUR", "BYN", "RUB" }
         };
     }
 

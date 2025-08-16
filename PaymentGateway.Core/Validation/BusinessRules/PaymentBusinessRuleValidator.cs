@@ -81,7 +81,7 @@ public class PaymentBusinessRuleValidator : AbstractValidator<PaymentInitRequest
     private bool BeSupportedForTeam(string currency)
     {
         // Business rule: Check if currency is supported for the team
-        var supportedCurrencies = new[] { "RUB", "USD", "EUR" };
+        var supportedCurrencies = new[] { "KZT", "USD", "EUR", "BYN", "RUB" };
         return supportedCurrencies.Contains(currency?.ToUpperInvariant());
     }
 

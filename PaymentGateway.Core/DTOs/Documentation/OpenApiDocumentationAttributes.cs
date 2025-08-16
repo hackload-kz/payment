@@ -169,9 +169,11 @@ public class PaymentDtoSchemaFilter : ISchemaFilter
                 propertySchema.Example = new Microsoft.OpenApi.Any.OpenApiString("RUB");
                 propertySchema.Enum = new List<Microsoft.OpenApi.Any.IOpenApiAny>
                 {
-                    new Microsoft.OpenApi.Any.OpenApiString("RUB"),
+                    new Microsoft.OpenApi.Any.OpenApiString("KZT"),
                     new Microsoft.OpenApi.Any.OpenApiString("USD"),
-                    new Microsoft.OpenApi.Any.OpenApiString("EUR")
+                    new Microsoft.OpenApi.Any.OpenApiString("EUR"),
+                    new Microsoft.OpenApi.Any.OpenApiString("RUB"),
+                    new Microsoft.OpenApi.Any.OpenApiString("BYN"),
                 };
                 break;
 

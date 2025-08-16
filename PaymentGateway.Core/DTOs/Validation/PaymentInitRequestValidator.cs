@@ -171,7 +171,7 @@ public class PaymentInitRequestValidator : AbstractValidator<PaymentInitRequestD
         if (string.IsNullOrEmpty(currency))
             return false;
 
-        var supportedCurrencies = new[] { "RUB", "USD", "EUR", "KZT", "BYN" };
+        var supportedCurrencies = new[] { "KZT", "USD", "EUR", "BYN", "RUB" };
         return supportedCurrencies.Contains(currency.ToUpperInvariant());
     }
 

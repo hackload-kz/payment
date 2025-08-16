@@ -74,7 +74,7 @@ public class BasicTests
     public void TC_BASIC_006_CurrencyValidation_WithValidCurrency_ShouldReturnTrue()
     {
         // Arrange
-        var validCurrencies = new[] { "RUB", "USD", "EUR" };
+        var validCurrencies = new[] { "KZT", "USD", "EUR", "BYN", "RUB" };
         
         // Act & Assert
         foreach (var currency in validCurrencies)
@@ -107,7 +107,7 @@ public class BasicTests
 
     private static bool IsValidCurrency(string currency)
     {
-        var allowedCurrencies = new[] { "RUB", "USD", "EUR" };
+        var allowedCurrencies = new[] { "KZT", "USD", "EUR", "BYN", "RUB" };
         return allowedCurrencies.Contains(currency?.ToUpper());
     }
 }

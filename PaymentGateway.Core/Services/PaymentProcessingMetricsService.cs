@@ -262,7 +262,7 @@ public class PaymentProcessingMetricsService : IPaymentProcessingMetricsService
                             IsSuccess = isSuccess,
                             Timestamp = DateTime.UtcNow,
                             Amount = payment.Amount,
-                            Currency = payment.Currency ?? "RUB"
+                            Currency = payment.Currency ?? "KZT"
                         };
                         
                         _processingRecords.Enqueue(record);
@@ -319,7 +319,7 @@ public class PaymentProcessingMetricsService : IPaymentProcessingMetricsService
                             ErrorCode = errorCode,
                             Timestamp = DateTime.UtcNow,
                             Amount = payment.Amount,
-                            Currency = payment.Currency ?? "RUB"
+                            Currency = payment.Currency ?? "KZT"
                         };
                         
                         _processingRecords.Enqueue(record);
@@ -387,7 +387,7 @@ public class PaymentProcessingMetricsService : IPaymentProcessingMetricsService
     {
         try
         {
-            BusinessTransactionAmount.WithLabels(teamId.ToString(), currency ?? "RUB", status.ToString()).Inc((double)amount);
+            BusinessTransactionAmount.WithLabels(teamId.ToString(), currency ?? "KZT", status.ToString()).Inc((double)amount);
             
             _logger.LogDebug("Business metrics recorded: Team: {TeamId}, Amount: {Amount} {Currency}, Status: {Status}", 
                 teamId, amount, currency, status);

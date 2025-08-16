@@ -293,7 +293,7 @@ public class PaymentInitializationService : IPaymentInitializationService
             }
 
             // Validate currency support
-            var supportedCurrencies = new[] { "RUB", "USD", "EUR" };
+            var supportedCurrencies = new[] { "KZT", "USD", "EUR", "BYN", "RUB" };
             if (!supportedCurrencies.Contains(request.Currency?.ToUpperInvariant()))
             {
                 return new BusinessValidationResult

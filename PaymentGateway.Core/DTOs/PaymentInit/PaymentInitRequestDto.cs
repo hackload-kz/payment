@@ -30,7 +30,7 @@ public class PaymentInitRequestDto : BaseRequestDto
     /// </summary>
     [StringLength(3, MinimumLength = 3, ErrorMessage = "Currency must be exactly 3 characters")]
     [JsonPropertyName("currency")]
-    public string Currency { get; set; } = "RUB";
+    public string Currency { get; set; } = "KZT";
 
     /// <summary>
     /// Payment type: O = Single-stage payment (immediate capture), T = Two-stage payment (auth + capture)
