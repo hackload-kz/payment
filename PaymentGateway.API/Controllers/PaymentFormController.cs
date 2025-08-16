@@ -337,8 +337,8 @@ public class PaymentFormController : ControllerBase
                 }
                 else
                 {
-                    var failureResultUrl = Url.Action("Result", "PaymentForm", new { paymentId = submission.PaymentId, success = false, message = cardProcessingResult.ErrorMessage ?? "Card processing failed" });
-                    return Redirect(failureResultUrl!);
+                    var failureResultUrl = $"./result/{submission.PaymentId}?success=false&message={Uri.EscapeDataString(cardProcessingResult.ErrorMessage ?? "Card processing failed")}";
+                    return Redirect(failureResultUrl);
                 }
             }
 
@@ -374,8 +374,8 @@ public class PaymentFormController : ControllerBase
             }
             else
             {
-                var resultUrl = Url.Action("Result", "PaymentForm", new { paymentId = submission.PaymentId, success = true, message = "Payment authorized successfully" });
-                return Redirect(resultUrl!);
+                var resultUrl = $"./result/{submission.PaymentId}?success=true&message={Uri.EscapeDataString("Payment authorized successfully")}";
+                return Redirect(resultUrl);
             }
         }
         catch (Exception ex)
@@ -747,8 +747,8 @@ public class PaymentFormController : ControllerBase
         }
         
         // Fallback to internal result page
-        var failureResultUrl = Url.Action("Result", "PaymentForm", new { paymentId = paymentId, success = false, message = errorMessage });
-        return Redirect(failureResultUrl!);
+        var failureResultUrl = $"./result/{paymentId}?success=false&message={Uri.EscapeDataString(errorMessage)}";
+        return Redirect(failureResultUrl);
     }
 
     private bool IsPaymentFormAllowed(PaymentGateway.Core.Enums.PaymentStatus status)

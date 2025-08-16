@@ -1011,7 +1011,9 @@ class UnixTimestampTimer extends TimezoneAwarePaymentTimer {
  */
 function initializePaymentTimer() {
     // Get timer data from page
-    const timerData = window.paymentTimerData || {};
+    const timerData = window.paymentData || {};
+    
+    console.log('Timer initialization data:', timerData);
     
     if (!timerData.expiresAtUtc && !timerData.expiresAtUnix) {
         console.log('No expiration data available - timer not initialized');
@@ -1023,9 +1025,14 @@ function initializePaymentTimer() {
     try {
         // Use Unix timestamp timer for maximum reliability
         if (timerData.expiresAtUnix && timerData.serverTimeUnix) {
+            const expiresAtUnix = typeof timerData.expiresAtUnix === 'string' ? 
+                parseInt(timerData.expiresAtUnix) : timerData.expiresAtUnix;
+            const serverTimeUnix = typeof timerData.serverTimeUnix === 'string' ? 
+                parseInt(timerData.serverTimeUnix) : timerData.serverTimeUnix;
+                
             timer = new UnixTimestampTimer(
-                timerData.expiresAtUnix, 
-                timerData.serverTimeUnix
+                expiresAtUnix, 
+                serverTimeUnix
             );
         } else if (timerData.expiresAtUtc && timerData.serverTimeUtc) {
             // Fallback to UTC string parsing
