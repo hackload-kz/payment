@@ -55,7 +55,7 @@ env:
   # Docker build parameters from docker-build.sh
   DOCKER_REGISTRY: ghcr.io
   DOCKER_NAMESPACE: hackload-kz
-  DOCKER_IMAGE_NAME: paymentgateway
+  DOCKER_IMAGE_NAME: hackload-paymentgateway
 
 jobs:
   # test:

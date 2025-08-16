@@ -314,7 +314,7 @@ Output: "b8f2f8e5c9d6a4c8f7b5e3a2d1f0e9c8b7a6f5d4e3c2b1a0f9e8d7c6b5a4f3e2"
 1. **Для администраторов:** Обновить дневной лимит через API
    ```bash
    curl -X PUT "https://gateway.hackload.com/api/v1/TeamRegistration/update/{teamSlug}" \
-     -H "Authorization: Bearer {admin-token}" \
+     -H "X-Admin-Token: {admin-token}" \
      -H "Content-Type: application/json" \
      -d '{"dailyPaymentLimit": 999999999999999999.99}'
    ```
@@ -395,10 +395,7 @@ Content-Type: application/json
 Получение полной информации о команде/мерчанте для административных целей. Доступно только администраторам с admin токеном.
 
 **Заголовки:**
-```
-Authorization: Bearer {admin-token}
-```
-или
+
 ```
 X-Admin-Token: {admin-token}
 ```
@@ -522,7 +519,7 @@ X-Admin-Token: {admin-token}
 
 **Пример запроса:**
 ```bash
-curl -H "Authorization: Bearer admin_token_here" \
+curl -H "X-Admin-Token: admin_token_here" \
      "https://gateway.hackload.com/api/v1/TeamRegistration/info/my-online-store"
 ```
 
@@ -533,11 +530,8 @@ curl -H "Authorization: Bearer admin_token_here" \
 Обновление информации команды/мерчанта и настройка лимитов платежей. Доступно только администраторам с admin токеном.
 
 **Заголовки:**
-```
-Content-Type: application/json
-Authorization: Bearer {admin-token}
-```
-или
+
+
 ```
 Content-Type: application/json
 X-Admin-Token: {admin-token}
@@ -592,7 +586,6 @@ X-Admin-Token: {admin-token}
 - **400 Bad Request** - ошибки валидации
 
 **Бизнес-правила для лимитов:**
-- Daily limit ≤ 10,000,000 (10M максимум)
 - Daily limit ≤ Monthly limit (если оба заданы)
 - Min payment ≤ Max payment (если оба заданы)
 - Все суммы ≥ 0
@@ -600,7 +593,7 @@ X-Admin-Token: {admin-token}
 **Пример настройки дневного лимита:**
 ```bash
 curl -X PUT "https://gateway.hackload.com/api/v1/TeamRegistration/update/my-store" \
-  -H "Authorization: Bearer admin_token_here" \
+  -H "X-Admin-Token: admin_token_here" \
   -H "Content-Type: application/json" \
   -d '{
     "dailyPaymentLimit": 500000
@@ -616,10 +609,7 @@ curl -X PUT "https://gateway.hackload.com/api/v1/TeamRegistration/update/my-stor
 **⚠️ ВАЖНО**: Эта операция необратимо удаляет все платежи и транзакции для ВСЕХ команд.
 
 **Заголовки:**
-```
-Authorization: Bearer {admin-token}
-```
-или
+
 ```
 X-Admin-Token: {admin-token}
 ```
@@ -662,7 +652,7 @@ X-Admin-Token: {admin-token}
 **Пример запроса:**
 ```bash
 curl -X POST "https://gateway.hackload.com/api/v1/Admin/clear-database" \
-  -H "Authorization: Bearer admin_token_here"
+  -H "X-Admin-Token: admin_token_here"
 ```
 
 ### 1.4. Очистка данных конкретной команды (Администраторы)
@@ -672,10 +662,7 @@ curl -X POST "https://gateway.hackload.com/api/v1/Admin/clear-database" \
 Очистка платежных и транзакционных данных только для указанной команды с сохранением данных других команд. Доступно только администраторам с admin токеном.
 
 **Заголовки:**
-```
-Authorization: Bearer {admin-token}
-```
-или
+
 ```
 X-Admin-Token: {admin-token}
 ```
@@ -713,17 +700,10 @@ X-Admin-Token: {admin-token}
 - **Транзакции команды**: Транзакции связанные с платежами команды
 - **Заказы команды**: Заказы команды (уникальные OrderId)
 - **Связанные логи**: Аудит-логи удаленных записей команды
-
-**Данные, которые сохраняются:**
-- **Конфигурация команды**: Настройки мерчанта остаются нетронутыми
-- **Другие команды**: Данные всех остальных команд полностью сохраняются
-- **Информация о клиентах**: Профили покупателей
-- **Системные настройки**: Конфигурация приложения
-
 **Пример запроса:**
 ```bash
 curl -X POST "https://gateway.hackload.com/api/v1/Admin/clear-team-data/my-online-store" \
-  -H "Authorization: Bearer admin_token_here"
+  -H "X-Admin-Token: admin_token_here"
 ```
 
 **Пример для очистки данных тестовой команды:**
@@ -732,13 +712,6 @@ curl -X POST "https://gateway.hackload.com/api/v1/Admin/clear-team-data/test-mer
   -H "X-Admin-Token: admin_token_here"
 ```
 
-**Технические особенности:**
-
-- **Безопасность транзакций**: Все операции выполняются в рамках database-транзакций с автоматическим rollback при ошибках
-- **Совместимость с retry-стратегией**: Методы совместимы с PostgreSQL NpgsqlRetryingExecutionStrategy для production кластеров
-- **Порядок удаления**: Сначала удаляются транзакции, затем платежи для соблюдения referential integrity
-- **Мониторинг**: Все операции логируются с метриками Prometheus для отслеживания производительности
-- **Статистика**: Подсчет удаленных записей происходит до удаления для точности
 
 ### 2. Создание платежа
 
@@ -1235,6 +1208,40 @@ curl -X POST https://gateway.hackload.com/api/v1/PaymentCancel/cancel \
 ## Webhook-уведомления
 
 Система платежного шлюза автоматически отправляет HTTP-уведомления (webhooks) на указанный URL при изменении статуса платежа. Это позволяет интернет-магазину мгновенно реагировать на события платежей без необходимости постоянного опроса API.
+
+### Настройка webhook для команды
+
+Для корректной работы webhook-уведомлений необходимо настроить следующие параметры команды:
+
+**Основные настройки webhook:**
+- **EnableWebhooks** - включение/отключение webhook-уведомлений (по умолчанию: `true`)
+- **NotificationUrl** - URL эндпоинта для получения уведомлений (обязательный для работы webhook)
+- **WebhookSecret** - секретный ключ для подписи HMAC (опционально, рекомендуется для безопасности)
+
+**Настройки надежности доставки:**
+- **WebhookRetryAttempts** - количество попыток повторной отправки при ошибках (по умолчанию: `3`)
+- **WebhookTimeoutSeconds** - таймаут для каждой попытки отправки в секундах (по умолчанию: `30`)
+
+**Пример настройки webhook через API обновления команды:**
+
+```bash
+curl -X PUT "https://gateway.hackload.com/api/v1/TeamRegistration/update/my-store" \
+  -H "X-Admin-Token: admin_token_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "notificationURL": "https://mystore.com/payment/webhook",
+    "enableWebhooks": true,
+    "webhookRetryAttempts": 5,
+    "webhookTimeoutSeconds": 45,
+    "webhookSecret": "your-secure-webhook-secret-key"
+  }'
+```
+
+**Рекомендации по настройке:**
+- Используйте HTTPS для `notificationURL`
+- Установите `webhookSecret` для проверки подлинности уведомлений
+- Настройте `webhookRetryAttempts` в зависимости от критичности доставки (3-10 попыток)
+- Увеличьте `webhookTimeoutSeconds` если ваш эндпоинт медленно отвечает (30-60 секунд)
 
 ### Когда отправляются webhook-уведомления
 
