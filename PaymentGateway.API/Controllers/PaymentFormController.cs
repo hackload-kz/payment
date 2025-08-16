@@ -46,6 +46,7 @@ public class PaymentFormController : ControllerBase
     private readonly IMetricsService _metricsService;
     private readonly IConfiguration _configuration;
     private readonly IPaymentStateManager _paymentStateManager;
+    private readonly INotificationWebhookService _webhookService;
     private readonly ApiOptions _apiOptions;
 
     // Metrics
@@ -70,6 +71,7 @@ public class PaymentFormController : ControllerBase
         IMetricsService metricsService,
         IConfiguration configuration,
         IPaymentStateManager paymentStateManager,
+        INotificationWebhookService webhookService,
         IOptions<ApiOptions> apiOptions)
     {
         _logger = logger;
@@ -82,6 +84,7 @@ public class PaymentFormController : ControllerBase
         _metricsService = metricsService;
         _configuration = configuration;
         _paymentStateManager = paymentStateManager;
+        _webhookService = webhookService;
         _apiOptions = apiOptions.Value;
     }
 
@@ -178,6 +181,41 @@ public class PaymentFormController : ControllerBase
 
             // Render HTML form
             var htmlContent = await RenderPaymentFormHtml(paymentFormData);
+            
+            // Send FORM_SHOWED webhook notification (only for NEW payments to avoid duplicates)
+            if (payment.Status == PaymentGateway.Core.Enums.PaymentStatus.NEW)
+            {
+                try
+                {
+                    await _webhookService.SendPaymentNotificationAsync(
+                        paymentId, 
+                        "FORM_SHOWED", 
+                        team.TeamSlug,
+                        new Dictionary<string, object>
+                        {
+                            ["event_type"] = "form_showed",
+                            ["amount"] = payment.Amount,
+                            ["currency"] = payment.Currency,
+                            ["order_id"] = payment.OrderId,
+                            ["client_ip"] = clientIp,
+                            ["language"] = paymentFormData.Language,
+                            ["user_agent"] = Request.Headers.UserAgent.ToString(),
+                            ["timestamp"] = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                        });
+                        
+                    _logger.LogInformation("FORM_SHOWED webhook sent for PaymentId: {PaymentId}", paymentId);
+                }
+                catch (Exception webhookEx)
+                {
+                    _logger.LogError(webhookEx, "Failed to send FORM_SHOWED webhook for PaymentId: {PaymentId}", paymentId);
+                    // Don't fail the form rendering if webhook fails
+                }
+            }
+            else
+            {
+                _logger.LogDebug("Skipping FORM_SHOWED webhook for PaymentId: {PaymentId} - status is {Status}", 
+                    paymentId, payment.Status);
+            }
             
             _logger.LogInformation("Payment form rendered successfully for PaymentId: {PaymentId}, Duration: {Duration}ms",
                 paymentId, stopwatch.ElapsedMilliseconds);
