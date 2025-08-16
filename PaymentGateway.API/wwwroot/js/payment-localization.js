@@ -81,7 +81,17 @@ class PaymentLocalization {
                 success: 'Success',
                 payment_successful: 'Payment processed successfully!',
                 payment_failed: 'Payment processing failed. Please try again.',
-                confirm_cancel: 'Are you sure you want to cancel this payment?'
+                confirm_cancel: 'Are you sure you want to cancel this payment?',
+                
+                // Timer messages
+                payment_expires_in: 'Payment expires in:',
+                timer_timezone_info: 'Time shown in your local timezone',
+                payment_expiring_soon: 'Payment expires soon',
+                payment_expired: 'Payment has expired',
+                timer_minutes: 'minutes',
+                timer_minute: 'minute',
+                timer_seconds: 'seconds',
+                timer_second: 'second'
             },
             ru: {
                 // Page elements
@@ -157,7 +167,17 @@ class PaymentLocalization {
                 success: 'Успешно',
                 payment_successful: 'Платёж успешно обработан!',
                 payment_failed: 'Обработка платежа не удалась. Пожалуйста, попробуйте снова.',
-                confirm_cancel: 'Вы уверены, что хотите отменить этот платёж?'
+                confirm_cancel: 'Вы уверены, что хотите отменить этот платёж?',
+                
+                // Timer messages
+                payment_expires_in: 'Платёж истекает через:',
+                timer_timezone_info: 'Время показано в вашем часовом поясе',
+                payment_expiring_soon: 'Платёж скоро истечёт',
+                payment_expired: 'Платёж истёк',
+                timer_minutes: 'минут',
+                timer_minute: 'минута',
+                timer_seconds: 'секунд',
+                timer_second: 'секунда'
             }
         };
 

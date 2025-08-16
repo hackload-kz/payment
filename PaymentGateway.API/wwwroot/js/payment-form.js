@@ -684,6 +684,385 @@ class PaymentFormController {
     }
 }
 
+/**
+ * Timezone-Aware Payment Timer
+ * Handles payment expiration countdown with proper timezone support
+ */
+class TimezoneAwarePaymentTimer {
+    constructor(expiresAtUtc, serverTimeUtc) {
+        // Calculate time offset between server and client
+        this.calculateTimeOffset(serverTimeUtc);
+        
+        // Parse expiration time with explicit UTC handling
+        this.expiresAt = this.parseUtcTime(expiresAtUtc);
+        
+        this.countdownElement = document.getElementById('countdown');
+        this.timerElement = document.getElementById('paymentTimer');
+        this.timezoneElement = document.getElementById('timezone-info');
+        this.progressBar = document.getElementById('timer-progress-bar');
+        this.interval = null;
+        this.lastWarning = null;
+        
+        // Calculate initial duration for progress calculation
+        this.initialDuration = this.getInitialDuration();
+        
+        // Display timezone info for user awareness
+        this.displayTimezoneInfo();
+        
+        console.log('Timer initialized:', {
+            expiresAt: this.expiresAt,
+            timeOffset: this.timeOffset,
+            initialDuration: this.initialDuration
+        });
+    }
+    
+    calculateTimeOffset(serverTimeUtc) {
+        const serverTime = this.parseUtcTime(serverTimeUtc);
+        const clientTime = new Date();
+        
+        // Calculate offset between server and client (in milliseconds)
+        this.timeOffset = serverTime.getTime() - clientTime.getTime();
+        
+        console.log(`Time offset: ${this.timeOffset}ms (Server ahead: ${this.timeOffset > 0})`);
+    }
+    
+    parseUtcTime(utcTimeString) {
+        // Multiple parsing strategies for robustness
+        if (!utcTimeString) return new Date();
+        
+        // Strategy 1: ISO string with Z suffix (most reliable)
+        if (utcTimeString.endsWith('Z')) {
+            return new Date(utcTimeString);
+        }
+        
+        // Strategy 2: Add Z if missing
+        if (!utcTimeString.includes('Z') && !utcTimeString.includes('+')) {
+            return new Date(utcTimeString + 'Z');
+        }
+        
+        // Strategy 3: Fallback
+        return new Date(utcTimeString);
+    }
+    
+    getCurrentTime() {
+        // Get current time adjusted for server offset
+        return new Date(Date.now() + this.timeOffset);
+    }
+    
+    getInitialDuration() {
+        // Calculate initial duration (30 minutes default if not available)
+        const now = this.getCurrentTime();
+        const duration = this.expiresAt.getTime() - now.getTime();
+        return Math.max(duration, 30 * 60 * 1000); // At least 30 minutes for progress calculation
+    }
+    
+    displayTimezoneInfo() {
+        try {
+            const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const expiresLocal = this.expiresAt.toLocaleString(undefined, {
+                timeZone: userTimezone,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            
+            if (this.timezoneElement) {
+                this.timezoneElement.innerHTML = `
+                    <small class="text-muted">
+                        <i class="fas fa-clock"></i>
+                        Expires at: ${expiresLocal} (${userTimezone})
+                    </small>
+                `;
+            }
+        } catch (error) {
+            console.warn('Could not display timezone info:', error);
+        }
+    }
+    
+    start() {
+        this.updateDisplay();
+        this.interval = setInterval(() => {
+            this.updateDisplay();
+        }, 1000);
+        
+        console.log('Payment timer started');
+    }
+    
+    updateDisplay() {
+        const now = this.getCurrentTime();
+        const remaining = this.expiresAt.getTime() - now.getTime();
+        
+        if (remaining <= 0) {
+            this.onExpired();
+            return;
+        }
+        
+        // Calculate time components
+        const totalSeconds = Math.floor(remaining / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        
+        // Format display based on remaining time
+        let displayText;
+        if (hours > 0) {
+            displayText = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        } else {
+            displayText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        if (this.countdownElement) {
+            this.countdownElement.textContent = displayText;
+        }
+        
+        // Update progress bar
+        this.updateProgressBar(remaining);
+        
+        // Visual warnings based on remaining time
+        this.updateVisualState(remaining);
+    }
+    
+    updateProgressBar(remaining) {
+        if (!this.progressBar) return;
+        
+        // Calculate progress percentage
+        const progress = Math.max(0, Math.min(100, (remaining / this.initialDuration) * 100));
+        this.progressBar.style.width = `${progress}%`;
+        
+        // Color coding
+        if (remaining < 60000) { // 1 minute
+            this.progressBar.className = 'timer-progress-bar critical';
+        } else if (remaining < 300000) { // 5 minutes
+            this.progressBar.className = 'timer-progress-bar warning';
+        } else {
+            this.progressBar.className = 'timer-progress-bar';
+        }
+    }
+    
+    updateVisualState(remaining) {
+        if (!this.timerElement) return;
+        
+        this.timerElement.classList.remove('warning', 'critical');
+        
+        if (remaining < 300000) { // 5 minutes
+            this.timerElement.classList.add('warning');
+            this.showWarningMessage('timer.warning-5min', remaining);
+        }
+        if (remaining < 60000) { // 1 minute
+            this.timerElement.classList.add('critical');
+            this.showWarningMessage('timer.warning-1min', remaining);
+        }
+    }
+    
+    showWarningMessage(messageKey, remaining) {
+        // Only show each warning once
+        if (this.lastWarning === messageKey) return;
+        
+        const minutes = Math.floor(remaining / 60000);
+        const message = this.getLocalizedMessage(messageKey) || 
+                       (minutes <= 1 ? 'Time is running out!' : `Only ${minutes} minutes left!`);
+        
+        this.showNotification(message, 'warning');
+        this.lastWarning = messageKey;
+        
+        // Play warning sound if available
+        this.playWarningSound();
+    }
+    
+    showNotification(message, type = 'info') {
+        // Create notification banner
+        const notification = document.createElement('div');
+        notification.className = `timer-notification ${type}`;
+        notification.innerHTML = `
+            <span class="notification-icon">${type === 'warning' ? '⚠️' : 'ℹ️'}</span>
+            <span class="notification-message">${message}</span>
+            <button class="notification-close" onclick="this.parentElement.remove()">×</button>
+        `;
+        
+        // Insert after timer element
+        if (this.timerElement && this.timerElement.parentElement) {
+            this.timerElement.parentElement.insertBefore(notification, this.timerElement.nextSibling);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+    }
+    
+    playWarningSound() {
+        if ('Audio' in window) {
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+j0xXkpBSl+zPLaizsIGGS57+OZSA0PVqzn77BdGQU'); 
+                audio.volume = 0.3;
+                audio.play().catch(() => {}); // Ignore autoplay failures
+            } catch (error) {
+                console.warn('Could not play warning sound:', error);
+            }
+        }
+    }
+    
+    onExpired() {
+        clearInterval(this.interval);
+        
+        if (this.countdownElement) {
+            this.countdownElement.textContent = '0:00';
+        }
+        
+        if (this.timerElement) {
+            this.timerElement.classList.add('expired');
+        }
+        
+        this.showExpirationModal();
+        this.disableForm();
+        
+        console.log('Payment timer expired');
+    }
+    
+    showExpirationModal() {
+        const modal = document.createElement('div');
+        modal.className = 'payment-expired-modal';
+        modal.innerHTML = `
+            <div class="modal-backdrop"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>${this.getLocalizedMessage('timer.expired') || 'Payment Expired'}</h3>
+                </div>
+                <div class="modal-body">
+                    <p>${this.getLocalizedMessage('timer.expired-message') || 'Unfortunately, the payment time has expired. Please create a new payment.'}</p>
+                </div>
+                <div class="modal-footer">
+                    <button onclick="window.location.reload()" class="btn btn-primary">
+                        ${this.getLocalizedMessage('timer.create-new') || 'Create New Payment'}
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    disableForm() {
+        const form = document.querySelector('#payment-form');
+        if (form) {
+            form.classList.add('disabled');
+            form.querySelectorAll('input, button, select').forEach(el => {
+                el.disabled = true;
+            });
+        }
+    }
+    
+    getLocalizedMessage(key) {
+        // Try to get localized message from localization module
+        if (window.PaymentLocalization) {
+            return window.PaymentLocalization.getMessage(key);
+        }
+        
+        // Fallback messages
+        const fallbackMessages = {
+            'timer.warning-5min': 'Only 5 minutes left to complete payment!',
+            'timer.warning-1min': 'Only 1 minute left to complete payment!',
+            'timer.expired': 'Payment Expired',
+            'timer.expired-message': 'Unfortunately, the payment time has expired. Please create a new payment.',
+            'timer.create-new': 'Create New Payment'
+        };
+        
+        return fallbackMessages[key] || null;
+    }
+    
+    stop() {
+        if (this.interval) {
+            clearInterval(this.interval);
+            this.interval = null;
+        }
+    }
+}
+
+/**
+ * Unix timestamp-based timer for extra reliability
+ */
+class UnixTimestampTimer extends TimezoneAwarePaymentTimer {
+    constructor(expiresAtUnix, serverTimeUnix) {
+        // Use Unix timestamps to avoid any timezone parsing issues
+        const expiresAtMs = parseFloat(expiresAtUnix);
+        const serverTimeMs = parseInt(serverTimeUnix);
+        
+        // Calculate offset using Unix timestamps
+        const clientTimeMs = Date.now();
+        const timeOffset = serverTimeMs - clientTimeMs;
+        
+        // Convert to ISO strings for parent constructor
+        const expiresAtUtc = new Date(expiresAtMs).toISOString();
+        const serverTimeUtc = new Date(serverTimeMs).toISOString();
+        
+        super(expiresAtUtc, serverTimeUtc);
+        
+        // Override with Unix timestamp precision
+        this.timeOffset = timeOffset;
+    }
+}
+
+/**
+ * Initialize payment timer based on available data
+ */
+function initializePaymentTimer() {
+    // Get timer data from page
+    const timerData = window.paymentTimerData || {};
+    
+    if (!timerData.expiresAtUtc && !timerData.expiresAtUnix) {
+        console.log('No expiration data available - timer not initialized');
+        return;
+    }
+    
+    let timer;
+    
+    try {
+        // Use Unix timestamp timer for maximum reliability
+        if (timerData.expiresAtUnix && timerData.serverTimeUnix) {
+            timer = new UnixTimestampTimer(
+                timerData.expiresAtUnix, 
+                timerData.serverTimeUnix
+            );
+        } else if (timerData.expiresAtUtc && timerData.serverTimeUtc) {
+            // Fallback to UTC string parsing
+            timer = new TimezoneAwarePaymentTimer(
+                timerData.expiresAtUtc,
+                timerData.serverTimeUtc
+            );
+        } else {
+            console.warn('Incomplete timer data - using fallback');
+            return;
+        }
+        
+        timer.start();
+        window.paymentTimer = timer;
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            timer.stop();
+        });
+        
+        console.log('Payment timer initialized successfully');
+        
+    } catch (error) {
+        console.error('Failed to initialize payment timer:', error);
+    }
+}
+
 // Initialize the payment form controller
 window.PaymentFormController = PaymentFormController;
+window.TimezoneAwarePaymentTimer = TimezoneAwarePaymentTimer;
+window.UnixTimestampTimer = UnixTimestampTimer;
+
 new PaymentFormController();
+
+// Initialize timer when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializePaymentTimer);
+} else {
+    initializePaymentTimer();
+}

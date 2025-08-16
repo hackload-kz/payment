@@ -146,7 +146,8 @@ public class PaymentFormController : ControllerBase
             var csrfToken = GenerateCsrfToken(paymentId);
             StoreCsrfToken(paymentId, csrfToken);
 
-            // Create payment form data model
+            // Create payment form data model with timezone-aware expiration data
+            var currentServerTime = DateTime.UtcNow;
             var paymentFormData = new PaymentFormData
             {
                 PaymentId = payment.PaymentId,
@@ -161,7 +162,13 @@ public class PaymentFormController : ControllerBase
                 CsrfToken = csrfToken,
                 PaymentTimeout = payment.ExpiresAt,
                 BasePath = _apiOptions.BaseUrl,
-                Receipt = payment.Receipt != null ? JsonSerializer.Deserialize<Dictionary<string, object>>(payment.Receipt) : null
+                Receipt = payment.Receipt != null ? JsonSerializer.Deserialize<Dictionary<string, object>>(payment.Receipt) : null,
+                
+                // Timezone-aware expiration data
+                ExpiresAtUtc = payment.ExpiresAt?.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                ExpiresAtUnix = payment.ExpiresAt.HasValue ? (long)payment.ExpiresAt.Value.Subtract(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds : null,
+                ServerTimeUtc = currentServerTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                ServerTimeUnix = new DateTimeOffset(currentServerTime).ToUnixTimeMilliseconds()
             };
 
             // Record metrics
@@ -330,8 +337,8 @@ public class PaymentFormController : ControllerBase
                 }
                 else
                 {
-                    var failureResultUrl = $"/api/v1/paymentform/result/{submission.PaymentId}?success=false&message={Uri.EscapeDataString(cardProcessingResult.ErrorMessage ?? "Card processing failed")}";
-                    return Redirect(failureResultUrl);
+                    var failureResultUrl = Url.Action("Result", "PaymentForm", new { paymentId = submission.PaymentId, success = false, message = cardProcessingResult.ErrorMessage ?? "Card processing failed" });
+                    return Redirect(failureResultUrl!);
                 }
             }
 
@@ -367,8 +374,8 @@ public class PaymentFormController : ControllerBase
             }
             else
             {
-                var resultUrl = $"/api/v1/paymentform/result/{submission.PaymentId}?success=true&message={Uri.EscapeDataString("Payment authorized successfully")}";
-                return Redirect(resultUrl);
+                var resultUrl = Url.Action("Result", "PaymentForm", new { paymentId = submission.PaymentId, success = true, message = "Payment authorized successfully" });
+                return Redirect(resultUrl!);
             }
         }
         catch (Exception ex)
@@ -425,7 +432,11 @@ public class PaymentFormController : ControllerBase
             .Replace("{{Language}}", data.Language)
             .Replace("{{BasePath}}", data.BasePath)
             .Replace("{{PaymentTimeout}}", data.PaymentTimeout?.ToString("yyyy-MM-ddTHH:mm:ssZ") ?? "")
-            .Replace("{{SubmitUrl}}", "/api/v1/paymentform/submit");
+            .Replace("{{SubmitUrl}}", "/api/v1/paymentform/submit")
+            .Replace("{{ExpiresAtUtc}}", data.ExpiresAtUtc ?? "")
+            .Replace("{{ExpiresAtUnix}}", data.ExpiresAtUnix?.ToString() ?? "0")
+            .Replace("{{ServerTimeUtc}}", data.ServerTimeUtc)
+            .Replace("{{ServerTimeUnix}}", data.ServerTimeUnix.ToString());
 
         // Handle receipt items if present
         if (data.Receipt != null && data.Receipt.ContainsKey("items"))
@@ -736,8 +747,8 @@ public class PaymentFormController : ControllerBase
         }
         
         // Fallback to internal result page
-        var failureResultUrl = $"/api/v1/paymentform/result/{paymentId}?success=false&message={Uri.EscapeDataString(errorMessage)}";
-        return Redirect(failureResultUrl);
+        var failureResultUrl = Url.Action("Result", "PaymentForm", new { paymentId = paymentId, success = false, message = errorMessage });
+        return Redirect(failureResultUrl!);
     }
 
     private bool IsPaymentFormAllowed(PaymentGateway.Core.Enums.PaymentStatus status)
@@ -892,6 +903,12 @@ public class PaymentFormData
     public string CsrfToken { get; set; } = string.Empty;
     public DateTime? PaymentTimeout { get; set; }
     public Dictionary<string, object>? Receipt { get; set; }
+    
+    // Timezone-aware expiration data
+    public string? ExpiresAtUtc { get; set; }
+    public long? ExpiresAtUnix { get; set; }
+    public string ServerTimeUtc { get; set; } = string.Empty;
+    public long ServerTimeUnix { get; set; }
 }
 
 public class PaymentFormSubmission

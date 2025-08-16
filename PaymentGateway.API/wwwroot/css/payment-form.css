@@ -1149,6 +1149,187 @@ body {
     color: var(--gray-800);
 }
 
+/* Payment Timer Styles */
+.payment-timer {
+    background: linear-gradient(135deg, var(--gray-50) 0%, var(--white) 100%);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.payment-timer.timer-warning {
+    background: linear-gradient(135deg, #fef3cd 0%, #fff8e1 100%);
+    border-color: var(--warning-color);
+    box-shadow: 0 2px 8px rgba(217, 119, 6, 0.15);
+}
+
+.payment-timer.timer-critical {
+    background: linear-gradient(135deg, #fecaca 0%, #fee2e2 100%);
+    border-color: var(--error-color);
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.15);
+    animation: timer-pulse 2s infinite;
+}
+
+@keyframes timer-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+
+.timer-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.timer-icon {
+    color: var(--gray-600);
+    flex-shrink: 0;
+}
+
+.payment-timer.timer-warning .timer-icon {
+    color: var(--warning-color);
+}
+
+.payment-timer.timer-critical .timer-icon {
+    color: var(--error-color);
+}
+
+.timer-label {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--gray-700);
+}
+
+.timer-display {
+    margin-bottom: 12px;
+}
+
+.timer-time {
+    display: block;
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    font-family: var(--font-family-mono);
+    color: var(--gray-800);
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+}
+
+.payment-timer.timer-warning .timer-time {
+    color: var(--warning-color);
+}
+
+.payment-timer.timer-critical .timer-time {
+    color: var(--error-color);
+}
+
+.timer-progress-bar {
+    width: 100%;
+    height: 6px;
+    background-color: var(--gray-200);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+}
+
+.timer-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--success-color) 0%, var(--primary-color) 100%);
+    border-radius: 3px;
+    transition: width 1s ease-out;
+    position: relative;
+}
+
+.timer-progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
+    animation: progress-shimmer 2s infinite;
+}
+
+@keyframes progress-shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+.payment-timer.timer-warning .timer-progress-fill {
+    background: linear-gradient(90deg, var(--warning-color) 0%, #f59e0b 100%);
+}
+
+.payment-timer.timer-critical .timer-progress-fill {
+    background: linear-gradient(90deg, var(--error-color) 0%, #ef4444 100%);
+}
+
+.timer-info {
+    margin-bottom: 8px;
+}
+
+.timer-timezone {
+    font-size: var(--text-xs);
+    color: var(--gray-500);
+    font-style: italic;
+}
+
+.timer-warning {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background-color: rgba(217, 119, 6, 0.1);
+    border: 1px solid rgba(217, 119, 6, 0.2);
+    border-radius: 8px;
+    margin-top: 12px;
+}
+
+.warning-icon {
+    color: var(--warning-color);
+    flex-shrink: 0;
+}
+
+.warning-text {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--warning-color);
+}
+
+/* Timer responsive design */
+@media (max-width: 768px) {
+    .payment-timer {
+        padding: 16px;
+        margin-top: 16px;
+    }
+    
+    .timer-time {
+        font-size: var(--text-xl);
+    }
+    
+    .timer-header {
+        margin-bottom: 10px;
+    }
+    
+    .timer-display {
+        margin-bottom: 10px;
+    }
+}
+
+/* Timer accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .payment-timer.timer-critical {
+        animation: none;
+    }
+    
+    .timer-progress-fill::after {
+        animation: none;
+    }
+}
+
 /* Print Styles */
 @media print {
     .payment-header,
