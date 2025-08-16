@@ -49,4 +49,12 @@ public interface ITeamRegistrationService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Success status</returns>
     Task<bool> SetTeamActiveStatusAsync(string teamSlug, bool isActive, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get comprehensive team information for administrative purposes
+    /// </summary>
+    /// <param name="teamSlug">Team slug identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Comprehensive team information or null if not found</returns>
+    Task<TeamInfoDto?> GetTeamInfoAsync(string teamSlug, CancellationToken cancellationToken = default);
 }

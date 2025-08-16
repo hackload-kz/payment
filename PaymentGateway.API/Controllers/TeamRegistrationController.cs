@@ -651,6 +651,139 @@ public class TeamRegistrationController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Get comprehensive team information for administrative purposes
+    /// This endpoint returns all team details including sensitive information for admin use
+    /// 
+    /// Requires admin authentication via Bearer token or X-Admin-Token header.
+    /// 
+    /// Returns comprehensive team information including:
+    /// - Basic team details (ID, slug, name, status)
+    /// - Contact information and business details
+    /// - Payment processing configuration and limits
+    /// - Security settings and authentication history
+    /// - Usage statistics and current status
+    /// - Feature flags and API settings
+    /// </summary>
+    /// <param name="teamSlug">Team slug identifier</param>
+    /// <param name="cancellationToken">Cancellation token for request timeout handling</param>
+    /// <returns>Comprehensive team information</returns>
+    /// <response code="200">Team information retrieved successfully</response>
+    /// <response code="401">Invalid or missing admin token</response>
+    /// <response code="403">Admin functionality not configured</response>
+    /// <response code="404">Team not found</response>
+    /// <response code="500">Internal server error</response>
+    [HttpGet("info/{teamSlug}")]
+    [ProducesResponseType(typeof(TeamInfoDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<TeamInfoDto>> GetTeamInfo(
+        [FromRoute] string teamSlug,
+        CancellationToken cancellationToken = default)
+    {
+        var requestId = Guid.NewGuid().ToString();
+
+        try
+        {
+            _logger.LogInformation("Team info request received. RequestId: {RequestId}, TeamSlug: {TeamSlug}", requestId, teamSlug);
+
+            // Check if admin functionality is configured
+            if (!_adminAuthService.IsAdminTokenConfigured())
+            {
+                _logger.LogWarning("Team info attempted but admin token not configured. RequestId: {RequestId}", requestId);
+                
+                return StatusCode(403, new
+                {
+                    Error = "Admin functionality not configured",
+                    Message = "Admin token must be configured in application settings to use admin endpoints"
+                });
+            }
+
+            // Validate admin token - check both Bearer token and custom header
+            string? token = null;
+            
+            // Try Bearer token first
+            var authHeader = Request.Headers.Authorization.FirstOrDefault();
+            if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+            {
+                token = authHeader["Bearer ".Length..];
+            }
+            
+            // If no Bearer token, try custom header
+            if (string.IsNullOrEmpty(token))
+            {
+                var headerName = _adminAuthService.GetAdminTokenHeaderName();
+                token = Request.Headers[headerName].FirstOrDefault();
+            }
+            
+            if (string.IsNullOrEmpty(token))
+            {
+                _logger.LogWarning("Team info attempted without admin token. RequestId: {RequestId}", requestId);
+                
+                return Unauthorized(new
+                {
+                    Error = "Missing Authorization",
+                    Message = $"Admin token required. Use Authorization header with Bearer token or {_adminAuthService.GetAdminTokenHeaderName()} header."
+                });
+            }
+
+            if (!_adminAuthService.ValidateAdminToken(token))
+            {
+                _logger.LogWarning("Team info attempted with invalid token. RequestId: {RequestId}, IP: {RemoteIP}", 
+                    requestId, Request.HttpContext.Connection.RemoteIpAddress);
+                
+                return Unauthorized(new
+                {
+                    Error = "Invalid Token",
+                    Message = "Invalid admin token provided"
+                });
+            }
+
+            // Validate team slug format
+            if (string.IsNullOrWhiteSpace(teamSlug) || teamSlug.Length < 3 || teamSlug.Length > 100)
+            {
+                _logger.LogWarning("Team info attempted with invalid slug format. RequestId: {RequestId}, TeamSlug: {TeamSlug}", requestId, teamSlug);
+                
+                return BadRequest(new
+                {
+                    Error = "Invalid team slug",
+                    Message = "Team slug must be between 3 and 100 characters"
+                });
+            }
+
+            // Get comprehensive team information
+            var teamInfo = await _teamRegistrationService.GetTeamInfoAsync(teamSlug, cancellationToken);
+            
+            if (teamInfo == null)
+            {
+                _logger.LogWarning("Team info attempted for non-existent team. RequestId: {RequestId}, TeamSlug: {TeamSlug}", requestId, teamSlug);
+                
+                return NotFound(new
+                {
+                    Error = "Team not found",
+                    Message = $"Team with slug '{teamSlug}' not found"
+                });
+            }
+
+            _logger.LogInformation("Team info retrieved successfully. RequestId: {RequestId}, TeamSlug: {TeamSlug}, TeamId: {TeamId}", 
+                requestId, teamSlug, teamInfo.Id);
+
+            return Ok(teamInfo);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error during team info retrieval. RequestId: {RequestId}, TeamSlug: {TeamSlug}", requestId, teamSlug);
+            
+            return StatusCode(500, new
+            {
+                Error = "Internal Server Error",
+                Message = "An unexpected error occurred while retrieving team information"
+            });
+        }
+    }
+
     private int GetHttpStatusCodeFromErrorCode(string errorCode)
     {
         return errorCode switch

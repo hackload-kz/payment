@@ -369,4 +369,242 @@ public class TeamRegistrationService : ITeamRegistrationService
         }
     }
 
+    public async Task<TeamInfoDto?> GetTeamInfoAsync(string teamSlug, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Getting comprehensive team information for {TeamSlug}", teamSlug);
+
+        try
+        {
+            // Get team with related data
+            var team = await _context.Teams
+                .Include(t => t.Payments)
+                .Include(t => t.Customers)
+                .Include(t => t.PaymentMethods)
+                .FirstOrDefaultAsync(t => t.TeamSlug == teamSlug, cancellationToken);
+
+            if (team == null)
+            {
+                _logger.LogWarning("Team not found for slug: {TeamSlug}", teamSlug);
+                return null;
+            }
+
+            // Calculate usage statistics
+            var usageStats = await CalculateUsageStatsAsync(team, cancellationToken);
+            
+            // Determine team status
+            var status = CalculateTeamStatus(team, usageStats);
+
+            var teamInfo = new TeamInfoDto
+            {
+                // Basic team information
+                Id = team.Id,
+                TeamSlug = team.TeamSlug,
+                TeamName = team.TeamName,
+                IsActive = team.IsActive,
+                CreatedAt = team.CreatedAt,
+                UpdatedAt = team.UpdatedAt,
+                
+                // Contact information
+                ContactEmail = team.ContactEmail,
+                ContactPhone = team.ContactPhone,
+                Description = team.Description,
+                
+                // Authentication and security settings
+                SecretKey = team.SecretKey,
+                LastPasswordChangeAt = team.LastPasswordChangeAt,
+                FailedAuthenticationAttempts = team.FailedAuthenticationAttempts,
+                LockedUntil = team.LockedUntil,
+                LastSuccessfulAuthenticationAt = team.LastSuccessfulAuthenticationAt,
+                LastAuthenticationIpAddress = team.LastAuthenticationIpAddress,
+                
+                // Payment processing URLs
+                NotificationUrl = team.NotificationUrl,
+                SuccessUrl = team.SuccessUrl,
+                FailUrl = team.FailUrl,
+                CancelUrl = team.CancelUrl,
+                
+                // Payment limits and restrictions
+                MinPaymentAmount = team.MinPaymentAmount,
+                MaxPaymentAmount = team.MaxPaymentAmount,
+                DailyPaymentLimit = team.DailyPaymentLimit,
+                MonthlyPaymentLimit = team.MonthlyPaymentLimit,
+                DailyTransactionLimit = team.DailyTransactionLimit,
+                
+                // Supported currencies and payment methods
+                SupportedCurrencies = team.SupportedCurrencies,
+                SupportedPaymentMethods = team.SupportedPaymentMethods,
+                
+                // Processing permissions
+                CanProcessRefunds = team.CanProcessRefunds,
+                
+                // Business information
+                LegalName = team.LegalName,
+                TaxId = team.TaxId,
+                Address = team.Address,
+                Country = team.Country,
+                TimeZone = team.TimeZone,
+                
+                // Fee and pricing configuration
+                ProcessingFeePercentage = team.ProcessingFeePercentage,
+                FixedProcessingFee = team.FixedProcessingFee,
+                FeeCurrency = team.FeeCurrency,
+                
+                // Settlement configuration
+                SettlementDelayDays = team.SettlementDelayDays,
+                SettlementAccountNumber = team.SettlementAccountNumber,
+                SettlementBankCode = team.SettlementBankCode,
+                
+                // Risk and fraud settings
+                EnableFraudDetection = team.EnableFraudDetection,
+                MaxFraudScore = team.MaxFraudScore,
+                RequireManualReviewForHighRisk = team.RequireManualReviewForHighRisk,
+                
+                // Feature flags
+                EnableRefunds = team.EnableRefunds,
+                EnablePartialRefunds = team.EnablePartialRefunds,
+                EnableReversals = team.EnableReversals,
+                Enable3DSecure = team.Enable3DSecure,
+                EnableTokenization = team.EnableTokenization,
+                EnableRecurringPayments = team.EnableRecurringPayments,
+                
+                // API and webhook settings
+                ApiVersion = team.ApiVersion,
+                EnableWebhooks = team.EnableWebhooks,
+                WebhookRetryAttempts = team.WebhookRetryAttempts,
+                WebhookTimeoutSeconds = team.WebhookTimeoutSeconds,
+                WebhookSecret = team.WebhookSecret,
+                
+                // Metadata and custom fields
+                Metadata = team.Metadata,
+                BusinessInfo = team.BusinessInfo,
+                
+                // Calculated fields
+                UsageStats = usageStats,
+                Status = status
+            };
+
+            _logger.LogInformation("Successfully retrieved team information for {TeamSlug}", teamSlug);
+            return teamInfo;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting team information for {TeamSlug}", teamSlug);
+            throw;
+        }
+    }
+
+    private async Task<TeamUsageStatsDto> CalculateUsageStatsAsync(Team team, CancellationToken cancellationToken)
+    {
+        var today = DateTime.UtcNow.Date;
+        var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+
+        // Calculate payment statistics
+        var totalPayments = team.Payments.Count;
+        var totalPaymentAmount = team.Payments.Sum(p => p.Amount);
+        
+        var paymentsToday = team.Payments.Count(p => p.CreatedAt.Date == today);
+        var paymentAmountToday = team.Payments
+            .Where(p => p.CreatedAt.Date == today)
+            .Sum(p => p.Amount);
+            
+        var paymentsThisMonth = team.Payments.Count(p => p.CreatedAt >= monthStart);
+        var paymentAmountThisMonth = team.Payments
+            .Where(p => p.CreatedAt >= monthStart)
+            .Sum(p => p.Amount);
+
+        var lastPaymentAt = team.Payments
+            .OrderByDescending(p => p.CreatedAt)
+            .FirstOrDefault()?.CreatedAt;
+
+        // Calculate webhook failures (this would require a webhook log table in a real implementation)
+        var failedWebhooksLast24Hours = 0; // Placeholder - would need webhook logging
+
+        return new TeamUsageStatsDto
+        {
+            TotalPayments = totalPayments,
+            TotalPaymentAmount = totalPaymentAmount,
+            PaymentsToday = paymentsToday,
+            PaymentAmountToday = paymentAmountToday,
+            PaymentsThisMonth = paymentsThisMonth,
+            PaymentAmountThisMonth = paymentAmountThisMonth,
+            TotalCustomers = team.Customers.Count,
+            ActivePaymentMethods = team.PaymentMethods.Count,
+            LastPaymentAt = lastPaymentAt,
+            LastWebhookAt = null, // Placeholder - would need webhook logging
+            FailedWebhooksLast24Hours = failedWebhooksLast24Hours
+        };
+    }
+
+    private TeamStatusDto CalculateTeamStatus(Team team, TeamUsageStatsDto usageStats)
+    {
+        var status = new TeamStatusDto
+        {
+            IsLocked = team.IsLocked(),
+            RequiresPasswordChange = team.RequiresPasswordChange(),
+            IsHealthy = true
+        };
+
+        // Check daily limit
+        if (team.DailyPaymentLimit.HasValue)
+        {
+            status.HasReachedDailyLimit = usageStats.PaymentAmountToday >= team.DailyPaymentLimit.Value;
+        }
+
+        // Check monthly limit
+        if (team.MonthlyPaymentLimit.HasValue)
+        {
+            status.HasReachedMonthlyLimit = usageStats.PaymentAmountThisMonth >= team.MonthlyPaymentLimit.Value;
+        }
+
+        // Determine health issues
+        if (status.IsLocked)
+        {
+            status.IsHealthy = false;
+            status.HealthIssues.Add("Team is locked due to authentication failures");
+        }
+
+        if (!team.IsActive)
+        {
+            status.IsHealthy = false;
+            status.HealthIssues.Add("Team is not active");
+        }
+
+        if (status.HasReachedDailyLimit)
+        {
+            status.IsHealthy = false;
+            status.HealthIssues.Add("Daily payment limit reached");
+        }
+
+        if (status.HasReachedMonthlyLimit)
+        {
+            status.IsHealthy = false;
+            status.HealthIssues.Add("Monthly payment limit reached");
+        }
+
+        // Add warnings
+        if (status.RequiresPasswordChange)
+        {
+            status.Warnings.Add("Password change required (older than 90 days)");
+        }
+
+        if (team.FailedAuthenticationAttempts > 2)
+        {
+            status.Warnings.Add($"Multiple failed authentication attempts ({team.FailedAuthenticationAttempts})");
+        }
+
+        if (team.DailyPaymentLimit.HasValue && 
+            usageStats.PaymentAmountToday > team.DailyPaymentLimit.Value * 0.8m)
+        {
+            status.Warnings.Add("Approaching daily payment limit (80% reached)");
+        }
+
+        if (team.MonthlyPaymentLimit.HasValue && 
+            usageStats.PaymentAmountThisMonth > team.MonthlyPaymentLimit.Value * 0.8m)
+        {
+            status.Warnings.Add("Approaching monthly payment limit (80% reached)");
+        }
+
+        return status;
+    }
+
 }

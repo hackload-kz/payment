@@ -477,7 +477,7 @@ class PaymentFormController {
         
         try {
             // Submit to the actual payment form endpoint
-            const response = await fetch('/api/v1/paymentform/submit', {
+            const response = await fetch('api/v1/paymentform/submit', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -544,7 +544,7 @@ class PaymentFormController {
         // Create a temporary form element for traditional submission
         const tempForm = document.createElement('form');
         tempForm.method = 'POST';
-        tempForm.action = '/api/v1/paymentform/submit';
+        tempForm.action = 'api/v1/paymentform/submit';
         tempForm.style.display = 'none';
         
         // Add all form data as hidden inputs

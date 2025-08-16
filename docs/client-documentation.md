@@ -388,7 +388,145 @@ Content-Type: application/json
 }
 ```
 
-### 1.1. Обновление настроек команды (Администраторы)
+### 1.1. Получение полной информации о команде (Администраторы)
+
+**GET** `/api/v1/TeamRegistration/info/{teamSlug}`
+
+Получение полной информации о команде/мерчанте для административных целей. Доступно только администраторам с admin токеном.
+
+**Заголовки:**
+```
+Authorization: Bearer {admin-token}
+```
+или
+```
+X-Admin-Token: {admin-token}
+```
+
+**Параметры URL:**
+- `{teamSlug}` - уникальный идентификатор команды
+
+**Ответ (200 OK):**
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "teamSlug": "my-online-store",
+  "teamName": "My Online Store",
+  "isActive": true,
+  "createdAt": "2025-08-06T10:30:00Z",
+  "updatedAt": "2025-08-16T14:30:00Z",
+  "contactEmail": "merchant@mystore.com",
+  "contactPhone": "+1234567890",
+  "description": "Online store for electronics",
+  "secretKey": "sk_live_abc123...",
+  "lastPasswordChangeAt": "2025-08-01T00:00:00Z",
+  "failedAuthenticationAttempts": 0,
+  "lockedUntil": null,
+  "lastSuccessfulAuthenticationAt": "2025-08-16T09:15:00Z",
+  "lastAuthenticationIpAddress": "192.168.1.100",
+  "notificationUrl": "https://mystore.com/webhook",
+  "successUrl": "https://mystore.com/success",
+  "failUrl": "https://mystore.com/fail",
+  "cancelUrl": "https://mystore.com/cancel",
+  "minPaymentAmount": 1000,
+  "maxPaymentAmount": 1000000,
+  "dailyPaymentLimit": 5000000,
+  "monthlyPaymentLimit": 50000000,
+  "dailyTransactionLimit": 100,
+  "supportedCurrencies": ["RUB", "USD", "EUR"],
+  "supportedPaymentMethods": ["Card"],
+  "canProcessRefunds": true,
+  "legalName": "My Store LLC",
+  "taxId": "1234567890",
+  "address": "123 Business St, City, State 12345",
+  "country": "RU",
+  "timeZone": "Europe/Moscow",
+  "processingFeePercentage": 2.5,
+  "fixedProcessingFee": 10,
+  "feeCurrency": "RUB",
+  "settlementDelayDays": 1,
+  "settlementAccountNumber": "40817810123456789012",
+  "settlementBankCode": "044525225",
+  "enableFraudDetection": true,
+  "maxFraudScore": 75,
+  "requireManualReviewForHighRisk": true,
+  "enableRefunds": true,
+  "enablePartialRefunds": false,
+  "enableReversals": true,
+  "enable3DSecure": true,
+  "enableTokenization": true,
+  "enableRecurringPayments": false,
+  "apiVersion": "v1",
+  "enableWebhooks": true,
+  "webhookRetryAttempts": 3,
+  "webhookTimeoutSeconds": 30,
+  "webhookSecret": "whsec_abc123...",
+  "metadata": {
+    "custom_field_1": "value1",
+    "integration_version": "1.0"
+  },
+  "businessInfo": {
+    "businessType": "ecommerce",
+    "website": "https://mystore.com"
+  },
+  "usageStats": {
+    "totalPayments": 1250,
+    "totalPaymentAmount": 15750000,
+    "paymentsToday": 45,
+    "paymentAmountToday": 450000,
+    "paymentsThisMonth": 892,
+    "paymentAmountThisMonth": 12500000,
+    "totalCustomers": 450,
+    "activePaymentMethods": 2,
+    "lastPaymentAt": "2025-08-16T14:15:00Z",
+    "lastWebhookAt": "2025-08-16T14:16:00Z",
+    "failedWebhooksLast24Hours": 2
+  },
+  "status": {
+    "isLocked": false,
+    "requiresPasswordChange": false,
+    "hasReachedDailyLimit": false,
+    "hasReachedMonthlyLimit": false,
+    "isHealthy": true,
+    "healthIssues": [],
+    "warnings": [
+      "Approaching daily payment limit (80% reached)"
+    ]
+  }
+}
+```
+
+**Ошибки:**
+
+- **401 Unauthorized** - отсутствует или неверный admin токен
+- **403 Forbidden** - admin функциональность не настроена
+- **404 Not Found** - команда не найдена
+- **400 Bad Request** - неверный формат teamSlug
+- **500 Internal Server Error** - внутренняя ошибка сервера
+
+**Информация в ответе:**
+
+- **Базовая информация:** ID, slug, название, статус активности, даты создания/обновления
+- **Контактные данные:** email, телефон, описание команды
+- **Настройки безопасности:** секретный ключ, история аутентификации, попытки входа
+- **Настройки платежей:** лимиты, поддерживаемые валюты и методы
+- **Бизнес-информация:** юридические данные, налоговые реквизиты, адрес
+- **Настройки комиссий:** процент и фиксированная комиссия
+- **Настройки урегулирования:** банковские реквизиты, задержки переводов
+- **Настройки безопасности:** антифрод, лимиты по рискам
+- **Функциональные флаги:** возвраты, 3D Secure, токенизация, регулярные платежи
+- **API и webhook настройки:** версия API, настройки уведомлений
+- **Метаданные:** пользовательские поля и бизнес-информация
+- **Статистика использования:** количество и суммы платежей за различные периоды
+- **Статус здоровья:** индикаторы проблем и предупреждений
+
+**Пример запроса:**
+```bash
+curl -H "Authorization: Bearer admin_token_here" \
+     "https://gateway.hackload.com/api/v1/TeamRegistration/info/my-online-store"
+```
+
+### 1.2. Обновление настроек команды (Администраторы)
 
 **PUT** `/api/v1/TeamRegistration/update/{teamSlug}`
 
