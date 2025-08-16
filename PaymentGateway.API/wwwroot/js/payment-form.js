@@ -958,8 +958,8 @@ class TimezoneAwarePaymentTimer {
     
     getLocalizedMessage(key) {
         // Try to get localized message from localization module
-        if (window.PaymentLocalization) {
-            return window.PaymentLocalization.getMessage(key);
+        if (window.PaymentLocalization && typeof window.PaymentLocalization.getTranslation === 'function') {
+            return window.PaymentLocalization.getTranslation(key);
         }
         
         // Fallback messages
