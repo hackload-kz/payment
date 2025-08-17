@@ -6,8 +6,8 @@ class TeamDashboard {
         this.teamData = null;
         this.config = null;
         
-        // Initialize with fallback API URL
-        this.apiBaseUrl = '/api/v1/TeamManagement';
+        // Initialize with fallback API URL (relative to respect base tag)
+        this.apiBaseUrl = 'api/v1/TeamManagement';
         
         this.init();
     }
@@ -40,15 +40,16 @@ class TeamDashboard {
                 return;
             }
 
-            // Otherwise fetch configuration from the server
-            const response = await fetch('/team/config');
+            // Otherwise fetch configuration from the server using relative URL (respects base tag)
+            const response = await fetch('team/config');
             if (response.ok) {
                 this.config = await response.json();
-                this.apiBaseUrl = this.config.Endpoints?.TeamManagement || '/api/v1/TeamManagement';
+                this.apiBaseUrl = this.config.Endpoints?.TeamManagement || 'api/v1/TeamManagement';
             }
         } catch (error) {
             console.warn('Failed to load configuration, using fallback URLs:', error);
-            // Keep the fallback URL that was set in constructor
+            // Keep the fallback URL that was set in constructor but make it relative
+            this.apiBaseUrl = 'api/v1/TeamManagement';
         }
     }
 

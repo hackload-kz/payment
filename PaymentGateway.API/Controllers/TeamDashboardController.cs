@@ -204,8 +204,8 @@ public class TeamDashboardController : ControllerBase
             BaseUrl = baseUrl,
             Endpoints = new
             {
-                TeamManagement = $"{baseUrl}/api/v1/TeamManagement",
-                Profile = $"{baseUrl}/api/v1/TeamManagement/profile"
+                TeamManagement = "api/v1/TeamManagement",
+                Profile = "api/v1/TeamManagement/profile"
             },
             Features = new
             {
