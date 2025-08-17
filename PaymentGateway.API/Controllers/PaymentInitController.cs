@@ -251,21 +251,22 @@ public class PaymentInitController : ControllerBase
                 TransactionHistory = new Dictionary<string, object>()
             };
             
-            var ruleEvaluationResult = await _businessRuleEngineService.EvaluatePaymentRulesAsync(businessRuleContext, cancellationToken);
-            if (!ruleEvaluationResult.IsAllowed)
-            {
-                PaymentInitRequests.WithLabels(teamId.ToString(), "rule_violation", request.Currency).Inc();
-                var ruleErrors = ruleEvaluationResult.Violations.Any() ? 
-                    string.Join("; ", ruleEvaluationResult.Violations.Select(v => $"{v.Field}: {v.Message}")) :
-                    ruleEvaluationResult.Message;
-                
-                _logger.LogWarning("Payment initialization rule violation. RequestId: {RequestId}, Rule: {RuleName}, Message: {Message}", 
-                    requestId, ruleEvaluationResult.RuleName, ruleEvaluationResult.Message);
-                
-                traceActivity?.SetTag("payment.rule_violations", ruleErrors);
-                return UnprocessableEntity(CreateErrorResponse("1422", "Business rule violation", ruleErrors));
-            }
-            
+            //TODO: Test the logic of this business violations. It doesn't take value from the settings
+            // var ruleEvaluationResult = await _businessRuleEngineService.EvaluatePaymentRulesAsync(businessRuleContext, cancellationToken);
+            // if (!ruleEvaluationResult.IsAllowed)
+            // {
+            //     PaymentInitRequests.WithLabels(teamId.ToString(), "rule_violation", request.Currency).Inc();
+            //     var ruleErrors = ruleEvaluationResult.Violations.Any() ? 
+            //         string.Join("; ", ruleEvaluationResult.Violations.Select(v => $"{v.Field}: {v.Message}")) :
+            //         ruleEvaluationResult.Message;
+
+            //     _logger.LogWarning("Payment initialization rule violation. RequestId: {RequestId}, Rule: {RuleName}, Message: {Message}", 
+            //         requestId, ruleEvaluationResult.RuleName, ruleEvaluationResult.Message);
+
+            //     traceActivity?.SetTag("payment.rule_violations", ruleErrors);
+            //     return UnprocessableEntity(CreateErrorResponse("1422", "Business rule violation", ruleErrors));
+            // }
+
             // 5. Rate limiting check (handled by middleware but double-check critical operations)
             var rateLimitResult = await CheckRateLimitAsync(request.TeamSlug, cancellationToken);
             if (!rateLimitResult.IsAllowed)
