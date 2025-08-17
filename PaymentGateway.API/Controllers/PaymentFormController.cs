@@ -155,7 +155,7 @@ public class PaymentFormController : ControllerBase
             {
                 PaymentId = payment.PaymentId,
                 OrderId = payment.OrderId,
-                Amount = payment.Amount,
+                Amount = payment.Amount / 100m, // Convert from cents to main currency units
                 Currency = payment.Currency,
                 Description = payment.Description,
                 MerchantName = team.Name,
@@ -562,7 +562,7 @@ public class PaymentFormController : ControllerBase
                 ExpiryYear = expiryParts[1],
                 CVV = cardData.Cvv,
                 CardholderName = cardData.CardholderName,
-                Amount = payment.Amount,
+                Amount = payment.Amount / 100m, // Convert from cents to main currency units
                 Currency = payment.Currency,
                 TeamId = payment.TeamId,
                 OrderId = payment.OrderId
@@ -869,7 +869,7 @@ public class PaymentFormController : ControllerBase
                 </div>" : "")}
                 <div class=""detail-row"">
                     <span>Amount:</span>
-                    <span>{payment.Amount:F2} {System.Net.WebUtility.HtmlEncode(payment.Currency)}</span>
+                    <span>{(payment.Amount / 100m):F2} {System.Net.WebUtility.HtmlEncode(payment.Currency)}</span>
                 </div>
                 <div class=""detail-row"">
                     <span>Status:</span>

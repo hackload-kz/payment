@@ -114,12 +114,12 @@ public class TeamManagementController : ControllerBase
                 FailUrl = team.FailUrl,
                 CancelUrl = team.CancelUrl,
                 
-                // Payment Limits
-                MinPaymentAmount = team.MinPaymentAmount,
-                MaxPaymentAmount = team.MaxPaymentAmount,
-                DailyPaymentLimit = team.DailyPaymentLimit,
-                MonthlyPaymentLimit = team.MonthlyPaymentLimit,
-                DailyTransactionLimit = team.DailyTransactionLimit,
+                // Payment Limits (convert from cents to main currency units)
+                MinPaymentAmount = team.MinPaymentAmount.HasValue ? team.MinPaymentAmount.Value / 100m : null,
+                MaxPaymentAmount = team.MaxPaymentAmount.HasValue ? team.MaxPaymentAmount.Value / 100m : null,
+                DailyPaymentLimit = team.DailyPaymentLimit.HasValue ? team.DailyPaymentLimit.Value / 100m : null,
+                MonthlyPaymentLimit = team.MonthlyPaymentLimit.HasValue ? team.MonthlyPaymentLimit.Value / 100m : null,
+                DailyTransactionLimit = team.DailyTransactionLimit, // This is a count, not an amount
                 
                 // Supported Options
                 SupportedCurrencies = team.SupportedCurrencies,
@@ -307,16 +307,17 @@ public class TeamManagementController : ControllerBase
                 updateData["webhooktimeoutseconds"] = request.WebhookTimeoutSeconds.Value;
 
             // Payment Limits (now allowed for self-update)
+            // Convert payment amounts from main currency units to cents before storing
             if (request.MinPaymentAmount.HasValue)
-                updateData["minpaymentamount"] = request.MinPaymentAmount.Value;
+                updateData["minpaymentamount"] = (decimal)(request.MinPaymentAmount.Value * 100);
             if (request.MaxPaymentAmount.HasValue)
-                updateData["maxpaymentamount"] = request.MaxPaymentAmount.Value;
+                updateData["maxpaymentamount"] = (decimal)(request.MaxPaymentAmount.Value * 100);
             if (request.DailyPaymentLimit.HasValue)
-                updateData["dailypaymentlimit"] = request.DailyPaymentLimit.Value;
+                updateData["dailypaymentlimit"] = (decimal)(request.DailyPaymentLimit.Value * 100);
             if (request.MonthlyPaymentLimit.HasValue)
-                updateData["monthlypaymentlimit"] = request.MonthlyPaymentLimit.Value;
+                updateData["monthlypaymentlimit"] = (decimal)(request.MonthlyPaymentLimit.Value * 100);
             if (request.DailyTransactionLimit.HasValue)
-                updateData["dailytransactionlimit"] = request.DailyTransactionLimit.Value;
+                updateData["dailytransactionlimit"] = request.DailyTransactionLimit.Value; // This is a count, not an amount
 
             // Metadata
             if (request.Metadata != null)
@@ -504,22 +505,22 @@ public class TeamManagementController : ControllerBase
                 .Where(p => p.Status == PaymentStatus.CONFIRMED || p.Status == PaymentStatus.COMPLETED)
                 .ToList();
 
-            // Calculate totals
+            // Calculate totals (convert from cents to main currency units)
             var totalPayments = successfulPayments.Count;
-            var totalPaymentAmount = successfulPayments.Sum(p => p.Amount);
+            var totalPaymentAmount = successfulPayments.Sum(p => p.Amount) / 100m;
 
             // Today's payments
             var paymentsToday = successfulPayments
                 .Where(p => p.ConfirmedAt?.Date == today || p.CompletedAt?.Date == today)
                 .ToList();
-            var paymentAmountToday = paymentsToday.Sum(p => p.Amount);
+            var paymentAmountToday = paymentsToday.Sum(p => p.Amount) / 100m;
 
             // This month's payments
             var paymentsThisMonth = successfulPayments
                 .Where(p => (p.ConfirmedAt?.Date >= startOfMonth && p.ConfirmedAt?.Date <= today) ||
                            (p.CompletedAt?.Date >= startOfMonth && p.CompletedAt?.Date <= today))
                 .ToList();
-            var paymentAmountThisMonth = paymentsThisMonth.Sum(p => p.Amount);
+            var paymentAmountThisMonth = paymentsThisMonth.Sum(p => p.Amount) / 100m;
 
             // Get customers count
             var allCustomers = await _customerRepository.GetAllAsync(cancellationToken);

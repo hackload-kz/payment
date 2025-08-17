@@ -325,7 +325,9 @@ class TeamDashboard {
         if (this.teamData.usageStats) {
             const stats = this.teamData.usageStats;
             this.updateElement('stat-total-payments', stats.totalPayments);
-            this.updateElement('stat-total-amount', this.formatCurrency(stats.totalPaymentAmount, 'RUB'));
+            // Use the team's primary supported currency or default to KZT
+            const currency = this.teamData.supportedCurrencies?.[0] || this.teamData.feeCurrency || 'KZT';
+            this.updateElement('stat-total-amount', this.formatCurrency(stats.totalPaymentAmount, currency));
             this.updateElement('stat-today-payments', stats.paymentsToday);
             this.updateElement('stat-month-payments', stats.paymentsThisMonth);
             this.updateElement('stat-customers', stats.totalCustomers);
@@ -340,10 +342,16 @@ class TeamDashboard {
         }
     }
 
-    formatCurrency(amount, currency = 'RUB') {
+    formatCurrency(amount, currency) {
         if (amount == null) return '-';
         
-        const symbols = { RUB: '₽', USD: '$', EUR: '€' };
+        // If no currency provided, try to get from team data
+        if (!currency && this.teamData) {
+            currency = this.teamData.supportedCurrencies?.[0] || this.teamData.feeCurrency || 'KZT';
+        }
+        currency = currency || 'KZT';
+        
+        const symbols = { KZT: '₸', RUB: '₽', USD: '$', EUR: '€' };
         const symbol = symbols[currency] || currency;
         
         return `${symbol}${Number(amount).toLocaleString()}`;
