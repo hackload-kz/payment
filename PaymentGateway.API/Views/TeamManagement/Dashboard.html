@@ -4,15 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Team Management Dashboard - Payment Gateway</title>
-    <link rel="stylesheet" href="/css/team-dashboard.css">
+    <base href="{{BasePath}}" />
+    <link rel="stylesheet" href="css/team-dashboard.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <meta name="description" content="Payment Gateway Team Management Dashboard">
+    <meta name="robots" content="noindex, nofollow">
 </head>
 <body>
     <div class="dashboard-container">
         <!-- Header -->
         <header class="dashboard-header">
             <div class="header-content">
-                <h1><i class="fas fa-users"></i> Team Management Dashboard</h1>
+                <h1><i class="fas fa-users"></i> Payment Gateway - Team Dashboard</h1>
                 <div class="header-actions">
                     <span id="team-name-display" class="team-name">Not logged in</span>
                     <button id="logout-btn" class="btn btn-secondary">
@@ -29,6 +33,7 @@
                     <h2><i class="fas fa-lock"></i> Team Authentication</h2>
                 </div>
                 <div class="modal-body">
+                    <p class="auth-description">Please enter your team credentials to access the management dashboard.</p>
                     <form id="login-form">
                         <div class="form-group">
                             <label for="team-slug">Team Slug:</label>
@@ -42,10 +47,13 @@
                         </div>
                         <div class="form-actions">
                             <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-sign-in-alt"></i> Login
+                                <i class="fas fa-sign-in-alt"></i> Login to Dashboard
                             </button>
                         </div>
                     </form>
+                    <div class="auth-footer">
+                        <small>Secure connection to <strong id="hostname">Payment Gateway</strong></small>
+                    </div>
                 </div>
             </div>
         </div>
@@ -124,11 +132,14 @@
                                     <div class="form-group">
                                         <label for="edit-timezone">Time Zone:</label>
                                         <select id="edit-timezone" name="timeZone">
-                                            <option value="UTC">UTC</option>
-                                            <option value="Europe/Moscow">Europe/Moscow</option>
-                                            <option value="Europe/London">Europe/London</option>
-                                            <option value="America/New_York">America/New_York</option>
-                                            <option value="Asia/Tokyo">Asia/Tokyo</option>
+                                            <option value="UTC">UTC (Coordinated Universal Time)</option>
+                                            <option value="Asia/Almaty">Asia/Almaty (Kazakhstan)</option>
+                                            <option value="Europe/Moscow">Europe/Moscow (Russia)</option>
+                                            <option value="Europe/London">Europe/London (UK)</option>
+                                            <option value="America/New_York">America/New_York (US Eastern)</option>
+                                            <option value="Asia/Tokyo">Asia/Tokyo (Japan)</option>
+                                            <option value="Europe/Berlin">Europe/Berlin (Germany)</option>
+                                            <option value="Asia/Dubai">Asia/Dubai (UAE)</option>
                                         </select>
                                     </div>
                                 </div>
@@ -245,7 +256,7 @@
                                     <i class="fas fa-dollar-sign"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <div class="stat-value" id="stat-total-amount">₽0</div>
+                                    <div class="stat-value" id="stat-total-amount">₸0</div>
                                     <div class="stat-label">Total Amount</div>
                                 </div>
                             </div>
@@ -325,22 +336,26 @@
                                     <div class="form-group">
                                         <label for="edit-success-url">Success URL:</label>
                                         <input type="url" id="edit-success-url" name="successUrl" 
-                                               placeholder="https://yoursite.com/success" maxlength="2048">
+                                               placeholder="https://yoursite.com/payment/success" maxlength="2048">
+                                        <small class="form-hint">URL where users are redirected after successful payment</small>
                                     </div>
                                     <div class="form-group">
                                         <label for="edit-fail-url">Fail URL:</label>
                                         <input type="url" id="edit-fail-url" name="failUrl" 
-                                               placeholder="https://yoursite.com/fail" maxlength="2048">
+                                               placeholder="https://yoursite.com/payment/failed" maxlength="2048">
+                                        <small class="form-hint">URL where users are redirected after failed payment</small>
                                     </div>
                                     <div class="form-group">
-                                        <label for="edit-notification-url">Notification URL:</label>
+                                        <label for="edit-notification-url">Notification URL (Webhook):</label>
                                         <input type="url" id="edit-notification-url" name="notificationUrl" 
-                                               placeholder="https://yoursite.com/webhook" maxlength="2048">
+                                               placeholder="https://yoursite.com/api/payment/webhook" maxlength="2048">
+                                        <small class="form-hint">Server-to-server notification URL for payment status updates</small>
                                     </div>
                                     <div class="form-group">
                                         <label for="edit-cancel-url">Cancel URL:</label>
                                         <input type="url" id="edit-cancel-url" name="cancelUrl" 
-                                               placeholder="https://yoursite.com/cancel" maxlength="2048">
+                                               placeholder="https://yoursite.com/payment/cancelled" maxlength="2048">
+                                        <small class="form-hint">URL where users are redirected when they cancel payment</small>
                                     </div>
                                 </div>
                                 <div class="form-actions">
@@ -361,6 +376,24 @@
     </div>
 
     <!-- JavaScript -->
-    <script src="/js/team-dashboard.js"></script>
+    <script>
+        // Dynamic configuration will be loaded from the server
+        // Update hostname display
+        document.addEventListener('DOMContentLoaded', function() {
+            const hostnameElement = document.getElementById('hostname');
+            if (hostnameElement) {
+                hostnameElement.textContent = window.location.hostname;
+            }
+        });
+    </script>
+    <script src="js/team-dashboard.js"></script>
+    
+    <!-- Payment Gateway Branding Footer -->
+    <footer style="text-align: center; padding: 1rem; color: #6b7280; font-size: 0.875rem; border-top: 1px solid #e1e8ed; margin-top: 2rem;">
+        <p>
+            <strong>Payment Gateway</strong> | 
+            Secure payment processing platform
+        </p>
+    </footer>
 </body>
 </html>

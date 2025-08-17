@@ -343,6 +343,34 @@ body {
     backdrop-filter: blur(4px);
 }
 
+/* Auth styles */
+.auth-description {
+    margin-bottom: 1.5rem;
+    color: #6b7280;
+    text-align: center;
+    font-size: 0.95rem;
+}
+
+.auth-footer {
+    margin-top: 1.5rem;
+    text-align: center;
+    padding-top: 1rem;
+    border-top: 1px solid #e1e8ed;
+}
+
+.auth-footer small {
+    color: #9ca3af;
+}
+
+/* Form hints */
+.form-hint {
+    display: block;
+    margin-top: 0.25rem;
+    color: #6b7280;
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
 .modal-content {
     background: white;
     border-radius: 12px;

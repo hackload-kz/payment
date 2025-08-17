@@ -4,12 +4,18 @@ class TeamDashboard {
     constructor() {
         this.credentials = null;
         this.teamData = null;
+        this.config = null;
+        
+        // Initialize with fallback API URL
         this.apiBaseUrl = '/api/v1/TeamManagement';
         
         this.init();
     }
 
-    init() {
+    async init() {
+        // Load configuration first
+        await this.loadConfiguration();
+        
         // Check for existing credentials
         this.loadStoredCredentials();
         
@@ -22,6 +28,27 @@ class TeamDashboard {
         } else {
             this.hideLoginModal();
             this.loadTeamData();
+        }
+    }
+
+    async loadConfiguration() {
+        try {
+            // First try to use window configuration if available
+            const windowConfig = window.HACKLOAD_CONFIG;
+            if (windowConfig && windowConfig.apiBaseUrl) {
+                this.apiBaseUrl = `${windowConfig.apiBaseUrl}/TeamManagement`;
+                return;
+            }
+
+            // Otherwise fetch configuration from the server
+            const response = await fetch('/team/config');
+            if (response.ok) {
+                this.config = await response.json();
+                this.apiBaseUrl = this.config.Endpoints?.TeamManagement || '/api/v1/TeamManagement';
+            }
+        } catch (error) {
+            console.warn('Failed to load configuration, using fallback URLs:', error);
+            // Keep the fallback URL that was set in constructor
         }
     }
 

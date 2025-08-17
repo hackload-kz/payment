@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using PaymentGateway.Core.Configuration;
 
 namespace PaymentGateway.API.Controllers;
 
@@ -12,13 +14,16 @@ public class TeamDashboardController : ControllerBase
 {
     private readonly ILogger<TeamDashboardController> _logger;
     private readonly IWebHostEnvironment _environment;
+    private readonly ApiOptions _apiOptions;
 
     public TeamDashboardController(
         ILogger<TeamDashboardController> logger,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        IOptions<ApiOptions> apiOptions)
     {
         _logger = logger;
         _environment = environment;
+        _apiOptions = apiOptions.Value;
     }
 
     /// <summary>
@@ -78,6 +83,14 @@ public class TeamDashboardController : ControllerBase
 
             // Read and serve the HTML file
             var htmlContent = await System.IO.File.ReadAllTextAsync(dashboardPath);
+            
+            // Replace template placeholders
+            // Use ApiOptions.BaseUrl if available, otherwise construct from request
+            var basePath = !string.IsNullOrEmpty(_apiOptions.BaseUrl) ? 
+                _apiOptions.BaseUrl.TrimEnd('/') + "/" : 
+                $"{Request.Scheme}://{Request.Host}{Request.PathBase}/";
+            
+            htmlContent = htmlContent.Replace("{{BasePath}}", basePath);
             
             // Add cache headers for static content
             Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -179,14 +192,20 @@ public class TeamDashboardController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public IActionResult GetConfig()
     {
+        // Get the base URL from the request
+        var scheme = Request.Scheme;
+        var host = Request.Host.Value;
+        var baseUrl = $"{scheme}://{host}";
+        
         var config = new
         {
             Version = "1.0.0",
             ApiVersion = "v1",
+            BaseUrl = baseUrl,
             Endpoints = new
             {
-                TeamManagement = "/api/v1/TeamManagement",
-                Profile = "/api/v1/TeamManagement/profile"
+                TeamManagement = $"{baseUrl}/api/v1/TeamManagement",
+                Profile = $"{baseUrl}/api/v1/TeamManagement/profile"
             },
             Features = new
             {
