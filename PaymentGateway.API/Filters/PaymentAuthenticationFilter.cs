@@ -409,15 +409,15 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
             if (value == null) continue;
 
             // Include core parameters for simplified authentication
-            // CRITICAL FIX: Ensure all parameters are included correctly
-            switch (property.Name)
+            // CRITICAL FIX: Ensure all parameters are included correctly with case-insensitive matching
+            switch (property.Name.ToLowerInvariant())
             {
-                case "TeamSlug":
-                case "Token":
-                case "Amount":
-                case "OrderId":
-                case "Currency":
-                case "PaymentId":  // PaymentCheck and PaymentConfirm use PaymentId
+                case "teamslug":
+                case "token":
+                case "amount":
+                case "orderid":
+                case "currency":
+                case "paymentid":  // PaymentCheck and PaymentConfirm use PaymentId
                     parameters[property.Name] = value;
                     _logger.LogInformation("FILTER DEBUG: SIMPLIFIED - INCLUDED {Name} = {Value}", property.Name, value);
                     break;
@@ -428,7 +428,8 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
         }
 
         // CRITICAL FIX: Ensure teamSlug is always present for authentication
-        if (!parameters.ContainsKey("TeamSlug") || string.IsNullOrEmpty(parameters["TeamSlug"]?.ToString()))
+        var teamSlugKey = parameters.Keys.FirstOrDefault(k => k.Equals("TeamSlug", StringComparison.OrdinalIgnoreCase));
+        if (teamSlugKey == null || string.IsNullOrEmpty(parameters[teamSlugKey]?.ToString()))
         {
             _logger.LogError("FILTER DEBUG: TeamSlug parameter is missing or empty after extraction");
             _logger.LogInformation("FILTER DEBUG: Available parameters: {Parameters}", 
@@ -437,7 +438,7 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
 
         _logger.LogInformation("FILTER DEBUG: SIMPLIFIED - Final parameter count: {Count}", parameters.Count);
         _logger.LogInformation("FILTER DEBUG: SIMPLIFIED - TeamSlug present: {Present}", 
-            parameters.ContainsKey("TeamSlug"));
+            teamSlugKey != null);
         
         return parameters;
     }
