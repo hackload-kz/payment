@@ -60,13 +60,15 @@ public class PaymentAuthenticationService : IPaymentAuthenticationService
         try
         {
             // Extract teamSlug and token from request parameters (case-insensitive)
-            if (!requestParameters.TryGetValue("teamSlug", out var teamSlugObj) || teamSlugObj == null)
+            var teamSlugKey = requestParameters.Keys.FirstOrDefault(k => k.Equals("teamSlug", StringComparison.OrdinalIgnoreCase));
+            if (teamSlugKey == null || !requestParameters.TryGetValue(teamSlugKey, out var teamSlugObj) || teamSlugObj == null)
             {
                 await RecordAuthenticationMetricsAsync("unknown", false, DateTime.UtcNow - authStartTime);
                 return CreateFailureResult("TEAM_SLUG_MISSING", "teamSlug parameter is required");
             }
 
-            if (!requestParameters.TryGetValue("token", out var tokenObj) || tokenObj == null)
+            var tokenKey = requestParameters.Keys.FirstOrDefault(k => k.Equals("token", StringComparison.OrdinalIgnoreCase));
+            if (tokenKey == null || !requestParameters.TryGetValue(tokenKey, out var tokenObj) || tokenObj == null)
             {
                 await RecordAuthenticationMetricsAsync(teamSlugObj.ToString()!, false, DateTime.UtcNow - authStartTime);
                 return CreateFailureResult("TOKEN_MISSING", "token parameter is required");
