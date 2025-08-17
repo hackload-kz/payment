@@ -13,7 +13,7 @@ public interface IPaymentStateManager
     Task<PaymentStatus> GetPaymentStatusAsync(string paymentId, CancellationToken cancellationToken = default);
     Task<bool> IsValidTransitionAsync(PaymentStatus fromStatus, PaymentStatus toStatus);
     Task ReleaseLockAsync(string paymentId);
-    Task SynchronizePaymentStateAsync(string paymentId, PaymentStatus currentStatus);
+    Task SynchronizePaymentStateAsync(string paymentId, PaymentStatus currentStatus, CancellationToken cancellationToken = default);
 }
 
 public class PaymentStateManager : IPaymentStateManager
@@ -79,10 +79,7 @@ public class PaymentStateManager : IPaymentStateManager
                 return false;
             }
 
-            // Update in-memory cache
-            _paymentStatusCache.AddOrUpdate(paymentId, toStatus, (_, _) => toStatus);
-            
-            // Update database
+            // Update database first to ensure consistency
             try
             {
                 var payment = await _paymentRepository.GetByPaymentIdAsync(paymentId, cancellationToken);
@@ -96,13 +93,17 @@ public class PaymentStateManager : IPaymentStateManager
                 else
                 {
                     _logger.LogWarning("Payment {PaymentId} not found in database during state transition", paymentId);
+                    return false;
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to update payment {PaymentId} status in database during transition to {ToStatus}", paymentId, toStatus);
-                // Don't fail the entire transition if database update fails, but log the error
+                return false; // Fail the transition if database update fails
             }
+            
+            // Update in-memory cache only after successful database update
+            _paymentStatusCache.AddOrUpdate(paymentId, toStatus, (_, _) => toStatus);
             
             _logger.LogInformation("Payment {PaymentId} state transitioned from {FromStatus} to {ToStatus}", 
                 paymentId, fromStatus, toStatus);
@@ -138,19 +139,15 @@ public class PaymentStateManager : IPaymentStateManager
     {
         ArgumentNullException.ThrowIfNull(paymentId);
         
-        // Check cache first
-        if (_paymentStatusCache.TryGetValue(paymentId, out var cachedStatus))
-        {
-            return cachedStatus;
-        }
-        
-        // Load from database if not in cache
+        // Always check database first to ensure we have the most current status
+        // This prevents cache inconsistency issues
         try
         {
             var payment = await _paymentRepository.GetByPaymentIdAsync(paymentId, cancellationToken);
             if (payment != null)
             {
-                _paymentStatusCache.TryAdd(paymentId, payment.Status);
+                // Update cache with current database status
+                _paymentStatusCache.AddOrUpdate(paymentId, payment.Status, (_, _) => payment.Status);
                 _logger.LogDebug("Loaded payment status from database: {PaymentId} = {Status}", paymentId, payment.Status);
                 return payment.Status;
             }
@@ -158,9 +155,17 @@ public class PaymentStateManager : IPaymentStateManager
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error loading payment status from database for {PaymentId}", paymentId);
+            
+            // Fall back to cache if database is unavailable
+            if (_paymentStatusCache.TryGetValue(paymentId, out var cachedStatus))
+            {
+                _logger.LogWarning("Using cached payment status for {PaymentId} due to database error: {Status}", paymentId, cachedStatus);
+                return cachedStatus;
+            }
         }
         
         // Default to INIT if payment not found
+        _logger.LogWarning("Payment {PaymentId} not found in database or cache, defaulting to INIT status", paymentId);
         return PaymentStatus.INIT;
     }
 
@@ -183,14 +188,36 @@ public class PaymentStateManager : IPaymentStateManager
         await Task.CompletedTask;
     }
 
-    public async Task SynchronizePaymentStateAsync(string paymentId, PaymentStatus currentStatus)
+    public async Task SynchronizePaymentStateAsync(string paymentId, PaymentStatus currentStatus, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(paymentId);
         
-        _paymentStatusCache.AddOrUpdate(paymentId, currentStatus, (_, _) => currentStatus);
-        _logger.LogDebug("Synchronized payment state cache: {PaymentId} = {Status}", paymentId, currentStatus);
-        
-        await Task.CompletedTask;
+        try
+        {
+            // Update database first to ensure consistency
+            var payment = await _paymentRepository.GetByPaymentIdAsync(paymentId, cancellationToken);
+            if (payment != null)
+            {
+                payment.Status = currentStatus;
+                payment.UpdatedAt = DateTime.UtcNow;
+                await _paymentRepository.UpdateAsync(payment, cancellationToken);
+                _logger.LogDebug("Updated payment {PaymentId} status in database to {Status}", paymentId, currentStatus);
+            }
+            else
+            {
+                _logger.LogWarning("Payment {PaymentId} not found in database during synchronization", paymentId);
+            }
+            
+            // Update cache only after successful database update
+            _paymentStatusCache.AddOrUpdate(paymentId, currentStatus, (_, _) => currentStatus);
+            _logger.LogDebug("Synchronized payment state cache: {PaymentId} = {Status}", paymentId, currentStatus);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to synchronize payment {PaymentId} status to {Status}", paymentId, currentStatus);
+            // Don't update cache if database update failed to maintain consistency
+            throw;
+        }
     }
 
     private async Task SendWebhookNotificationAsync(string paymentId, PaymentStatus status, string teamSlug, CancellationToken cancellationToken)
