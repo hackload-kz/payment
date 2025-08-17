@@ -712,6 +712,139 @@ curl -X POST "https://gateway.hackload.com/api/v1/Admin/clear-team-data/test-mer
   -H "X-Admin-Token: admin_token_here"
 ```
 
+### 1.5. Самостоятельное управление командой (Web-интерфейс)
+
+**Веб-панель управления командой** - удобный интерфейс для самостоятельного управления настройками команды без необходимости работы с API.
+
+**🌐 URL для доступа:** `https://hub.hackload.com/payment-provider/common/team`
+
+**🔐 Аутентификация:** Basic Auth с использованием учетных данных команды
+- **Логин**: TeamSlug (идентификатор команды)
+- **Пароль**: Password команды
+
+#### Возможности веб-панели
+
+**📊 Просмотр информации о команде:**
+- Название команды, контактная информация
+- Статус активности и даты создания/обновления
+- Настройки URL для уведомлений и перенаправлений
+- Текущие лимиты платежей и ограничения
+- Поддерживаемые валюты и методы оплаты
+
+**📈 Статистика использования (в реальном времени):**
+- Общее количество платежей и сумма
+- Платежи за сегодня и текущий месяц
+- Количество клиентов и активных методов оплаты
+- Время последнего платежа
+- Статистика webhook-уведомлений
+
+**⚙️ Редактирование настроек:**
+- **Основная информация**: Название, email, телефон, описание, часовой пояс
+- **Лимиты платежей**: Минимальная/максимальная сумма, дневные/месячные лимиты, лимит транзакций
+- **URL конфигурация**: Success URL, Fail URL, Notification URL, Cancel URL
+- **Настройки webhook**: Включение/отключение, количество попыток, таймауты
+
+#### API эндпоинты для самоуправления
+
+**GET** `/api/v1/TeamManagement/profile`
+
+Получение полной информации о команде включая статистику использования.
+
+**Заголовки:**
+```
+Authorization: Basic {base64(teamSlug:password)}
+Content-Type: application/json
+```
+
+**Ответ (200 OK):**
+```json
+{
+  "teamSlug": "my-store",
+  "teamName": "My Online Store",
+  "isActive": true,
+  "contactEmail": "merchant@mystore.com",
+  "contactPhone": "+1234567890",
+  "description": "Online electronics store",
+  "timeZone": "Europe/Moscow",
+  "minPaymentAmount": 1000,
+  "maxPaymentAmount": 500000000000,
+  "dailyPaymentLimit": 8990000000000,
+  "monthlyPaymentLimit": 50000000000000,
+  "dailyTransactionLimit": 1000,
+  "supportedCurrencies": ["RUB", "USD", "EUR"],
+  "successUrl": "https://mystore.com/success",
+  "failUrl": "https://mystore.com/fail",
+  "notificationUrl": "https://mystore.com/webhook",
+  "cancelUrl": "https://mystore.com/cancel",
+  "usageStats": {
+    "totalPayments": 8,
+    "totalPaymentAmount": 48145000.00,
+    "paymentsToday": 5,
+    "paymentAmountToday": 48100000.00,
+    "paymentsThisMonth": 8,
+    "paymentAmountThisMonth": 48145000.00,
+    "totalCustomers": 127,
+    "activePaymentMethods": 3,
+    "lastPaymentAt": "2025-08-17T08:55:14.152654Z",
+    "lastWebhookAt": "2025-08-17T08:55:15.240000Z",
+    "failedWebhooksLast24Hours": 0
+  }
+}
+```
+
+**PUT** `/api/v1/TeamManagement/profile`
+
+Обновление настроек команды (только разрешенные для самостоятельного изменения поля).
+
+**Заголовки:**
+```
+Authorization: Basic {base64(teamSlug:password)}
+Content-Type: application/json
+```
+
+**Тело запроса (все поля опциональны):**
+```json
+{
+  "teamName": "Updated Store Name",
+  "contactEmail": "newemail@mystore.com",
+  "contactPhone": "+1234567891",
+  "description": "Updated store description",
+  "timeZone": "Europe/London",
+  "successUrl": "https://mystore.com/new-success",
+  "failUrl": "https://mystore.com/new-fail",
+  "notificationUrl": "https://mystore.com/new-webhook",
+  "cancelUrl": "https://mystore.com/new-cancel",
+  "minPaymentAmount": 500,
+  "maxPaymentAmount": 1000000000000,
+  "dailyPaymentLimit": 10000000000000,
+  "monthlyPaymentLimit": 100000000000000,
+  "dailyTransactionLimit": 2000,
+  "enableWebhooks": true,
+  "webhookRetryAttempts": 5,
+  "webhookTimeoutSeconds": 45,
+  "metadata": {
+    "custom_field": "value",
+    "integration_version": "2.0"
+  }
+}
+```
+
+**Ответ (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Team profile updated successfully",
+  "teamSlug": "my-store",
+  "updatedAt": "2025-08-17T14:30:00Z",
+  "updatedFields": [
+    "teamName",
+    "contactEmail", 
+    "dailyPaymentLimit",
+    "notificationUrl"
+  ]
+}
+```
+
 
 ### 2. Создание платежа
 

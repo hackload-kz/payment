@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Management Dashboard - Payment Gateway</title>
+    <link rel="stylesheet" href="/css/team-dashboard.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-content">
+                <h1><i class="fas fa-users"></i> Team Management Dashboard</h1>
+                <div class="header-actions">
+                    <span id="team-name-display" class="team-name">Not logged in</span>
+                    <button id="logout-btn" class="btn btn-secondary">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Login Modal -->
+        <div id="login-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2><i class="fas fa-lock"></i> Team Authentication</h2>
+                </div>
+                <div class="modal-body">
+                    <form id="login-form">
+                        <div class="form-group">
+                            <label for="team-slug">Team Slug:</label>
+                            <input type="text" id="team-slug" name="teamSlug" required 
+                                   placeholder="Enter your team slug" autocomplete="username">
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password:</label>
+                            <input type="password" id="password" name="password" required 
+                                   placeholder="Enter your password" autocomplete="current-password">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-sign-in-alt"></i> Login
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="dashboard-main" id="main-content" style="display: none;">
+            
+            <!-- Notification Area -->
+            <div id="notification" class="notification" style="display: none;"></div>
+
+            <!-- Loading Indicator -->
+            <div id="loading" class="loading" style="display: none;">
+                <i class="fas fa-spinner fa-spin"></i> Loading...
+            </div>
+
+            <!-- Dashboard Grid -->
+            <div class="dashboard-grid">
+                
+                <!-- Team Information Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-info-circle"></i> Team Information</h3>
+                        <button id="edit-info-btn" class="btn btn-sm btn-outline">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="team-info-view" class="info-view">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <label>Team Name:</label>
+                                    <span id="display-team-name">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Contact Email:</label>
+                                    <span id="display-contact-email">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Contact Phone:</label>
+                                    <span id="display-contact-phone">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Description:</label>
+                                    <span id="display-description">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Time Zone:</label>
+                                    <span id="display-timezone">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Status:</label>
+                                    <span id="display-status" class="status-badge">-</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="team-info-edit" class="edit-form" style="display: none;">
+                            <form id="team-info-form">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="edit-team-name">Team Name:</label>
+                                        <input type="text" id="edit-team-name" name="teamName" maxlength="200">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-contact-email">Contact Email:</label>
+                                        <input type="email" id="edit-contact-email" name="contactEmail" maxlength="254">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-contact-phone">Contact Phone:</label>
+                                        <input type="tel" id="edit-contact-phone" name="contactPhone" maxlength="20">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-description">Description:</label>
+                                        <textarea id="edit-description" name="description" rows="3" maxlength="500"></textarea>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-timezone">Time Zone:</label>
+                                        <select id="edit-timezone" name="timeZone">
+                                            <option value="UTC">UTC</option>
+                                            <option value="Europe/Moscow">Europe/Moscow</option>
+                                            <option value="Europe/London">Europe/London</option>
+                                            <option value="America/New_York">America/New_York</option>
+                                            <option value="Asia/Tokyo">Asia/Tokyo</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Save Changes
+                                    </button>
+                                    <button type="button" id="cancel-info-edit" class="btn btn-secondary">
+                                        <i class="fas fa-times"></i> Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Limits Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-credit-card"></i> Payment Limits</h3>
+                        <button id="edit-limits-btn" class="btn btn-sm btn-outline">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="payment-limits-view" class="info-view">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <label>Min Payment Amount:</label>
+                                    <span id="display-min-payment">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Max Payment Amount:</label>
+                                    <span id="display-max-payment">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Daily Payment Limit:</label>
+                                    <span id="display-daily-limit">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Monthly Payment Limit:</label>
+                                    <span id="display-monthly-limit">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Daily Transaction Limit:</label>
+                                    <span id="display-transaction-limit">-</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="payment-limits-edit" class="edit-form" style="display: none;">
+                            <form id="payment-limits-form">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="edit-min-payment">Min Payment Amount:</label>
+                                        <input type="number" id="edit-min-payment" name="minPaymentAmount" 
+                                               min="0" step="0.01" placeholder="No minimum">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-max-payment">Max Payment Amount:</label>
+                                        <input type="number" id="edit-max-payment" name="maxPaymentAmount" 
+                                               min="0" step="0.01" placeholder="No maximum">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-daily-limit">Daily Payment Limit:</label>
+                                        <input type="number" id="edit-daily-limit" name="dailyPaymentLimit" 
+                                               min="0" step="0.01" placeholder="No daily limit">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-monthly-limit">Monthly Payment Limit:</label>
+                                        <input type="number" id="edit-monthly-limit" name="monthlyPaymentLimit" 
+                                               min="0" step="0.01" placeholder="No monthly limit">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-transaction-limit">Daily Transaction Limit:</label>
+                                        <input type="number" id="edit-transaction-limit" name="dailyTransactionLimit" 
+                                               min="0" step="1" placeholder="1000">
+                                    </div>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Save Limits
+                                    </button>
+                                    <button type="button" id="cancel-limits-edit" class="btn btn-secondary">
+                                        <i class="fas fa-times"></i> Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Usage Statistics Card -->
+                <div class="card full-width">
+                    <div class="card-header">
+                        <h3><i class="fas fa-chart-bar"></i> Usage Statistics</h3>
+                        <button id="refresh-stats-btn" class="btn btn-sm btn-outline">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-icon">
+                                    <i class="fas fa-money-bill-wave"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="stat-total-payments">0</div>
+                                    <div class="stat-label">Total Payments</div>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-icon">
+                                    <i class="fas fa-dollar-sign"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="stat-total-amount">₽0</div>
+                                    <div class="stat-label">Total Amount</div>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-icon">
+                                    <i class="fas fa-calendar-day"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="stat-today-payments">0</div>
+                                    <div class="stat-label">Today's Payments</div>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-icon">
+                                    <i class="fas fa-calendar-alt"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="stat-month-payments">0</div>
+                                    <div class="stat-label">This Month</div>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="stat-customers">0</div>
+                                    <div class="stat-label">Total Customers</div>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-icon">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="stat-last-payment">Never</div>
+                                    <div class="stat-label">Last Payment</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- URLs Configuration Card -->
+                <div class="card full-width">
+                    <div class="card-header">
+                        <h3><i class="fas fa-link"></i> URL Configuration</h3>
+                        <button id="edit-urls-btn" class="btn btn-sm btn-outline">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="urls-view" class="info-view">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <label>Success URL:</label>
+                                    <span id="display-success-url" class="url-display">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Fail URL:</label>
+                                    <span id="display-fail-url" class="url-display">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Notification URL:</label>
+                                    <span id="display-notification-url" class="url-display">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Cancel URL:</label>
+                                    <span id="display-cancel-url" class="url-display">-</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="urls-edit" class="edit-form" style="display: none;">
+                            <form id="urls-form">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="edit-success-url">Success URL:</label>
+                                        <input type="url" id="edit-success-url" name="successUrl" 
+                                               placeholder="https://yoursite.com/success" maxlength="2048">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-fail-url">Fail URL:</label>
+                                        <input type="url" id="edit-fail-url" name="failUrl" 
+                                               placeholder="https://yoursite.com/fail" maxlength="2048">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-notification-url">Notification URL:</label>
+                                        <input type="url" id="edit-notification-url" name="notificationUrl" 
+                                               placeholder="https://yoursite.com/webhook" maxlength="2048">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-cancel-url">Cancel URL:</label>
+                                        <input type="url" id="edit-cancel-url" name="cancelUrl" 
+                                               placeholder="https://yoursite.com/cancel" maxlength="2048">
+                                    </div>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Save URLs
+                                    </button>
+                                    <button type="button" id="cancel-urls-edit" class="btn btn-secondary">
+                                        <i class="fas fa-times"></i> Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="/js/team-dashboard.js"></script>
+</body>
+</html>
