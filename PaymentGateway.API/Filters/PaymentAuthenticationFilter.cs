@@ -106,40 +106,52 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
         {
             // Use case-insensitive dictionary
             var parameters = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            var correlationId = context.HttpContext.TraceIdentifier;
+
+            _logger.LogInformation("FILTER DEBUG: Starting parameter extraction for {CorrelationId}", correlationId);
 
             // First, try to get parameters from action arguments (request body)
             var requestObject = context.ActionArguments.Values.FirstOrDefault(v => v != null);
             if (requestObject != null)
             {
-                // Use SIMPLIFIED token formula: Amount + Currency + OrderId + Password + TeamSlug
-                // Extract only the 5 core parameters as per documentation
+                _logger.LogInformation("FILTER DEBUG: Found request object of type {Type}", requestObject.GetType().Name);
+                
+                // Use SIMPLIFIED parameter extraction for all endpoints
                 var extractedParameters = ExtractSimplifiedParameters(requestObject);
                 foreach (var kvp in extractedParameters)
                 {
                     parameters[kvp.Key] = kvp.Value;
+                    _logger.LogInformation("FILTER DEBUG: Added parameter {Key} = {Value}", kvp.Key, kvp.Value);
                 }
             }
+            else
+            {
+                _logger.LogWarning("FILTER DEBUG: No request object found in action arguments");
+            }
 
-            // Also check query string parameters (for GET requests)
+            // Also check query string parameters (for GET requests and fallback)
             foreach (var queryParam in context.HttpContext.Request.Query)
             {
                 if (!string.IsNullOrEmpty(queryParam.Value))
                 {
                     parameters[queryParam.Key] = queryParam.Value.ToString();
+                    _logger.LogInformation("FILTER DEBUG: Added query parameter {Key} = {Value}", queryParam.Key, queryParam.Value);
                 }
             }
 
             // CRITICAL FIX: Do NOT include route values (action, controller) in token generation
             // Token generation should only be based on request body parameters as per specification
-            // foreach (var routeValue in context.RouteData.Values)
-            // {
-            //     if (routeValue.Value != null)
-            //     {
-            //         parameters[routeValue.Key] = routeValue.Value;
-            //     }
-            // }
 
-            return parameters.Count > 0 ? parameters : null;
+            _logger.LogInformation("FILTER DEBUG: Final parameter extraction - Count: {Count}, TeamSlug present: {TeamSlugPresent}", 
+                parameters.Count, parameters.ContainsKey("TeamSlug"));
+            
+            if (parameters.Count == 0)
+            {
+                _logger.LogWarning("FILTER DEBUG: No parameters extracted from request");
+                return null;
+            }
+
+            return parameters;
         }
         catch (Exception ex)
         {
@@ -381,7 +393,7 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
     }
 
     /// <summary>
-    /// Extract only the 5 core parameters for simplified authentication: Amount, Currency, OrderId, TeamSlug, Token
+    /// Extract only the core parameters for simplified authentication
     /// Password will be added by the authentication service
     /// </summary>
     private Dictionary<string, object> ExtractSimplifiedParameters(object requestObject)
@@ -389,7 +401,7 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
         var parameters = new Dictionary<string, object>();
         var properties = requestObject.GetType().GetProperties();
         
-        _logger.LogInformation("FILTER DEBUG: Using SIMPLIFIED parameter extraction (5 params only)");
+        _logger.LogInformation("FILTER DEBUG: Using SIMPLIFIED parameter extraction");
         
         foreach (var property in properties)
         {
@@ -397,8 +409,7 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
             if (value == null) continue;
 
             // Include core parameters for simplified authentication
-            // For PaymentInit: TeamSlug, Token, Amount, OrderId, Currency
-            // For PaymentCheck: TeamSlug, Token, PaymentId (per documentation line 762-764)
+            // CRITICAL FIX: Ensure all parameters are included correctly
             switch (property.Name)
             {
                 case "TeamSlug":
@@ -406,7 +417,7 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
                 case "Amount":
                 case "OrderId":
                 case "Currency":
-                case "PaymentId":  // PaymentCheck uses PaymentId + TeamSlug + Password
+                case "PaymentId":  // PaymentCheck and PaymentConfirm use PaymentId
                     parameters[property.Name] = value;
                     _logger.LogInformation("FILTER DEBUG: SIMPLIFIED - INCLUDED {Name} = {Value}", property.Name, value);
                     break;
@@ -416,7 +427,18 @@ public class PaymentAuthenticationFilter : IAsyncActionFilter
             }
         }
 
+        // CRITICAL FIX: Ensure teamSlug is always present for authentication
+        if (!parameters.ContainsKey("TeamSlug") || string.IsNullOrEmpty(parameters["TeamSlug"]?.ToString()))
+        {
+            _logger.LogError("FILTER DEBUG: TeamSlug parameter is missing or empty after extraction");
+            _logger.LogInformation("FILTER DEBUG: Available parameters: {Parameters}", 
+                string.Join(", ", parameters.Keys));
+        }
+
         _logger.LogInformation("FILTER DEBUG: SIMPLIFIED - Final parameter count: {Count}", parameters.Count);
+        _logger.LogInformation("FILTER DEBUG: SIMPLIFIED - TeamSlug present: {Present}", 
+            parameters.ContainsKey("TeamSlug"));
+        
         return parameters;
     }
 }
