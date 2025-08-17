@@ -53,7 +53,7 @@ public class PaymentStateTransitionValidationService : IPaymentStateTransitionVa
 
     // Business rule configurations
     private readonly TimeSpan _paymentExpirationTimeout = TimeSpan.FromMinutes(15);
-    private readonly decimal _maxSinglePaymentAmount = 1000000; // 1M in minor units
+    private readonly decimal _maxSinglePaymentAmount = decimal.MaxValue; 
     private readonly int _maxConcurrentPaymentsPerTeam = 100;
 
     // State transition matrix for validation

@@ -6,6 +6,7 @@ using PaymentGateway.Core.Validation.Simplified;
 using PaymentGateway.API.Filters;
 using PaymentGateway.API.Middleware;
 using PaymentGateway.Core.Models;
+using PaymentGateway.Core.Configuration;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using Prometheus;
@@ -27,6 +28,7 @@ public class PaymentInitController : ControllerBase
     private readonly IPaymentAuthenticationService _authenticationService;
     private readonly IBusinessRuleEngineService _businessRuleEngineService;
     private readonly ILogger<PaymentInitController> _logger;
+    private readonly IConfiguration _configuration;
     
     // Metrics for monitoring
     private static readonly Counter PaymentInitRequests = Metrics
@@ -46,13 +48,15 @@ public class PaymentInitController : ControllerBase
         IValidationFramework validationFramework,
         IPaymentAuthenticationService authenticationService,
         IBusinessRuleEngineService businessRuleEngineService,
-        ILogger<PaymentInitController> logger)
+        ILogger<PaymentInitController> logger,
+        IConfiguration configuration)
     {
         _paymentInitializationService = paymentInitializationService;
         _validationFramework = validationFramework;
         _authenticationService = authenticationService;
         _businessRuleEngineService = businessRuleEngineService;
         _logger = logger;
+        _configuration = configuration;
     }
 
     /// <summary>
@@ -251,21 +255,21 @@ public class PaymentInitController : ControllerBase
                 TransactionHistory = new Dictionary<string, object>()
             };
             
-            //TODO: Test the logic of this business violations. It doesn't take value from the settings
-            // var ruleEvaluationResult = await _businessRuleEngineService.EvaluatePaymentRulesAsync(businessRuleContext, cancellationToken);
-            // if (!ruleEvaluationResult.IsAllowed)
-            // {
-            //     PaymentInitRequests.WithLabels(teamId.ToString(), "rule_violation", request.Currency).Inc();
-            //     var ruleErrors = ruleEvaluationResult.Violations.Any() ? 
-            //         string.Join("; ", ruleEvaluationResult.Violations.Select(v => $"{v.Field}: {v.Message}")) :
-            //         ruleEvaluationResult.Message;
+            // Business rules evaluation - now with team-specific daily limits
+            var ruleEvaluationResult = await _businessRuleEngineService.EvaluatePaymentRulesAsync(businessRuleContext, cancellationToken);
+            if (!ruleEvaluationResult.IsAllowed)
+            {
+                PaymentInitRequests.WithLabels(teamId.ToString(), "rule_violation", request.Currency).Inc();
+                var ruleErrors = ruleEvaluationResult.Violations.Any() ? 
+                    string.Join("; ", ruleEvaluationResult.Violations.Select(v => $"{v.Field}: {v.Message}")) :
+                    ruleEvaluationResult.Message;
 
-            //     _logger.LogWarning("Payment initialization rule violation. RequestId: {RequestId}, Rule: {RuleName}, Message: {Message}", 
-            //         requestId, ruleEvaluationResult.RuleName, ruleEvaluationResult.Message);
+                _logger.LogWarning("Payment initialization rule violation. RequestId: {RequestId}, Rule: {RuleName}, Message: {Message}", 
+                    requestId, ruleEvaluationResult.RuleName, ruleEvaluationResult.Message);
 
-            //     traceActivity?.SetTag("payment.rule_violations", ruleErrors);
-            //     return UnprocessableEntity(CreateErrorResponse("1422", "Business rule violation", ruleErrors));
-            // }
+                traceActivity?.SetTag("payment.rule_violations", ruleErrors);
+                return UnprocessableEntity(CreateErrorResponse("1422", "Business rule violation", ruleErrors));
+            }
 
             // 5. Rate limiting check (handled by middleware but double-check critical operations)
             var rateLimitResult = await CheckRateLimitAsync(request.TeamSlug, cancellationToken);
@@ -558,13 +562,17 @@ public class PaymentInitController : ControllerBase
 
         // Enhanced validation beyond standard data annotations
         
-        // Amount validation
+        // Get payment configuration
+        var paymentConfig = _configuration.GetSection(PaymentLimitsConfiguration.SectionName).Get<PaymentLimitsConfiguration>() 
+            ?? new PaymentLimitsConfiguration();
+        
+        // Amount validation using configuration
         if (request.Amount <= 0)
             errors.Add("Amount must be greater than zero");
-        if (request.Amount > 100000000) // 1M RUB max
-            errors.Add("Amount exceeds maximum limit (1,000,000 RUB)");
-        if (request.Amount < 1000) // 10 RUB min
-            warnings.Add("Amount is below recommended minimum (10 RUB)");
+        if (request.Amount > paymentConfig.GlobalMaxPaymentAmount)
+            errors.Add($"Amount exceeds maximum limit ({paymentConfig.GlobalMaxPaymentAmount / 100:N0} RUB)");
+        if (request.Amount < paymentConfig.GlobalMinPaymentAmount)
+            warnings.Add($"Amount is below recommended minimum ({paymentConfig.GlobalMinPaymentAmount / 100:N0} RUB)");
 
         // OrderId format validation
         if (!string.IsNullOrEmpty(request.OrderId))

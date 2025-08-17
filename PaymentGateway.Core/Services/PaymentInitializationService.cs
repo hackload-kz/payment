@@ -6,6 +6,7 @@ using PaymentGateway.Core.Enums;
 using PaymentGateway.Core.Repositories;
 using PaymentGateway.Core.Interfaces;
 using PaymentGateway.Core.Services;
+using PaymentGateway.Core.Configuration;
 using System.Text.Json;
 
 namespace PaymentGateway.Core.Services;
@@ -269,26 +270,33 @@ public class PaymentInitializationService : IPaymentInitializationService
     {
         try
         {
-            // Validate amount limits
-            if (request.Amount < 1000) // 10 RUB minimum
+            // Get payment configuration
+            var paymentConfig = _configuration.GetSection(PaymentLimitsConfiguration.SectionName).Get<PaymentLimitsConfiguration>() 
+                ?? new PaymentLimitsConfiguration();
+
+            // Validate amount limits using configuration
+            var minAmount = paymentConfig.GlobalMinPaymentAmount;
+            if (request.Amount < minAmount)
             {
                 return new BusinessValidationResult
                 {
                     IsValid = false,
                     ErrorCode = "1004",
                     ErrorMessage = "Amount too small",
-                    ErrorDetails = "Payment amount must be at least 1000 kopecks (10 RUB)"
+                    ErrorDetails = $"Payment amount must be at least {minAmount} kopecks ({minAmount / 100:N0} RUB)"
                 };
             }
 
-            if (request.Amount > 50000000) // 500,000 RUB maximum
+            // Use team-specific max payment amount if configured, otherwise use global configuration
+            var maxAmount = team?.MaxPaymentAmount ?? paymentConfig.GlobalMaxPaymentAmount;
+            if (request.Amount > maxAmount)
             {
                 return new BusinessValidationResult
                 {
                     IsValid = false,
                     ErrorCode = "1005",
                     ErrorMessage = "Amount too large",
-                    ErrorDetails = "Payment amount cannot exceed 50000000 kopecks (500000 RUB)"
+                    ErrorDetails = $"Payment amount cannot exceed {maxAmount} kopecks ({maxAmount / 100:N0} RUB)"
                 };
             }
 
@@ -307,7 +315,7 @@ public class PaymentInitializationService : IPaymentInitializationService
 
             // Validate daily limits (simplified check)
             var currentDailyAmount = await GetCurrentDailyAmountAsync(team, cancellationToken);
-            var dailyLimit = 10000000; // 100,000 RUB in kopecks
+            var dailyLimit = team?.DailyPaymentLimit ?? paymentConfig.GlobalDailyPaymentLimit;
             
             if (currentDailyAmount + request.Amount > dailyLimit)
             {
