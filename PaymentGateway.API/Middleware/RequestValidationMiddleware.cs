@@ -318,7 +318,7 @@ public class RequestValidationMiddleware
                 if (amountElement.ValueKind == JsonValueKind.Number)
                 {
                     var amount = amountElement.GetDecimal();
-                    if (amount <= 0) /
+                    if (amount <= 0) 
                     {
                         result.AddError("Amount must be positive", "INVALID_AMOUNT");
                     }
