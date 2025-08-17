@@ -318,9 +318,9 @@ public class RequestValidationMiddleware
                 if (amountElement.ValueKind == JsonValueKind.Number)
                 {
                     var amount = amountElement.GetDecimal();
-                    if (amount <= 0 || amount > 50000000) // Max 500,000 RUB in kopecks
+                    if (amount <= 0) /
                     {
-                        result.AddError("Amount must be between 1 and 50000000 kopecks", "INVALID_AMOUNT");
+                        result.AddError("Amount must be positive", "INVALID_AMOUNT");
                     }
                 }
             }
