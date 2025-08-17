@@ -19,6 +19,7 @@ namespace PaymentGateway.Core.Services;
 public interface IPaymentConfirmationService
 {
     Task<ConfirmationResult> ConfirmPaymentAsync(Guid paymentId, ConfirmationRequest request, CancellationToken cancellationToken = default);
+    Task<ConfirmationResult> ConfirmPaymentByPaymentIdAsync(string paymentId, ConfirmationRequest request, CancellationToken cancellationToken = default);
     Task<ConfirmationResult> ConfirmPaymentByOrderIdAsync(string orderId, Guid teamId, ConfirmationRequest request, CancellationToken cancellationToken = default);
     Task<bool> CanConfirmPaymentAsync(Guid paymentId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Payment>> GetConfirmablePaymentsAsync(Guid teamId, int limit = 100, CancellationToken cancellationToken = default);
@@ -313,6 +314,40 @@ public class PaymentConfirmationService : IPaymentConfirmationService
                 PaymentId = Guid.Empty,
                 IsSuccess = false,
                 Errors = new List<string> { "Failed to find payment by OrderId" }
+            };
+        }
+    }
+
+    public async Task<ConfirmationResult> ConfirmPaymentByPaymentIdAsync(string paymentId, ConfirmationRequest request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Confirming payment by PaymentId: {PaymentId}", paymentId);
+
+            // Look up payment by string PaymentId
+            var payment = await _paymentRepository.GetByPaymentIdAsync(paymentId, cancellationToken);
+            if (payment == null)
+            {
+                _logger.LogWarning("Payment not found for PaymentId: {PaymentId}", paymentId);
+                return new ConfirmationResult
+                {
+                    PaymentId = Guid.Empty,
+                    IsSuccess = false,
+                    Errors = new List<string> { $"Payment not found for PaymentId: {paymentId}" }
+                };
+            }
+
+            // Use the existing method with the payment's Guid
+            return await ConfirmPaymentAsync(payment.Id, request, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to confirm payment by PaymentId: {PaymentId}", paymentId);
+            return new ConfirmationResult
+            {
+                PaymentId = Guid.Empty,
+                IsSuccess = false,
+                Errors = new List<string> { "Failed to find payment by PaymentId" }
             };
         }
     }

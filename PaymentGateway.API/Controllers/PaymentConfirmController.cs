@@ -307,15 +307,8 @@ public class PaymentConfirmController : ControllerBase
                 Metadata = request.Data?.ToDictionary(kv => kv.Key, kv => (object)kv.Value) ?? new Dictionary<string, object>()
             };
 
-            // Parse PaymentId to Guid
-            if (!Guid.TryParse(request.PaymentId.Replace("pay_", ""), out var paymentId))
-            {
-                // Try to find payment by PaymentId string
-                PaymentConfirmRequests.WithLabels(teamId.ToString(), "invalid_payment_id", "validation").Inc();
-                return BadRequest(CreateErrorResponse("2100", "Validation failed", "Invalid PaymentId format"));
-            }
-
-            var confirmationResult = await _confirmationService.ConfirmPaymentAsync(paymentId, confirmationRequest, cancellationToken);
+            // Use the PaymentId string directly (no need to convert to GUID)
+            var confirmationResult = await _confirmationService.ConfirmPaymentByPaymentIdAsync(request.PaymentId, confirmationRequest, cancellationToken);
             var processingDuration = DateTime.UtcNow - startTime;
 
             // 6. Handle response
@@ -448,7 +441,7 @@ public class PaymentConfirmController : ControllerBase
             // PaymentId format validation
             if (request.PaymentId.Length > 50)
                 errors.Add("PaymentId cannot exceed 50 characters");
-            if (!System.Text.RegularExpressions.Regex.IsMatch(request.PaymentId, @"^[a-zA-Z0-9\\-_]+$"))
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.PaymentId, @"^[a-zA-Z0-9\-_]+$"))
                 errors.Add("PaymentId can only contain alphanumeric characters, hyphens, and underscores");
         }
 
