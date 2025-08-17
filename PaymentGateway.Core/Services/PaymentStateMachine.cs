@@ -472,6 +472,9 @@ public class PaymentStateMachine : IPaymentStateMachine
             case PaymentStatus.CONFIRMED:
                 payment.ConfirmedAt = timestamp;
                 break;
+            case PaymentStatus.COMPLETED:
+                payment.CompletedAt = timestamp;
+                break;
             case PaymentStatus.CANCELLING:
                 payment.CancellingStartedAt = timestamp;
                 break;

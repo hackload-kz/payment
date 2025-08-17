@@ -944,10 +944,13 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
 
         var result = new RuleEvaluationResult { IsAllowed = true, RuleType = RuleType.PAYMENT_LIMIT };
 
-        // Check daily limit
-        if (rule.RuleParameters.TryGetValue("daily_limit", out var dailyLimitObj) && dailyLimitObj is decimal dailyLimit)
+        // Check daily limit - use team-specific limit from configuration
+        var team = await _teamRepository.GetByIdAsync(context.TeamId, cancellationToken);
+        if (team?.DailyPaymentLimit.HasValue == true)
         {
+            var dailyLimit = team.DailyPaymentLimit.Value;
             var dailyTotal = await GetDailyTotalAsync(context.TeamId, cancellationToken);
+            
             if (dailyTotal + context.Amount > dailyLimit)
             {
                 result.IsAllowed = false;
@@ -958,28 +961,83 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
                     Value = (dailyTotal + context.Amount).ToString(),
                     ExpectedValue = dailyLimit.ToString(),
                     ViolationType = "LIMIT_EXCEEDED",
-                    Message = result.Message,
+                    Message = $"Team daily limit of {dailyLimit:C} would be exceeded",
                     Severity = 4
                 });
+                
+                _logger.LogWarning("Daily limit exceeded for team {TeamId}: {CurrentTotal} + {Amount} > {Limit}", 
+                    context.TeamId, dailyTotal, context.Amount, dailyLimit);
+            }
+            else
+            {
+                _logger.LogDebug("Daily limit check passed for team {TeamId}: {CurrentTotal} + {Amount} <= {Limit}", 
+                    context.TeamId, dailyTotal, context.Amount, dailyLimit);
+            }
+        }
+        // Fallback to rule parameters if team doesn't have DailyPaymentLimit configured
+        else if (rule.RuleParameters.TryGetValue("daily_limit", out var dailyLimitObj) && dailyLimitObj is decimal fallbackDailyLimit)
+        {
+            var dailyTotal = await GetDailyTotalAsync(context.TeamId, cancellationToken);
+            if (dailyTotal + context.Amount > fallbackDailyLimit)
+            {
+                result.IsAllowed = false;
+                result.Message = $"Daily payment limit exceeded: {dailyTotal + context.Amount:C} > {fallbackDailyLimit:C}";
+                result.Violations.Add(new RuleViolation
+                {
+                    Field = "daily_amount",
+                    Value = (dailyTotal + context.Amount).ToString(),
+                    ExpectedValue = fallbackDailyLimit.ToString(),
+                    ViolationType = "LIMIT_EXCEEDED",
+                    Message = $"Default daily limit of {fallbackDailyLimit:C} would be exceeded",
+                    Severity = 4
+                });
+                
+                _logger.LogWarning("Default daily limit exceeded for team {TeamId}: {CurrentTotal} + {Amount} > {Limit}", 
+                    context.TeamId, dailyTotal, context.Amount, fallbackDailyLimit);
             }
         }
 
-        // Check single transaction limit
-        if (rule.RuleParameters.TryGetValue("transaction_limit", out var transactionLimitObj) && transactionLimitObj is decimal transactionLimit)
+        // Check single transaction limit - use team-specific limit from configuration
+        if (team?.MaxPaymentAmount.HasValue == true)
         {
+            var transactionLimit = team.MaxPaymentAmount.Value;
             if (context.Amount > transactionLimit)
             {
                 result.IsAllowed = false;
-                result.Message = $"Single transaction limit exceeded: {context.Amount:C} > {transactionLimit:C}";
+                result.Message = $"Transaction amount exceeds team limit: {context.Amount:C} > {transactionLimit:C}";
                 result.Violations.Add(new RuleViolation
                 {
                     Field = "transaction_amount",
                     Value = context.Amount.ToString(),
                     ExpectedValue = transactionLimit.ToString(),
                     ViolationType = "LIMIT_EXCEEDED",
-                    Message = result.Message,
+                    Message = $"Team transaction limit of {transactionLimit:C} exceeded",
                     Severity = 3
                 });
+                
+                _logger.LogWarning("Transaction limit exceeded for team {TeamId}: {Amount} > {Limit}", 
+                    context.TeamId, context.Amount, transactionLimit);
+            }
+        }
+        // Fallback to rule parameters if team doesn't have MaxPaymentAmount configured  
+        else if (rule.RuleParameters.TryGetValue("transaction_limit", out var transactionLimitObj) && transactionLimitObj is decimal fallbackTransactionLimit)
+        {
+            if (context.Amount > fallbackTransactionLimit)
+            {
+                result.IsAllowed = false;
+                result.Message = $"Transaction amount exceeds default limit: {context.Amount:C} > {fallbackTransactionLimit:C}";
+                result.Violations.Add(new RuleViolation
+                {
+                    Field = "transaction_amount",
+                    Value = context.Amount.ToString(),
+                    ExpectedValue = fallbackTransactionLimit.ToString(),
+                    ViolationType = "LIMIT_EXCEEDED",
+                    Message = $"Default transaction limit of {fallbackTransactionLimit:C} exceeded",
+                    Severity = 3
+                });
+                
+                _logger.LogWarning("Default transaction limit exceeded for team {TeamId}: {Amount} > {Limit}", 
+                    context.TeamId, context.Amount, fallbackTransactionLimit);
             }
         }
 
@@ -1080,9 +1138,49 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
 
     private async Task<decimal> GetDailyTotalAsync(Guid teamId, CancellationToken cancellationToken)
     {
-        // This would query actual payment data in production
-        // For now, return simulated daily total
-        return 150000m; // 1,500 RUB
+        try
+        {
+            var cacheKey = $"daily_total_{teamId}_{DateTime.UtcNow:yyyy-MM-dd}";
+            
+            // Check cache first
+            if (_cache.TryGetValue(cacheKey, out decimal cachedTotal))
+            {
+                return cachedTotal;
+            }
+
+            // Get start and end of today in UTC
+            var today = DateTime.UtcNow.Date;
+            var tomorrow = today.AddDays(1);
+
+            // Query payments for the team created today with successful statuses
+            var todaysPayments = await _paymentRepository.GetPaymentsByTeamAndDateRangeAsync(
+                teamId, today, tomorrow, cancellationToken: cancellationToken);
+
+            // Calculate total from successful payments only
+            var dailyTotal = todaysPayments
+                .Where(p => IsSuccessfulPayment(p.Status))
+                .Sum(p => p.Amount);
+
+            // Cache for 5 minutes (frequent enough to be accurate, but reduces DB load)
+            _cache.Set(cacheKey, dailyTotal, TimeSpan.FromMinutes(5));
+
+            _logger.LogDebug("Calculated daily total for team {TeamId}: {DailyTotal}", teamId, dailyTotal);
+            
+            return dailyTotal;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error calculating daily total for team {TeamId}", teamId);
+            // Return a safe default to avoid blocking business rules
+            return 0m;
+        }
+    }
+
+    private static bool IsSuccessfulPayment(PaymentGateway.Core.Enums.PaymentStatus status)
+    {
+        return status == PaymentGateway.Core.Enums.PaymentStatus.COMPLETED ||
+               status == PaymentGateway.Core.Enums.PaymentStatus.CONFIRMED ||
+               status == PaymentGateway.Core.Enums.PaymentStatus.CAPTURED;
     }
 
     private void UpdateRulePerformance(string ruleId, DateTime startTime, bool success = false, TimeSpan? duration = null)

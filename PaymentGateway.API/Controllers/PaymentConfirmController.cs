@@ -11,6 +11,7 @@ using Microsoft.Extensions.Caching.Memory;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using Prometheus;
+using PaymentGateway.Core.Repositories;
 
 namespace PaymentGateway.API.Controllers;
 
@@ -56,6 +57,7 @@ public class PaymentConfirmController : ControllerBase
     private readonly IPaymentAuthenticationService _authenticationService;
     private readonly IMemoryCache _cache;
     private readonly ILogger<PaymentConfirmController> _logger;
+    private readonly IPaymentRepository _paymentRepository;
 
     // Metrics for monitoring
     private static readonly Counter PaymentConfirmRequests = Metrics
@@ -77,12 +79,14 @@ public class PaymentConfirmController : ControllerBase
         IPaymentConfirmationService confirmationService,
         IPaymentAuthenticationService authenticationService,
         IMemoryCache cache,
-        ILogger<PaymentConfirmController> logger)
+        ILogger<PaymentConfirmController> logger,
+        IPaymentRepository paymentRepository)
     {
         _confirmationService = confirmationService;
         _authenticationService = authenticationService;
         _cache = cache;
         _logger = logger;
+        _paymentRepository = paymentRepository;
     }
 
     /// <summary>
@@ -298,7 +302,16 @@ public class PaymentConfirmController : ControllerBase
                 }
             }
 
-            // 5. Perform payment confirmation
+            // 5. Get payment details to ensure accurate response data
+            var payment = await _paymentRepository.GetByPaymentIdAsync(request.PaymentId, cancellationToken);
+            if (payment == null)
+            {
+                PaymentConfirmRequests.WithLabels(teamId.ToString(), "payment_not_found", "validation").Inc();
+                _logger.LogWarning("Payment not found during confirmation: {PaymentId}", request.PaymentId);
+                return NotFound(CreateErrorResponse("2404", "Payment not found", "The specified payment could not be found"));
+            }
+
+            // 6. Perform payment confirmation
             var confirmationRequest = new ConfirmationRequest
             {
                 Amount = request.Amount,
@@ -324,7 +337,7 @@ public class PaymentConfirmController : ControllerBase
                         ? (decimal)confirmationResult.ResultMetadata["confirmed_amount"] 
                         : request.Amount,
                     RemainingAmount = 0, // Full confirmation only
-                    Currency = "KZT", // Default currency
+                    Currency = payment.Currency,
                     ConfirmedAt = confirmationResult.ConfirmedAt,
                     BankDetails = new BankTransactionDetailsDto
                     {

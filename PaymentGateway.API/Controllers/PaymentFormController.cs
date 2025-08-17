@@ -634,6 +634,10 @@ public class PaymentFormController : ControllerBase
                 actionButtons += $@"<a href=""{System.Net.WebUtility.HtmlEncode(payment.FailUrl)}"" class=""btn btn-secondary"">Return to Merchant</a>";
             }
 
+            // Determine the most appropriate date for this payment based on its status
+            var paymentDate = GetPaymentDateByStatus(payment);
+            var formattedDate = paymentDate.ToString("yyyy-MM-dd HH:mm") + " UTC";
+            
             // Replace placeholders with actual data
             var resultHtml = template
                 .Replace("{{Status}}", System.Net.WebUtility.HtmlEncode(status))
@@ -646,7 +650,7 @@ public class PaymentFormController : ControllerBase
                 .Replace("{{Amount}}", payment.Amount.ToString("F2"))
                 .Replace("{{Currency}}", System.Net.WebUtility.HtmlEncode(payment.Currency))
                 .Replace("{{PaymentStatus}}", System.Net.WebUtility.HtmlEncode(payment.Status.ToString()))
-                .Replace("{{Date}}", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm") + " UTC")
+                .Replace("{{Date}}", formattedDate)
                 .Replace("{{ActionButtons}}", actionButtons);
 
             return Content(resultHtml, "text/html; charset=utf-8");
@@ -921,6 +925,40 @@ public class PaymentFormController : ControllerBase
                status == PaymentGateway.Core.Enums.PaymentStatus.FAILED ||
                status == PaymentGateway.Core.Enums.PaymentStatus.EXPIRED ||
                status == PaymentGateway.Core.Enums.PaymentStatus.DEADLINE_EXPIRED;
+    }
+
+    private DateTime GetPaymentDateByStatus(Core.Entities.Payment payment)
+    {
+        // Return the most relevant date based on payment status
+        // Priority: specific lifecycle timestamp > UpdatedAt > CreatedAt
+        return payment.Status switch
+        {
+            PaymentGateway.Core.Enums.PaymentStatus.INIT => payment.InitializedAt ?? payment.CreatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.NEW => payment.InitializedAt ?? payment.CreatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.FORM_SHOWED => payment.FormShowedAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.ONECHOOSEVISION => payment.OneChooseVisionAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.FINISHAUTHORIZE => payment.FinishAuthorizeAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.AUTHORIZING => payment.AuthorizingStartedAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.AUTHORIZED => payment.AuthorizedAt ?? payment.FinishAuthorizeAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.AUTH_FAIL => payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.PROCESSING => payment.UpdatedAt, // No specific timestamp field
+            PaymentGateway.Core.Enums.PaymentStatus.CONFIRMING => payment.ConfirmingStartedAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.CONFIRMED => payment.ConfirmedAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.CAPTURED => payment.UpdatedAt, // No specific timestamp field
+            PaymentGateway.Core.Enums.PaymentStatus.CANCELLING => payment.CancellingStartedAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.CANCELLED => payment.CancelledAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.REVERSING => payment.ReversingStartedAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.REVERSED => payment.ReversedAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.REFUNDING => payment.RefundingStartedAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.REFUNDED => payment.RefundedAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.PARTIALLY_REFUNDED => payment.RefundedAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.REJECTED => payment.RejectedAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.DEADLINE_EXPIRED => payment.ExpiredAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.EXPIRED => payment.ExpiredAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.COMPLETED => payment.CompletedAt ?? payment.UpdatedAt,
+            PaymentGateway.Core.Enums.PaymentStatus.FAILED => payment.UpdatedAt, // No specific timestamp field
+            _ => payment.UpdatedAt // Default to UpdatedAt for any other status
+        };
     }
 }
 
