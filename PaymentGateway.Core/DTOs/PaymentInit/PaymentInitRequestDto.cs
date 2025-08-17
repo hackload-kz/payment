@@ -13,7 +13,7 @@ public class PaymentInitRequestDto : BaseRequestDto
     /// Payment amount in kopecks (e.g., 312 for 3.12 RUB)
     /// </summary>
     [Required(ErrorMessage = "Amount is required")]
-    [Range(1000, decimal.MaxValue, ErrorMessage = "Amount must be between 1000 and {decimal.MaxValue}")]
+    [Range(1000, int.MaxValue, ErrorMessage = "Amount must be at least 1000")]
     [JsonPropertyName("amount")]
     public decimal Amount { get; set; }
 
