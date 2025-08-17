@@ -255,34 +255,34 @@ public class PaymentInitController : ControllerBase
                 TransactionHistory = new Dictionary<string, object>()
             };
             
-            //TODO: Removed for end testing
-            // // Business rules evaluation - now with team-specific daily limits
-            // var ruleEvaluationResult = await _businessRuleEngineService.EvaluatePaymentRulesAsync(businessRuleContext, cancellationToken);
-            // if (!ruleEvaluationResult.IsAllowed)
-            // {
-            //     PaymentInitRequests.WithLabels(teamId.ToString(), "rule_violation", request.Currency).Inc();
-            //     var ruleErrors = ruleEvaluationResult.Violations.Any() ? 
-            //         string.Join("; ", ruleEvaluationResult.Violations.Select(v => $"{v.Field}: {v.Message}")) :
-            //         ruleEvaluationResult.Message;
+            
+            // Business rules evaluation - now with team-specific daily limits
+            var ruleEvaluationResult = await _businessRuleEngineService.EvaluatePaymentRulesAsync(businessRuleContext, cancellationToken);
+            if (!ruleEvaluationResult.IsAllowed)
+            {
+                PaymentInitRequests.WithLabels(teamId.ToString(), "rule_violation", request.Currency).Inc();
+                var ruleErrors = ruleEvaluationResult.Violations.Any() ? 
+                    string.Join("; ", ruleEvaluationResult.Violations.Select(v => $"{v.Field}: {v.Message}")) :
+                    ruleEvaluationResult.Message;
 
-            //     _logger.LogWarning("Payment initialization rule violation. RequestId: {RequestId}, Rule: {RuleName}, Message: {Message}", 
-            //         requestId, ruleEvaluationResult.RuleName, ruleEvaluationResult.Message);
+                _logger.LogWarning("Payment initialization rule violation. RequestId: {RequestId}, Rule: {RuleName}, Message: {Message}", 
+                    requestId, ruleEvaluationResult.RuleName, ruleEvaluationResult.Message);
 
-            //     traceActivity?.SetTag("payment.rule_violations", ruleErrors);
-            //     return UnprocessableEntity(CreateErrorResponse("1422", "Business rule violation", ruleErrors));
-            // }
+                traceActivity?.SetTag("payment.rule_violations", ruleErrors);
+                return UnprocessableEntity(CreateErrorResponse("1422", "Business rule violation", ruleErrors));
+            }
 
-            // // 5. Rate limiting check (handled by middleware but double-check critical operations)
-            // var rateLimitResult = await CheckRateLimitAsync(request.TeamSlug, cancellationToken);
-            // if (!rateLimitResult.IsAllowed)
-            // {
-            //     PaymentInitRequests.WithLabels(teamId.ToString(), "rate_limited", request.Currency).Inc();
-            //     _logger.LogWarning("Payment initialization rate limit exceeded. RequestId: {RequestId}, TeamSlug: {TeamSlug}", 
-            //         requestId, request.TeamSlug);
+            // 5. Rate limiting check (handled by middleware but double-check critical operations)
+            var rateLimitResult = await CheckRateLimitAsync(request.TeamSlug, cancellationToken);
+            if (!rateLimitResult.IsAllowed)
+            {
+                PaymentInitRequests.WithLabels(teamId.ToString(), "rate_limited", request.Currency).Inc();
+                _logger.LogWarning("Payment initialization rate limit exceeded. RequestId: {RequestId}, TeamSlug: {TeamSlug}", 
+                    requestId, request.TeamSlug);
 
-            //     return StatusCode(StatusCodes.Status429TooManyRequests, 
-            //         CreateErrorResponse("1429", "Rate limit exceeded", "Too many requests. Please try again later."));
-            // }
+                return StatusCode(StatusCodes.Status429TooManyRequests, 
+                    CreateErrorResponse("1429", "Rate limit exceeded", "Too many requests. Please try again later."));
+            }
 
             // 6. Initialize payment using the service with enhanced context
             var enhancedRequest = EnhanceRequestWithContext(request, requestId, teamId, teamSlug, GetClientIpAddress(), Request.Headers.UserAgent.ToString());

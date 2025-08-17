@@ -32,14 +32,16 @@ SCRIPT_NAME="Payment Gateway Two-Stage Test Suite"
 
 # Configuration
 API_BASE_URL="https://hub.hackload.kz/payment-provider/common"
-TEAM_SLUG="los-lobos"
-PASSWORD="nSHCigO232PEMT#HqqcsqGweOEdUK"
+#TEAM_SLUG="los-lobos"
+#PASSWORD="nSHCigO232PEMT#HqqcsqGweOEdUK"
+TEAM_SLUG="alem"
+PASSWORD="FzFMrQLuiz5P#VP3gUSyz9C6Nsk"
 
 # Generate unique order ID with timestamp
 ORDER_ID="confirm-test-$(date +%s)"
 
 # Payment parameters
-AMOUNT="50000"  # 500 RUB in kopecks
+AMOUNT="40000000"  # 500 RUB in kopecks
 CURRENCY="RUB"
 DESCRIPTION="Test two-stage payment - $(date)"
 EMAIL="customer@example.com"

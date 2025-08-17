@@ -4,8 +4,10 @@
 using PaymentGateway.Core.Entities;
 using PaymentGateway.Core.Interfaces;
 using PaymentGateway.Core.Repositories;
+using PaymentGateway.Core.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -258,6 +260,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
     private readonly ITeamRepository _teamRepository;
     private readonly IMemoryCache _cache;
     private readonly ILogger<BusinessRuleEngineService> _logger;
+    private readonly IConfiguration _configuration;
     
     // Rule storage (in production, this would be database-backed)
     private readonly ConcurrentDictionary<string, BusinessRule> _rules = new();
@@ -291,13 +294,15 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
         IPaymentRepository paymentRepository,
         ITeamRepository teamRepository,
         IMemoryCache cache,
-        ILogger<BusinessRuleEngineService> logger)
+        ILogger<BusinessRuleEngineService> logger,
+        IConfiguration configuration)
     {
         _serviceProvider = serviceProvider;
         _paymentRepository = paymentRepository;
         _teamRepository = teamRepository;
         _cache = cache;
         _logger = logger;
+        _configuration = configuration;
         
         InitializeDefaultRules();
     }
@@ -1284,6 +1289,10 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
 
     private void InitializeDefaultRules()
     {
+        // Get payment configuration
+        var paymentConfig = _configuration.GetSection(PaymentLimitsConfiguration.SectionName).Get<PaymentLimitsConfiguration>() 
+            ?? new PaymentLimitsConfiguration();
+
         var defaultRules = new[]
         {
             new BusinessRule
@@ -1297,7 +1306,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
                 Priority = 100,
                 IsActive = true,
                 RuleExpression = "daily_total + amount <= daily_limit",
-                RuleParameters = new Dictionary<string, object> { ["daily_limit"] = 1000000m }, // 10,000 RUB
+                RuleParameters = new Dictionary<string, object> { ["daily_limit"] = paymentConfig.GlobalDailyPaymentLimit },
                 ApplicableCurrencies = new List<string> { "KZT", "USD", "EUR", "BYN", "RUB" }
             },
             new BusinessRule
@@ -1311,7 +1320,7 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
                 Priority = 200,
                 IsActive = true,
                 RuleExpression = "amount <= transaction_limit",
-                RuleParameters = new Dictionary<string, object> { ["transaction_limit"] = 500000m }, // 5,000 RUB
+                RuleParameters = new Dictionary<string, object> { ["transaction_limit"] = paymentConfig.GlobalMaxPaymentAmount },
                 ApplicableCurrencies = new List<string> { "RUB", "USD", "EUR" }
             },
             new BusinessRule
@@ -1371,12 +1380,18 @@ public class BusinessRuleEngineService : IBusinessRuleEngineService
     // Missing method implementations
     private async Task<RuleEvaluationResult> EvaluateAmountRuleAsync(BusinessRule rule, AmountRuleContext context, CancellationToken cancellationToken)
     {
-        // Simplified implementation for compilation
+        // Get payment configuration
+        var paymentConfig = _configuration.GetSection(PaymentLimitsConfiguration.SectionName).Get<PaymentLimitsConfiguration>() 
+            ?? new PaymentLimitsConfiguration();
+
+        // Use configured global maximum amount limit
+        var maxAmount = paymentConfig.GlobalMaxPaymentAmount;
+        
         return new RuleEvaluationResult
         {
-            IsAllowed = context.Amount <= 1000000, // Basic amount limit
+            IsAllowed = context.Amount <= maxAmount,
             RuleType = RuleType.AMOUNT_VALIDATION,
-            Message = context.Amount > 1000000 ? "Amount exceeds limit" : ""
+            Message = context.Amount > maxAmount ? $"Amount exceeds limit ({maxAmount / 100:N0} RUB)" : ""
         };
     }
 
