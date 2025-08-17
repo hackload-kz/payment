@@ -27,7 +27,7 @@ public class PaymentStateManager : IPaymentStateManager
     private static readonly Dictionary<PaymentStatus, List<PaymentStatus>> ValidTransitions = new()
     {
         { PaymentStatus.INIT, new List<PaymentStatus> { PaymentStatus.NEW, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED } },
-        { PaymentStatus.NEW, new List<PaymentStatus> { PaymentStatus.FORM_SHOWED, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED } },
+        { PaymentStatus.NEW, new List<PaymentStatus> { PaymentStatus.FORM_SHOWED, PaymentStatus.AUTHORIZED, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED } },
         { PaymentStatus.FORM_SHOWED, new List<PaymentStatus> { PaymentStatus.AUTHORIZED, PaymentStatus.REJECTED, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED } },
         { PaymentStatus.AUTHORIZED, new List<PaymentStatus> { PaymentStatus.CONFIRMED, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED } },
         { PaymentStatus.CONFIRMED, new List<PaymentStatus> { PaymentStatus.REFUNDED, PaymentStatus.PARTIAL_REFUNDED } },

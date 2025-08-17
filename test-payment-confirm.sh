@@ -31,9 +31,9 @@ SCRIPT_VERSION="1.2.0"
 SCRIPT_NAME="Payment Gateway Two-Stage Test Suite"
 
 # Configuration
-API_BASE_URL="http://localhost:5162"
-TEAM_SLUG="my-webhook-test"
-PASSWORD="TestPassword123!"
+API_BASE_URL="https://hub.hackload.kz/payment-provider/common"
+TEAM_SLUG="los-lobos"
+PASSWORD="nSHCigO232PEMT#HqqcsqGweOEdUK"
 
 # Generate unique order ID with timestamp
 ORDER_ID="confirm-test-$(date +%s)"
@@ -119,7 +119,8 @@ generate_token() {
     local team_slug="$4"
     local password="$5"
     
-    # SERVER TOKEN FORMULA: Amount + Currency + OrderId + Password + TeamSlug
+    # SERVER TOKEN FORMULA: Alphabetical order of parameters + Password
+    # Amount + Currency + OrderId + Password + TeamSlug (alphabetical)
     local token_string="${amount}${currency}${order_id}${password}${team_slug}"
     local token=$(echo -n "$token_string" | shasum -a 256 | cut -d' ' -f1)
     echo "$token"
@@ -132,7 +133,8 @@ generate_confirm_token() {
     local team_slug="$3"
     local password="$4"
     
-    # CONFIRM TOKEN FORMULA: Amount + PaymentId + Password + TeamSlug (alphabetical order)
+    # CONFIRM TOKEN FORMULA: Alphabetical order like other endpoints
+    # Amount + PaymentId + Password + TeamSlug (alphabetical order)
     local token_string="${amount}${payment_id}${password}${team_slug}"
     local token=$(echo -n "$token_string" | shasum -a 256 | cut -d' ' -f1)
     echo "$token"
@@ -268,34 +270,104 @@ simulate_card_processing() {
         echo "$card_data" | jq '. | .cardNumber = "****-****-****-1111" | .cvv = "***"'
     fi
     
-    local response=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE_URL}/api/v1/paymentform/process" \
-        -H "Content-Type: application/json" \
-        -d "$card_data")
+    local response=$(curl -s -w "\n%{http_code}\n%{redirect_url}" -X POST "${API_BASE_URL}/api/v1/paymentform/submit" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "paymentId=${PAYMENT_ID}&cardNumber=4111111111111111&expiryDate=12/26&cvv=123&cardholderName=TEST+CARDHOLDER&email=customer@example.com&csrfToken=test")
     
-    # Split response and status code
-    local http_code=$(echo "$response" | tail -n1)
-    local response_body=$(echo "$response" | sed '$d')
+    # Split response, status code, and redirect URL
+    local redirect_url=$(echo "$response" | tail -n1)
+    local http_code=$(echo "$response" | tail -n2 | head -n1)
+    local response_body=$(echo "$response" | sed '$d' | sed '$d')
     
     log_info "HTTP Status Code: $http_code"
     
-    if [ "$http_code" = "200" ]; then
-        log_success "Card processing successful!"
-        log_result "Response:"
-        format_json "$response_body"
-        
-        # Check if payment is now in AUTHORIZED status
-        local status=$(echo "$response_body" | jq -r '.status // empty' 2>/dev/null)
-        if [ "$status" = "AUTHORIZED" ] || [ "$status" = "13" ]; then
-            log_success "Payment status is now AUTHORIZED (status 13)"
-            return 0
+    # Handle successful responses (200 OK or 302 Found redirect)
+    if [ "$http_code" = "200" ] || [ "$http_code" = "302" ]; then
+        if [ "$http_code" = "302" ]; then
+            log_success "Card form submitted successfully (redirected)!"
+            log_info "Form submission resulted in redirect - this is normal behavior"
+            
+            # Display redirect URL if available
+            if [ -n "$redirect_url" ] && [ "$redirect_url" != "0" ]; then
+                log_info "Redirect URL: $redirect_url"
+            fi
+            
+            # For 302, the response_body might be empty or contain redirect info
+            if [ -n "$response_body" ]; then
+                log_result "Response:"
+                format_json "$response_body"
+            else
+                log_result "No response body (redirect response)"
+            fi
         else
-            log_warning "Payment status is: $status (expected AUTHORIZED/13)"
-            return 0  # Continue anyway for testing
+            log_success "Card processing successful!"
+            log_result "Response:"
+            format_json "$response_body"
+            
+            # Check if payment is now in AUTHORIZED status
+            local status=$(echo "$response_body" | jq -r '.status // empty' 2>/dev/null)
+            if [ "$status" = "AUTHORIZED" ] || [ "$status" = "13" ]; then
+                log_success "Payment status is now AUTHORIZED (status 13)"
+                return 0
+            else
+                log_warning "Payment status is: $status (expected AUTHORIZED/13)"
+                return 0  # Continue anyway for testing
+            fi
         fi
+        
+        # Wait for payment processing to complete and check status
+        log_info "Waiting for payment processing to complete..."
+        sleep 3
+        
+        # Check if payment status is now AUTHORIZED
+        log_info "Checking payment status after card processing..."
+        if check_payment_status_simple "$PAYMENT_ID"; then
+            log_success "Card processing completed successfully"
+        else
+            log_warning "Payment may still be processing or failed to authorize"
+        fi
+        
+        return 0
     else
         log_error "Card processing failed!"
         log_result "Response:"
         format_json "$response_body"
+        return 1
+    fi
+}
+
+# Simple status check function for internal use
+check_payment_status_simple() {
+    local payment_id="$1"
+    local status_token=$(generate_status_token "$payment_id" "$TEAM_SLUG" "$PASSWORD")
+    
+    local json_payload=$(jq -n \
+        --arg teamSlug "$TEAM_SLUG" \
+        --arg token "$status_token" \
+        --arg paymentId "$payment_id" \
+        '{
+            teamSlug: $teamSlug,
+            token: $token,
+            paymentId: $paymentId
+        }')
+    
+    local response=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE_URL}/api/v1/PaymentCheck/check" \
+        -H "Content-Type: application/json" \
+        -d "$json_payload")
+    
+    local http_code=$(echo "$response" | tail -n1)
+    local response_body=$(echo "$response" | sed '$d')
+    
+    if [ "$http_code" = "200" ]; then
+        local status=$(echo "$response_body" | jq -r '.payments[0].status // empty' 2>/dev/null)
+        log_info "Current payment status: $status"
+        if [ "$status" = "AUTHORIZED" ] || [ "$status" = "13" ]; then
+            return 0
+        else
+            return 1
+        fi
+    else
+        log_warning "Status check failed with HTTP $http_code"
         return 1
     fi
 }
@@ -381,34 +453,32 @@ test_payment_confirm() {
     
     local confirm_token=$(generate_confirm_token "$PAYMENT_ID" "$AMOUNT" "$TEAM_SLUG" "$PASSWORD")
     
+    log_debug "Token generation details:"
+    log_debug "  PaymentId: $PAYMENT_ID"
+    log_debug "  Amount: $AMOUNT" 
+    log_debug "  TeamSlug: $TEAM_SLUG"
+    log_debug "  Password: [HIDDEN]"
+    log_debug "  Token string order: Amount + PaymentId + Password + TeamSlug"
+    
     log_info "Making payment confirmation request..."
     log_debug "Generated confirmation token: $confirm_token"
     
-    # Create JSON payload for confirmation
+    # Create JSON payload for confirmation (simplified format)
     local json_payload=$(jq -n \
         --arg teamSlug "$TEAM_SLUG" \
         --arg token "$confirm_token" \
         --arg paymentId "$PAYMENT_ID" \
         --argjson amount "$AMOUNT" \
-        --arg description "Confirming test payment" \
         '{
             teamSlug: $teamSlug,
             token: $token,
             paymentId: $paymentId,
-            amount: $amount,
-            description: $description,
-            receipt: {
-                email: "customer@example.com"
-            },
-            data: {
-                confirmationReason: "Test confirmation",
-                merchantReference: "TEST-REF-123"
-            }
+            amount: $amount
         }')
     
     log_debug "Confirmation payload being sent:"
     if [[ "${DEBUG:-0}" == "1" ]]; then
-        echo "$json_payload" | jq '.'
+        echo "$json_payload" | jq '. | .token = "***HIDDEN***"'
     fi
     
     local response=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE_URL}/api/v1/PaymentConfirm/confirm" \
@@ -445,8 +515,32 @@ test_payment_confirm() {
         fi
         
         return 0
+    elif [ "$http_code" = "400" ]; then
+        log_error "Payment confirmation failed with Bad Request (400)!"
+        log_error "This usually indicates an invalid token or missing required fields."
+        log_result "Response:"
+        format_json "$response_body"
+        
+        # Check for specific error messages
+        local error_message=$(echo "$response_body" | jq -r '.message // .error // empty' 2>/dev/null)
+        if [ -n "$error_message" ]; then
+            log_error "Error message: $error_message"
+        fi
+        return 1
+    elif [ "$http_code" = "401" ]; then
+        log_error "Payment confirmation failed with Unauthorized (401)!"
+        log_error "This indicates authentication failed - likely incorrect token generation."
+        log_result "Response:"
+        format_json "$response_body"
+        return 1
+    elif [ "$http_code" = "404" ]; then
+        log_error "Payment confirmation failed with Not Found (404)!"
+        log_error "This indicates the payment ID was not found or the endpoint is incorrect."
+        log_result "Response:"
+        format_json "$response_body"
+        return 1
     else
-        log_error "Payment confirmation failed!"
+        log_error "Payment confirmation failed with HTTP status $http_code!"
         log_result "Response:"
         format_json "$response_body"
         return 1
@@ -563,9 +657,19 @@ main() {
         log_warning "Continuing with payment confirmation test..."
     fi
     
-    # Step 5: Confirm payment (AUTHORIZED → CONFIRMED)
-    if ! test_payment_confirm; then
-        log_error "Payment confirmation failed!"
+    # Step 5: Verify payment is AUTHORIZED before confirmation
+    log_info "Verifying payment is in AUTHORIZED status before confirmation..."
+    if check_payment_status_simple "$PAYMENT_ID"; then
+        log_success "Payment is in AUTHORIZED status, proceeding with confirmation"
+        
+        # Step 5: Confirm payment (AUTHORIZED → CONFIRMED)
+        if ! test_payment_confirm; then
+            log_error "Payment confirmation failed!"
+            test_failed=1
+        fi
+    else
+        log_error "Payment is not in AUTHORIZED status. Cannot proceed with confirmation."
+        log_error "Current payment status check failed. Please ensure card processing completed successfully."
         test_failed=1
     fi
     
