@@ -219,18 +219,20 @@ public class TeamRegistrationService : ITeamRegistrationService
 
     public async Task<Team> UpdateTeamAsync(Guid teamId, Dictionary<string, object> updateData, CancellationToken cancellationToken = default)
     {
-        // Use AsNoTracking to get a fresh copy, then attach and modify
-        var team = await _context.Teams
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == teamId, cancellationToken);
-            
+        // First try to find an already tracked entity
+        var team = _context.Teams.Local.FirstOrDefault(t => t.Id == teamId);
+        
         if (team == null)
         {
-            throw new ArgumentException($"Team with ID {teamId} not found");
+            // If not tracked, get from database and track it
+            team = await _context.Teams
+                .FirstOrDefaultAsync(t => t.Id == teamId, cancellationToken);
+                
+            if (team == null)
+            {
+                throw new ArgumentException($"Team with ID {teamId} not found");
+            }
         }
-        
-        // Attach the entity to the context for tracking
-        _context.Teams.Attach(team);
 
         var originalData = new Dictionary<string, object>();
 
