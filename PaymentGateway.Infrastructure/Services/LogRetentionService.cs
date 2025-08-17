@@ -115,8 +115,8 @@ public class LogRetentionService : ILogRetentionService
             // Delete old log entries from the logs table
             var deletedCount = await dbContext.Database.ExecuteSqlRawAsync(
                 @"DELETE FROM logs WHERE timestamp < {0}",
-                cutoffDate,
-                cancellationToken);
+                cancellationToken,
+                cutoffDate);
 
             if (deletedCount > 0)
             {
