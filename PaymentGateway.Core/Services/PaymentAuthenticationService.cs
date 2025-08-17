@@ -59,10 +59,19 @@ public class PaymentAuthenticationService : IPaymentAuthenticationService
         
         try
         {
+            // DEBUG: Log all received parameters
+            _logger.LogInformation("AUTH SERVICE DEBUG: Received {Count} parameters", requestParameters.Count);
+            foreach (var kvp in requestParameters)
+            {
+                _logger.LogInformation("AUTH SERVICE DEBUG: Parameter {Key} = {Value}", kvp.Key, kvp.Value);
+            }
+
             // Extract teamSlug and token from request parameters (case-insensitive)
             var teamSlugKey = requestParameters.Keys.FirstOrDefault(k => k.Equals("teamSlug", StringComparison.OrdinalIgnoreCase));
             if (teamSlugKey == null || !requestParameters.TryGetValue(teamSlugKey, out var teamSlugObj) || teamSlugObj == null)
             {
+                _logger.LogError("AUTH SERVICE DEBUG: teamSlug not found. Available keys: {Keys}", 
+                    string.Join(", ", requestParameters.Keys));
                 await RecordAuthenticationMetricsAsync("unknown", false, DateTime.UtcNow - authStartTime);
                 return CreateFailureResult("TEAM_SLUG_MISSING", "teamSlug parameter is required");
             }
